@@ -15,8 +15,9 @@
   --gold: #f5a623;
   --red: #e8214a;
   position: relative;
-  max-width: 430px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-height: 100dvh;
   background: var(--bg);
   color: var(--w);
@@ -33,6 +34,174 @@
   justify-content: space-between;
   z-index: 10;
   flex-shrink: 0;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dash-hub {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.1rem 1.1rem 0.8rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dash-page {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 5.5rem;
+  scrollbar-width: none;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dash-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-side {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .dash-topbar,
+  .dash-hub,
+  .dash-page {
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+
+  .dash-user-name {
+    max-width: 220px;
+    font-size: 0.85rem;
+  }
+
+  .dash-ni-art {
+    height: 260px;
+  }
+
+  .dash-ni-vinyl {
+    width: 140px;
+    height: 140px;
+  }
+
+  .dash-ni-artist {
+    font-size: 2.25rem;
+  }
+
+  .dash-scroll {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .dash-packs {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .dash-mini {
+    left: max(0.75rem, calc(50% - 600px + 0.75rem));
+    right: max(0.75rem, calc(50% - 600px + 0.75rem));
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .dash-nav {
+    max-width: 1200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+}
+
+@media (min-width: 1024px) {
+  .dash-topbar,
+  .dash-hub,
+  .dash-page {
+    padding-left: 2.5rem;
+    padding-right: 2.5rem;
+  }
+
+  .dash-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    gap: 1.75rem;
+    align-items: start;
+    padding-top: 0.5rem;
+  }
+
+  .dash-now {
+    margin: 0;
+    position: sticky;
+    top: 0.5rem;
+  }
+
+  .dash-ni-art {
+    height: 320px;
+  }
+
+  .dash-ni-vinyl {
+    width: 160px;
+    height: 160px;
+  }
+
+  .dash-side .dash-empty {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .dash-sh {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .dash-scroll {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .dash-packs {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .dash-portal-card {
+    width: 120px;
+  }
+
+  .dash-pc-art {
+    width: 120px;
+    height: 120px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .dash-topbar,
+  .dash-hub,
+  .dash-page {
+    max-width: 1280px;
+  }
+
+  .dash-mini {
+    left: max(0.75rem, calc(50% - 640px + 0.75rem));
+    right: max(0.75rem, calc(50% - 640px + 0.75rem));
+    max-width: 1280px;
+  }
+
+  .dash-nav {
+    max-width: 1280px;
+  }
 }
 
 .dash-logo-wrap {
@@ -99,16 +268,6 @@
   justify-content: center;
 }
 
-.dash-hub {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.1rem 1.1rem 0.8rem;
-  overflow-x: auto;
-  scrollbar-width: none;
-  flex-shrink: 0;
-}
-
 .dash-hub::-webkit-scrollbar {
   display: none;
 }
@@ -146,14 +305,6 @@
 .dash-hub-arr {
   font-size: 0.5rem;
   opacity: 0.45;
-}
-
-.dash-page {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: 5.5rem;
-  scrollbar-width: none;
 }
 
 .dash-page::-webkit-scrollbar {
@@ -629,6 +780,12 @@
   display: grid;
   gap: 0.55rem;
   padding: 0 1.1rem 1rem;
+}
+
+@media (min-width: 768px) {
+  .dash-packs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .dash-pack {

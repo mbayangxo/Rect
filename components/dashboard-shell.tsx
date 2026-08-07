@@ -144,6 +144,7 @@ export function DashboardShell({
       </div>
 
       <div className="dash-page">
+        <div className="dash-layout">
         {/* CONNECTION 2 — Featured / vinyl now-playing */}
         <section className="dash-now" aria-label="Now playing">
           {featuredError ? (
@@ -237,6 +238,7 @@ export function DashboardShell({
           ) : null}
         </section>
 
+        <div className="dash-side">
         {/* CONNECTION 4 — Artist portals */}
         <div className="dash-sh">
           <span className="dash-sh-t">Portals</span>
@@ -293,6 +295,8 @@ export function DashboardShell({
             </div>
           </>
         ) : null}
+        </div>
+        </div>
 
         <div className="dash-bottom-pad" />
       </div>
