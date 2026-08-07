@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type PlayPack = {
   id: string;
@@ -39,11 +40,14 @@ export type PlayPacksLoadResult =
  * If table missing or no rows: empty (UI shows nothing).
  */
 export async function loadPlayPacks(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   country = "SN",
 ): Promise<PlayPacksLoadResult> {
   try {
-    const { data, error } = await supabase
+    const admin = createAdminClient();
+    const db = admin ?? _supabase;
+
+    const { data, error } = await db
       .from("play_packs")
       .select(
         "id, country, code, name, description, price_label, play_credits, sort_order",
