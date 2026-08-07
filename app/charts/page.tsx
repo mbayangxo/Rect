@@ -1,10 +1,8 @@
 import Link from "next/link";
+import { ChartTrackRow } from "@/app/charts/chart-track-row";
 import { RectLogo } from "@/components/rect-logo";
 import {
-  formatPlayCount,
   loadRankedTracks,
-  trackArtist,
-  trackTitle,
   type RankedTrack,
 } from "@/lib/dashboard/tracks";
 import { createClient } from "@/lib/supabase/server";
@@ -77,44 +75,9 @@ function ChartBoard({
         </p>
       ) : (
         <ol className="mt-4 space-y-0">
-          {tracks.map((t, i) => {
-            const rank = i + 1;
-            return (
-              <li
-                key={t.id}
-                className="flex items-center gap-3 border-b border-white/[0.04] py-3 last:border-0"
-              >
-                <span
-                  className={`w-6 text-center text-sm font-bold tabular-nums ${
-                    rank === 1
-                      ? "text-[#F5A623]"
-                      : rank === 2
-                        ? "text-white/55"
-                        : rank === 3
-                          ? "text-[#A07040]"
-                          : "text-white/30"
-                  }`}
-                >
-                  {rank}
-                </span>
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1DB954]/20 text-xs font-bold text-[#1DB954]">
-                  {trackTitle(t).slice(0, 2).toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {trackTitle(t)}
-                  </p>
-                  <p className="truncate text-xs text-white/40">
-                    {trackArtist(t)}
-                    {t.genre ? ` · ${t.genre}` : ""}
-                  </p>
-                </div>
-                <span className="text-xs tabular-nums text-white/35">
-                  {formatPlayCount(t.play_count)}
-                </span>
-              </li>
-            );
-          })}
+          {tracks.map((t, i) => (
+            <ChartTrackRow key={t.id} track={t} rank={i + 1} />
+          ))}
         </ol>
       )}
     </section>
@@ -131,11 +94,11 @@ export default async function ChartsPage() {
   const boards = CHART_BOARDS.map((board) => {
     let tracks = [...ranked];
     if ("sort" in board && board.sort === "newest") {
-      tracks = tracks.sort(
-        (a, b) =>
-          (a.created_at || "").localeCompare(b.created_at || "") ||
-          b.play_count - a.play_count,
-      );
+      tracks = tracks.sort((a, b) => {
+        const byDate = (b.created_at || "").localeCompare(a.created_at || "");
+        if (byDate !== 0) return byDate;
+        return b.play_count - a.play_count;
+      });
     }
     return {
       ...board,
@@ -153,6 +116,9 @@ export default async function ChartsPage() {
           <nav className="flex gap-3 text-sm text-white/55">
             <Link href="/dashboard" className="hover:text-white">
               Home
+            </Link>
+            <Link href="/search" className="hover:text-white">
+              Search
             </Link>
             <Link href="/charts" className="text-[#1DB954]">
               Charts
@@ -174,11 +140,10 @@ export default async function ChartsPage() {
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
             Designated boards for the world — Dakar, the Current, First Light,
-            and Alkebulan. Not nested inside Home.
+            and Alkebulan.
           </p>
         </div>
 
-        {/* Chart switcher */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {boards.map((b) => (
             <a

@@ -123,17 +123,17 @@ export function ProfileSettings({
               {
                 key: "privacy_public_profile" as const,
                 title: "Public profile",
-                desc: "Show your name on artist portals and charts.",
+                desc: "Show your display name on RECT SOUND.",
               },
               {
                 key: "privacy_show_activity" as const,
                 title: "Listening activity",
-                desc: "Allow friends to see what you’re playing.",
+                desc: "Your journal stays private. Shared activity isn’t public yet.",
               },
               {
                 key: "privacy_show_on_charts" as const,
                 title: "Appear on charts",
-                desc: "Count your plays toward public charts.",
+                desc: "When off, your plays won’t count toward Featured or Charts.",
               },
             ] as const
           ).map((row) => (
@@ -182,7 +182,14 @@ export function ProfileSettings({
             <span className="text-white/35">›</span>
           </Link>
           <Link
-            href="/onboarding"
+            href="/journal"
+            className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3 text-sm text-white/80 hover:border-[#1DB954]/40"
+          >
+            <span>Listening journal</span>
+            <span className="text-white/35">›</span>
+          </Link>
+          <Link
+            href="/preferences"
             className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3 text-sm text-white/80 hover:border-[#1DB954]/40"
           >
             <span>Update cultural preferences</span>

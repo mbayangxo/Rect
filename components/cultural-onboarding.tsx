@@ -81,23 +81,42 @@ const TIMES = [
   },
 ] as const;
 
-const TOTAL = 5;
-
 function toggleItem(list: string[], value: string): string[] {
   return list.includes(value)
     ? list.filter((x) => x !== value)
     : [...list, value];
 }
 
-/** Fan-only cultural onboarding — artists use /for-artists */
-export function CulturalOnboarding() {
+export type TasteInitial = {
+  countries: string[];
+  genres: string[];
+  languages: string[];
+  listening_times: string[];
+};
+
+type Props = {
+  mode?: "signup" | "edit";
+  initial?: TasteInitial;
+};
+
+/** Fan cultural onboarding — signup creates account; edit updates taste. */
+export function CulturalOnboarding({ mode = "signup", initial }: Props) {
   const router = useRouter();
+  const isEdit = mode === "edit";
+  const total = isEdit ? 4 : 5;
+
   const [step, setStep] = useState(1);
   const [dir, setDir] = useState<"forward" | "back">("forward");
-  const [countries, setCountries] = useState<string[]>([]);
-  const [genres, setGenres] = useState<string[]>([]);
-  const [languages, setLanguages] = useState<string[]>([]);
-  const [listeningTimes, setListeningTimes] = useState<string[]>([]);
+  const [countries, setCountries] = useState<string[]>(
+    () => initial?.countries ?? [],
+  );
+  const [genres, setGenres] = useState<string[]>(() => initial?.genres ?? []);
+  const [languages, setLanguages] = useState<string[]>(
+    () => initial?.languages ?? [],
+  );
+  const [listeningTimes, setListeningTimes] = useState<string[]>(
+    () => initial?.listening_times ?? [],
+  );
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -107,14 +126,16 @@ export function CulturalOnboarding() {
   const [error, setError] = useState<string | null>(null);
 
   const showPasswordMismatch =
-    confirmPassword.length > 0 && password !== confirmPassword;
+    !isEdit &&
+    confirmPassword.length > 0 &&
+    password !== confirmPassword;
 
   const canContinue = useMemo(() => {
     if (step === 1) return countries.length > 0;
     if (step === 2) return genres.length > 0;
     if (step === 3) return languages.length > 0;
     if (step === 4) return listeningTimes.length > 0;
-    if (step === 5) {
+    if (step === 5 && !isEdit) {
       return (
         displayName.trim().length >= 2 &&
         email.trim().includes("@") &&
@@ -126,6 +147,7 @@ export function CulturalOnboarding() {
     return false;
   }, [
     step,
+    isEdit,
     countries,
     genres,
     languages,
@@ -164,7 +186,6 @@ export function CulturalOnboarding() {
       const data = (await res.json()) as {
         error?: string;
         has_session?: boolean;
-        profile_save?: { ok: boolean; error?: string };
       };
       if (!res.ok || data.error) {
         setError(data.error || "Could not create account.");
@@ -183,10 +204,42 @@ export function CulturalOnboarding() {
     }
   }
 
+  async function saveTaste() {
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/account/taste", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          countries,
+          genres,
+          languages,
+          listening_times: listeningTimes,
+        }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok || data.error) {
+        setError(data.error || "Could not save preferences.");
+        return;
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setPending(false);
+    }
+  }
+
   function onContinue() {
     if (!canContinue || pending) return;
-    if (step < TOTAL) {
+    if (step < total) {
       go(step + 1, "forward");
+      return;
+    }
+    if (isEdit) {
+      void saveTaste();
       return;
     }
     if (password !== confirmPassword) {
@@ -206,7 +259,7 @@ export function CulturalOnboarding() {
   return (
     <div className="cult">
       <div className="cult-progress" aria-hidden>
-        <span style={{ width: `${(step / TOTAL) * 100}%` }} />
+        <span style={{ width: `${(step / total) * 100}%` }} />
       </div>
 
       <div className="cult-top">
@@ -219,14 +272,20 @@ export function CulturalOnboarding() {
           ← Back
         </button>
         <span className="cult-stepnum">
-          {step} / {TOTAL}
+          {step} / {total}
         </span>
       </div>
+
+      {isEdit ? (
+        <p className="mb-2 px-5 text-center text-xs uppercase tracking-[0.16em] text-[#1DB954]">
+          Update your taste
+        </p>
+      ) : null}
 
       <div className="cult-stage">
         <section className={panelClass(1)} aria-hidden={step !== 1}>
           <div className="cult-body">
-            <p className="cult-label">Step 1 of {TOTAL}</p>
+            <p className="cult-label">Step 1 of {total}</p>
             <h1 className="cult-title">Where are you from?</h1>
             <p className="cult-sub">
               So we know whose music to put in front of you first.
@@ -248,7 +307,7 @@ export function CulturalOnboarding() {
 
         <section className={panelClass(2)} aria-hidden={step !== 2}>
           <div className="cult-body">
-            <p className="cult-label">Step 2 of {TOTAL}</p>
+            <p className="cult-label">Step 2 of {total}</p>
             <h1 className="cult-title">What moves you?</h1>
             <p className="cult-sub">Pick everything that hits different.</p>
             <div className="cult-chips">
@@ -268,7 +327,7 @@ export function CulturalOnboarding() {
 
         <section className={panelClass(3)} aria-hidden={step !== 3}>
           <div className="cult-body">
-            <p className="cult-label">Step 3 of {TOTAL}</p>
+            <p className="cult-label">Step 3 of {total}</p>
             <h1 className="cult-title">What languages do you feel music in?</h1>
             <p className="cult-sub">
               We&apos;ll make sure you always understand what you&apos;re
@@ -291,7 +350,7 @@ export function CulturalOnboarding() {
 
         <section className={panelClass(4)} aria-hidden={step !== 4}>
           <div className="cult-body">
-            <p className="cult-label">Step 4 of {TOTAL}</p>
+            <p className="cult-label">Step 4 of {total}</p>
             <h1 className="cult-title">What time of day do you listen most?</h1>
             <p className="cult-sub">
               We&apos;ll have the right energy waiting for you.
@@ -315,94 +374,105 @@ export function CulturalOnboarding() {
           </div>
         </section>
 
-        <section className={panelClass(5)} aria-hidden={step !== 5}>
-          <div className="cult-body">
-            <p className="cult-label">Step 5 of {TOTAL}</p>
-            <h1 className="cult-title">Create your account</h1>
-            <p className="cult-sub">
-              Start listening. Artists join separately at For artists.
-            </p>
+        {!isEdit ? (
+          <section className={panelClass(5)} aria-hidden={step !== 5}>
+            <div className="cult-body">
+              <p className="cult-label">Step 5 of {total}</p>
+              <h1 className="cult-title">Create your account</h1>
+              <p className="cult-sub">
+                Start listening. Artists join separately at For artists.
+              </p>
 
-            <label className="cult-field">
-              <span>Display name</span>
-              <input
-                className="cult-input"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                maxLength={24}
-                placeholder="Your name in the culture"
-              />
-            </label>
+              <label className="cult-field">
+                <span>Display name</span>
+                <input
+                  className="cult-input"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  maxLength={24}
+                  placeholder="Your name in the culture"
+                />
+              </label>
 
-            <label className="cult-field">
-              <span>Email</span>
-              <input
-                className="cult-input"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@email.com"
-              />
-            </label>
+              <label className="cult-field">
+                <span>Email</span>
+                <input
+                  className="cult-input"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@email.com"
+                />
+              </label>
 
-            <label className="cult-field">
-              <span>Password</span>
-              <input
-                className="cult-input"
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 6 characters"
-              />
-            </label>
+              <label className="cult-field">
+                <span>Password</span>
+                <input
+                  className="cult-input"
+                  type="password"
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                />
+              </label>
 
-            <label className="cult-field">
-              <span>Confirm Password</span>
-              <input
-                className="cult-input"
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter your password"
-              />
-            </label>
-            {showPasswordMismatch ? (
-              <p className="cult-mismatch">Passwords don&apos;t match</p>
-            ) : null}
+              <label className="cult-field">
+                <span>Confirm Password</span>
+                <input
+                  className="cult-input"
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your password"
+                />
+              </label>
+              {showPasswordMismatch ? (
+                <p className="cult-mismatch">Passwords don&apos;t match</p>
+              ) : null}
 
-            <label className="cult-field">
-              <span>Phone number — optional</span>
-              <input
-                className="cult-input"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+221 70 000 0000"
-              />
-            </label>
-
-            {error ? <p className="cult-error">{error}</p> : null}
-          </div>
-        </section>
+              <label className="cult-field">
+                <span>Phone number — optional</span>
+                <input
+                  className="cult-input"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+221 70 000 0000"
+                />
+              </label>
+            </div>
+          </section>
+        ) : null}
       </div>
 
       <div className="cult-footer">
+        {error ? <p className="cult-error mb-3">{error}</p> : null}
         <button
           type="button"
           className="cult-continue"
           disabled={!canContinue || pending}
           onClick={onContinue}
         >
-          {step < TOTAL
+          {step < total
             ? "Continue →"
             : pending
-              ? "Creating…"
-              : "Start listening →"}
+              ? isEdit
+                ? "Saving…"
+                : "Creating…"
+              : isEdit
+                ? "Save & refresh Home →"
+                : "Start listening →"}
         </button>
-        {step === TOTAL ? (
+        {isEdit ? (
+          <p className="cult-login">
+            <Link href="/profile">Back to You</Link>
+            {" · "}
+            <Link href="/dashboard">Home</Link>
+          </p>
+        ) : step === total ? (
           <p className="cult-login">
             Already have an account?{" "}
             <Link href="/auth/login">Log in</Link>

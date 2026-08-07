@@ -34,6 +34,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [creditNotice, setCreditNotice] = useState<string | null>(null);
   const recordedFor = useRef<string | null>(null);
 
   useEffect(() => {
@@ -68,11 +69,26 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (recordedFor.current === trackId) return;
     recordedFor.current = trackId;
     try {
-      await fetch("/api/plays", {
+      const res = await fetch("/api/plays", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ track_id: trackId }),
       });
+      if (res.status === 402) {
+        recordedFor.current = null;
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setCreditNotice(
+          data?.error ||
+            "No play credits left. Buy a play pack on Home to keep listening.",
+        );
+        const audio = audioRef.current;
+        if (audio) {
+          audio.pause();
+          setPlaying(false);
+        }
+      }
     } catch {
       /* play logging is best-effort */
     }
@@ -91,6 +107,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
       setTrack(next);
       recordedFor.current = null;
+      setCreditNotice(null);
       audio.src = next.audio_url;
       void audio.play().then(() => {
         void recordPlay(next.id);
@@ -121,6 +138,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       value={{ track, playing, currentTime, duration, play, toggle, seek }}
     >
       {children}
+      {creditNotice ? (
+        <div className="fixed inset-x-0 bottom-[4.5rem] z-50 mx-auto w-full max-w-6xl px-4 sm:px-8 lg:px-10">
+          <div className="rounded-xl border border-[#F5A623]/40 bg-[#120e06]/95 px-4 py-3 text-sm text-[#F5A623] backdrop-blur-md">
+            {creditNotice}{" "}
+            <a href="/dashboard" className="font-semibold underline">
+              Get a pack
+            </a>
+            <button
+              type="button"
+              className="ml-3 text-xs text-white/50 hover:text-white"
+              onClick={() => setCreditNotice(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
       {track ? (
         <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#071208]/95 backdrop-blur-md">
           <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-8 lg:px-10">

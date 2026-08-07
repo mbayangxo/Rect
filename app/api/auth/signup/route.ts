@@ -53,34 +53,38 @@ export async function POST(request: Request) {
   const genres = cleanList(body.genres);
   const languages = cleanList(body.languages);
   const listening_times = cleanList(body.listening_times, 8);
+  const isArtist = role === "artist";
 
-  if (countries.length < 1) {
-    return NextResponse.json(
-      { error: "Select at least one place you're from." },
-      { status: 400 },
-    );
+  // Fan cultural onboarding is required; artists join via a shorter path
+  if (!isArtist) {
+    if (countries.length < 1) {
+      return NextResponse.json(
+        { error: "Select at least one place you're from." },
+        { status: 400 },
+      );
+    }
+    if (genres.length < 1) {
+      return NextResponse.json(
+        { error: "Select at least one genre that moves you." },
+        { status: 400 },
+      );
+    }
+    if (languages.length < 1) {
+      return NextResponse.json(
+        { error: "Select at least one language." },
+        { status: 400 },
+      );
+    }
+    if (listening_times.length < 1) {
+      return NextResponse.json(
+        { error: "Select at least one listening time." },
+        { status: 400 },
+      );
+    }
   }
-  if (genres.length < 1) {
+  if (display_name.length < 2 || display_name.length > 48) {
     return NextResponse.json(
-      { error: "Select at least one genre that moves you." },
-      { status: 400 },
-    );
-  }
-  if (languages.length < 1) {
-    return NextResponse.json(
-      { error: "Select at least one language." },
-      { status: 400 },
-    );
-  }
-  if (listening_times.length < 1) {
-    return NextResponse.json(
-      { error: "Select at least one listening time." },
-      { status: 400 },
-    );
-  }
-  if (display_name.length < 2 || display_name.length > 24) {
-    return NextResponse.json(
-      { error: "Display name must be 2–24 characters." },
+      { error: "Display name must be 2–48 characters." },
       { status: 400 },
     );
   }

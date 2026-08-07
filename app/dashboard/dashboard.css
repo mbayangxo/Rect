@@ -590,6 +590,8 @@
 .dash-portal-card {
   flex-shrink: 0;
   width: 105px;
+  text-decoration: none;
+  color: inherit;
 }
 
 .dash-pc-art {
@@ -822,6 +824,24 @@
   font-size: 0.58rem;
   color: var(--w3);
   font-weight: 600;
+}
+
+.dash-pack-buy {
+  margin-top: 0.75rem;
+  width: 100%;
+  border-radius: 999px;
+  border: none;
+  background: var(--g);
+  color: #041008;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.dash-pack-buy:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .dash-empty {

@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  consumePlayCredit,
+  loadPlayCreditBalance,
+} from "@/lib/dashboard/credits";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -41,15 +45,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Track not found" }, { status: 404 });
   }
 
+  // Ensure starter balance exists, then consume one credit
+  await loadPlayCreditBalance(supabase);
+  const consumed = await consumePlayCredit(supabase);
+  if (!consumed.ok) {
+    if (consumed.code === "insufficient") {
+      return NextResponse.json(
+        {
+          error: consumed.error,
+          code: "insufficient_credits",
+          authenticated: true,
+        },
+        { status: 402 },
+      );
+    }
+    return NextResponse.json({ error: consumed.error }, { status: 500 });
+  }
+
   const row = { track_id: trackId, listener_id: user.id };
 
-  let { data, error } = await supabase.from("plays").insert(row).select("id").maybeSingle();
+  let { data, error } = await supabase
+    .from("plays")
+    .insert(row)
+    .select("id")
+    .maybeSingle();
 
   // Fallback with service role if RLS not applied yet
   if (error) {
     const admin = createAdminClient();
     if (admin) {
-      const adminInsert = await admin.from("plays").insert(row).select("id").maybeSingle();
+      const adminInsert = await admin
+        .from("plays")
+        .insert(row)
+        .select("id")
+        .maybeSingle();
       data = adminInsert.data;
       error = adminInsert.error;
     }
@@ -59,5 +88,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, play_id: data?.id ?? null });
+  return NextResponse.json({
+    ok: true,
+    play_id: data?.id ?? null,
+    credits_remaining: consumed.skipped ? null : consumed.balance,
+  });
 }

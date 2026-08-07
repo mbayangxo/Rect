@@ -174,9 +174,8 @@ export default async function HomePage() {
         <div className="md:hidden">
           <section className="mb-10">
             <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight">
-              RECT SOUND
+              A world of music.
             </h1>
-            <p className="mt-3 text-lg text-white/70">A world of music.</p>
             <ul className="mt-6 space-y-2 text-sm text-white/55">
               <li>Listen inside a curated sonic world</li>
               <li>Support artists directly</li>
@@ -203,14 +202,14 @@ export default async function HomePage() {
                   Are you an artist?
                 </Link>
               </div>
-            ) : (
+            ) : profile?.role === "artist" ? (
               <Link
-                href="/dashboard"
-                className="mt-8 block rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
+                href="/artist"
+                className="mt-8 block rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
               >
-                Open dashboard
+                Artist library
               </Link>
-            )}
+            ) : null}
           </section>
           <FeaturedPanel tracks={tracks} error={error} empty={empty} />
         </div>
@@ -218,11 +217,8 @@ export default async function HomePage() {
         <div className="hidden md:grid md:grid-cols-2 md:items-start md:gap-14 lg:gap-20">
           <section className="pt-4">
             <h1 className="font-display text-5xl font-semibold leading-[1.05] tracking-tight lg:text-6xl">
-              RECT SOUND
-            </h1>
-            <p className="mt-4 text-xl font-medium tracking-tight text-white/80 lg:text-2xl">
               A world of music.
-            </p>
+            </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-white/55">
               Not a feed. A world — where listening, artists, and culture meet
               with intention.
@@ -251,28 +247,13 @@ export default async function HomePage() {
                 </Link>
               </div>
             ) : profile?.role === "artist" ? (
-              <div className="mt-10 flex flex-wrap gap-3">
-                <Link
-                  href="/dashboard"
-                  className="inline-block rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
-                >
-                  Open dashboard
-                </Link>
-                <Link
-                  href="/artist"
-                  className="inline-block rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
-                >
-                  Artist library
-                </Link>
-              </div>
-            ) : (
               <Link
-                href="/dashboard"
-                className="mt-10 inline-block rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
+                href="/artist"
+                className="mt-10 inline-block rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
               >
-                Open dashboard
+                Artist library
               </Link>
-            )}
+            ) : null}
           </section>
 
           <FeaturedPanel tracks={tracks} error={error} empty={empty} />

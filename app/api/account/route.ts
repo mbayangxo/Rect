@@ -107,6 +107,9 @@ export async function DELETE() {
 
     // Best-effort cleanup of related rows
     await admin.from("plays").delete().eq("listener_id", userId);
+    await admin.from("track_likes").delete().eq("user_id", userId);
+    await admin.from("play_pack_purchases").delete().eq("user_id", userId);
+    await admin.from("user_play_balances").delete().eq("user_id", userId);
     await admin.from("tracks").delete().eq("artist_id", userId);
     await admin.from("users").delete().eq("id", userId);
 

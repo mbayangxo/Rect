@@ -2,8 +2,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { loadArtistPortals } from "@/lib/dashboard/artists";
+import { loadPlayCreditBalance } from "@/lib/dashboard/credits";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
+import { loadLikedTrackIds } from "@/lib/dashboard/likes";
 import { loadPlayPacks } from "@/lib/dashboard/play-packs";
+import {
+  hasTasteSignal,
+  packCountryFromTaste,
+  tasteFromProfile,
+} from "@/lib/dashboard/taste";
 import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
 import { createClient } from "@/lib/supabase/server";
 import "./dashboard.css";
@@ -15,16 +22,15 @@ export default async function DashboardPage() {
   const current = await getDashboardCurrentUser(supabase);
 
   if (!current.ok && current.reason === "no_session") {
-    redirect("/onboarding");
+    redirect("/auth/login?next=/dashboard");
   }
 
   if (!current.ok) {
-    // Treat missing session the same as logged out
     if (
       current.reason === "no_session" ||
       /session missing|Auth session missing/i.test(current.error)
     ) {
-      redirect("/onboarding");
+      redirect("/auth/login?next=/dashboard");
     }
     return (
       <main className="dash-app w-full max-w-none">
@@ -40,19 +46,26 @@ export default async function DashboardPage() {
         <div className="dash-empty" role="alert">
           <p className="dash-empty-title">Could not load your account</p>
           <p className="dash-empty-body">{current.error}</p>
-          <Link href="/onboarding" className="dash-empty-link">
-            Go to onboarding
+          <Link href="/auth/login?next=/dashboard" className="dash-empty-link">
+            Log in
           </Link>
         </div>
       </main>
     );
   }
 
-  const [featuredRes, artistsRes, packsRes] = await Promise.all([
-    loadFeaturedTracks(supabase),
-    loadArtistPortals(supabase),
-    loadPlayPacks(supabase, "SN"),
-  ]);
+  const taste = tasteFromProfile(current.profile);
+  const packCountry = packCountryFromTaste(taste);
+  const personalized = hasTasteSignal(taste);
+
+  const [featuredRes, artistsRes, packsRes, creditsRes, likesRes] =
+    await Promise.all([
+      loadFeaturedTracks(supabase, taste),
+      loadArtistPortals(supabase, taste),
+      loadPlayPacks(supabase, packCountry),
+      loadPlayCreditBalance(supabase),
+      loadLikedTrackIds(supabase, current.user.id),
+    ]);
 
   return (
     <DashboardShell
@@ -62,6 +75,17 @@ export default async function DashboardPage() {
       artists={artistsRes.artists}
       artistsError={artistsRes.ok ? null : artistsRes.error}
       packs={packsRes.ok ? packsRes.packs : []}
+      packCountry={
+        packsRes.ok && packsRes.packs[0]?.country
+          ? packsRes.packs[0].country
+          : packCountry
+      }
+      personalized={personalized}
+      tasteGenres={taste.genres.slice(0, 3)}
+      creditBalance={creditsRes.credits}
+      creditsReady={!creditsRes.missingTable}
+      likedTrackIds={likesRes.likedIds}
+      likesReady={!likesRes.missingTable}
     />
   );
 }

@@ -38,10 +38,21 @@ export type PlayPacksLoadResult =
 /**
  * CONNECTION 5 — play packs for a country (default SN).
  * If table missing or no rows: empty (UI shows nothing).
+ * Falls back to SN when the preferred country has no packs seeded.
  */
 export async function loadPlayPacks(
   _supabase: SupabaseClient,
   country = "SN",
+): Promise<PlayPacksLoadResult> {
+  const primary = await loadPlayPacksForCountry(_supabase, country);
+  if (!primary.ok || primary.missingTable) return primary;
+  if (primary.packs.length > 0 || country === "SN") return primary;
+  return loadPlayPacksForCountry(_supabase, "SN");
+}
+
+async function loadPlayPacksForCountry(
+  _supabase: SupabaseClient,
+  country: string,
 ): Promise<PlayPacksLoadResult> {
   try {
     const admin = createAdminClient();
@@ -50,7 +61,7 @@ export async function loadPlayPacks(
     const { data, error } = await db
       .from("play_packs")
       .select(
-        "id, country, code, name, description, price_label, play_credits, sort_order",
+        "id, country, code, name, description, price_label, play_credits, sort_order, active",
       )
       .eq("country", country)
       .order("sort_order", { ascending: true });
@@ -78,7 +89,21 @@ export async function loadPlayPacks(
       };
     }
 
-    const packs = (data ?? []) as PlayPack[];
+    const packs: PlayPack[] = (data ?? [])
+      .filter((row) => row.active !== false)
+      .map((row) => ({
+      id: String(row.id),
+      country: String(row.country ?? ""),
+      code: String(row.code ?? ""),
+      name: String(row.name ?? ""),
+      description:
+        typeof row.description === "string" ? row.description : null,
+      price_label:
+        typeof row.price_label === "string" ? row.price_label : null,
+      play_credits:
+        row.play_credits == null ? null : Number(row.play_credits),
+      sort_order: row.sort_order == null ? null : Number(row.sort_order),
+    }));
     return {
       ok: true,
       packs,

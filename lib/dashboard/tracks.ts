@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  genreOverlapScore,
+  type ListenerTaste,
+} from "@/lib/dashboard/taste";
 import { isDemoTrack, trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 export type RankedTrack = TrackRow & {
@@ -29,10 +33,12 @@ const TRACK_SELECT =
 /**
  * Rank tracks by play volume (counts from public.plays).
  * Prefer service-role reader so RLS on plays does not zero-out charts.
+ * Optional taste boosts genre matches above raw play count for "For You".
  */
 export async function loadRankedTracks(
   supabase: SupabaseClient,
   limit: number,
+  taste?: ListenerTaste | null,
 ): Promise<TracksLoadResult> {
   try {
     const admin = createAdminClient();
@@ -91,7 +97,7 @@ export async function loadRankedTracks(
     const ids = rows.map((r) => r.id);
     const counts = new Map<string, number>();
 
-    // Prefer aggregate view when available
+    // Prefer aggregate view when available (filters chart-opted-out listeners)
     const viewRes = await db
       .from("track_play_counts")
       .select("track_id, play_count")
@@ -107,18 +113,50 @@ export async function loadRankedTracks(
     } else {
       const { data: playRows, error: playError } = await db
         .from("plays")
-        .select("track_id")
+        .select("track_id, listener_id")
         .in("track_id", ids);
 
       if (playError) {
         for (const id of ids) counts.set(id, 0);
       } else {
+        const listenerIds = [
+          ...new Set(
+            (playRows ?? [])
+              .map((p) => p.listener_id as string | null)
+              .filter(Boolean) as string[],
+          ),
+        ];
+        const chartOptIn = new Map<string, boolean>();
+        if (listenerIds.length > 0) {
+          const { data: privacyRows } = await db
+            .from("users")
+            .select("id, privacy_show_on_charts")
+            .in("id", listenerIds);
+          for (const u of privacyRows ?? []) {
+            chartOptIn.set(
+              u.id as string,
+              u.privacy_show_on_charts !== false,
+            );
+          }
+        }
+
         for (const p of playRows ?? []) {
+          const listenerId = p.listener_id as string | null;
+          // Missing profile → count (same as coalesce(..., true) in SQL view)
+          if (
+            listenerId &&
+            chartOptIn.has(listenerId) &&
+            chartOptIn.get(listenerId) === false
+          ) {
+            continue;
+          }
           const tid = p.track_id as string;
           counts.set(tid, (counts.get(tid) ?? 0) + 1);
         }
       }
     }
+
+    const preferredGenres = taste?.genres ?? [];
 
     const ranked: RankedTrack[] = rows
       .map((r) => ({
@@ -129,11 +167,15 @@ export async function loadRankedTracks(
         play_count: counts.get(r.id) ?? 0,
       }))
       .filter((t) => !isDemoTrack(t))
-      .sort(
-        (a, b) =>
+      .sort((a, b) => {
+        const tasteA = genreOverlapScore([a.genre], preferredGenres);
+        const tasteB = genreOverlapScore([b.genre], preferredGenres);
+        return (
+          tasteB - tasteA ||
           b.play_count - a.play_count ||
-          (b.created_at || "").localeCompare(a.created_at || ""),
-      )
+          (b.created_at || "").localeCompare(a.created_at || "")
+        );
+      })
       .slice(0, limit);
 
     return {
@@ -154,14 +196,17 @@ export async function loadRankedTracks(
   }
 }
 
-/** CONNECTION 2 — featured / now-playing (top 6 by play_count). */
-export async function loadFeaturedTracks(supabase: SupabaseClient) {
-  return loadRankedTracks(supabase, 6);
+/** CONNECTION 2 — featured / For You (taste-boosted top by play_count). */
+export async function loadFeaturedTracks(
+  supabase: SupabaseClient,
+  taste?: ListenerTaste | null,
+) {
+  return loadRankedTracks(supabase, 6, taste);
 }
 
-/** CONNECTION 3 — Dakar chart preview (top 7 by play_count). */
+/** CONNECTION 3 — Dakar chart preview (top 7 by play_count, no taste boost). */
 export async function loadDakarChart(supabase: SupabaseClient) {
-  return loadRankedTracks(supabase, 7);
+  return loadRankedTracks(supabase, 7, null);
 }
 
 export function formatPlayCount(n: number) {

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePlayer } from "@/components/player-provider";
+import { PlayPacksPanel } from "@/components/play-packs-panel";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { ArtistPortal } from "@/lib/dashboard/artists";
 import type { PlayPack } from "@/lib/dashboard/play-packs";
@@ -20,6 +21,13 @@ type Props = {
   artists: ArtistPortal[];
   artistsError: string | null;
   packs: PlayPack[];
+  packCountry: string;
+  personalized: boolean;
+  tasteGenres: string[];
+  creditBalance: number;
+  creditsReady: boolean;
+  likedTrackIds: string[];
+  likesReady: boolean;
 };
 
 function formatTime(secs: number) {
@@ -38,10 +46,23 @@ export function DashboardShell({
   artists,
   artistsError,
   packs,
+  packCountry,
+  personalized,
+  tasteGenres,
+  creditBalance,
+  creditsReady,
+  likedTrackIds,
+  likesReady,
 }: Props) {
   const player = usePlayer();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [liked, setLiked] = useState(false);
+  const [likedIds, setLikedIds] = useState(() => new Set(likedTrackIds));
+  const [likePending, setLikePending] = useState(false);
+  const [likeError, setLikeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLikedIds(new Set(likedTrackIds));
+  }, [likedTrackIds]);
 
   const active = useMemo(() => {
     if (player.track) {
@@ -70,6 +91,59 @@ export function DashboardShell({
     player.play(active);
   }
 
+  const liked = active ? likedIds.has(active.id) : false;
+
+  async function toggleLike() {
+    if (!active || !likesReady || likePending) return;
+    setLikeError(null);
+    setLikePending(true);
+    const trackId = active.id;
+    const prev = likedIds.has(trackId);
+    setLikedIds((set) => {
+      const next = new Set(set);
+      if (prev) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+    try {
+      const res = await fetch("/api/likes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track_id: trackId }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        liked?: boolean;
+      };
+      if (!res.ok || data.error) {
+        setLikedIds((set) => {
+          const next = new Set(set);
+          if (prev) next.add(trackId);
+          else next.delete(trackId);
+          return next;
+        });
+        setLikeError(data.error || "Could not save like");
+        return;
+      }
+      setLikedIds((set) => {
+        const next = new Set(set);
+        if (data.liked) next.add(trackId);
+        else next.delete(trackId);
+        return next;
+      });
+    } catch (e) {
+      setLikedIds((set) => {
+        const next = new Set(set);
+        if (prev) next.add(trackId);
+        else next.delete(trackId);
+        return next;
+      });
+      setLikeError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setLikePending(false);
+    }
+  }
+
   return (
     <div className="dash-app w-full min-h-dvh max-w-none">
       <div
@@ -92,16 +166,23 @@ export function DashboardShell({
           <p className="dash-dr-name">{displayName}</p>
           <SignOutButton />
         </div>
+        <Link href="/library" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Liked songs</span>
+          <span>›</span>
+        </Link>
+        <Link href="/journal" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Listening journal</span>
+          <span>›</span>
+        </Link>
         <Link href="/charts" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
           <span>Charts</span>
           <span>›</span>
-        </Link>
-        <Link href="/profile" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+        </Link>        <Link href="/profile" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
           <span>Profile</span>
           <span>›</span>
         </Link>
         <Link href="/" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Home</span>
+          <span>Landing</span>
           <span>›</span>
         </Link>
       </aside>
@@ -132,6 +213,12 @@ export function DashboardShell({
       <div className="dash-hub mx-auto w-full max-w-7xl px-4 sm:px-8">
         <span className="dash-hub-label">RECT Hub</span>
         <div className="dash-hub-sep" />
+        <Link href="/library" className="dash-hub-exit">
+          Liked <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/journal" className="dash-hub-exit">
+          Journal <span className="dash-hub-arr">↗</span>
+        </Link>
         <Link href="/charts" className="dash-hub-exit">
           Charts <span className="dash-hub-arr">↗</span>
         </Link>
@@ -167,6 +254,7 @@ export function DashboardShell({
                 </div>
                 <div className="dash-ni-social">
                   <span className="dash-ns-count">
+                    {personalized ? "For you · " : ""}
                     {formatPlayCount(active.play_count)} plays
                   </span>
                 </div>
@@ -190,8 +278,16 @@ export function DashboardShell({
                   <button
                     type="button"
                     className={`dash-act-btn ${liked ? "liked" : ""}`}
-                    onClick={() => setLiked((v) => !v)}
-                    aria-label="Like"
+                    onClick={() => void toggleLike()}
+                    disabled={!active || !likesReady || likePending}
+                    aria-label={liked ? "Unlike" : "Like"}
+                    title={
+                      likesReady
+                        ? liked
+                          ? "Unlike"
+                          : "Like"
+                        : "Run track likes SQL in Supabase"
+                    }
                   >
                     {liked ? "♥" : "♡"}
                   </button>
@@ -217,8 +313,16 @@ export function DashboardShell({
                     <span>{formatTime(player.duration)}</span>
                   </div>
                 </div>
+                {likeError ? (
+                  <p className="mt-2 text-xs text-[#F5A623]">{likeError}</p>
+                ) : null}
                 {featured.length > 1 ? (
                   <div className="dash-featured-list">
+                    {personalized && tasteGenres.length > 0 ? (
+                      <p className="mb-2 px-1 text-[0.58rem] uppercase tracking-[0.12em] text-white/35">
+                        Tuned to {tasteGenres.join(" · ")}
+                      </p>
+                    ) : null}
                     {featured.slice(0, 6).map((t, i) => (
                       <button
                         key={t.id}
@@ -241,7 +345,9 @@ export function DashboardShell({
         <div className="dash-side lg:col-span-5">
         {/* CONNECTION 4 — Artist portals */}
         <div className="dash-sh px-0">
-          <span className="dash-sh-t">Portals</span>
+          <span className="dash-sh-t">
+            {personalized ? "Portals for you" : "Portals"}
+          </span>
           <Link href="/search" className="dash-sh-m">
             All →
           </Link>
@@ -258,42 +364,30 @@ export function DashboardShell({
         ) : (
           <div className="dash-scroll flex flex-wrap gap-4 px-0">
             {artists.map((a, i) => (
-              <div key={a.id} className="dash-portal-card">
+              <Link
+                key={a.id}
+                href={`/artists/${a.id}`}
+                className="dash-portal-card"
+              >
                 <div className={`dash-pc-art ${PORTAL_BG[i % PORTAL_BG.length]}`}>
                   <div className="dash-pc-shade" />
                   <div className="dash-pc-tag">OPEN</div>
                 </div>
                 <div className="dash-pc-name">{a.display_name}</div>
                 <div className="dash-pc-genre">{a.genre || "Artist"}</div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
 
         {/* CONNECTION 5 — Play packs (hide entirely if empty) */}
         {packs.length > 0 ? (
-          <>
-            <div className="dash-sh px-0">
-              <span className="dash-sh-t">Play packs · SN</span>
-            </div>
-            <div className="dash-packs grid gap-3 px-0 sm:grid-cols-3">
-              {packs.map((p) => (
-                <div key={p.id} className="dash-pack">
-                  <div className="dash-pack-code">{p.code}</div>
-                  <div className="dash-pack-name">{p.name}</div>
-                  {p.description ? (
-                    <p className="dash-pack-desc">{p.description}</p>
-                  ) : null}
-                  <div className="dash-pack-meta">
-                    {p.price_label ? <span>{p.price_label}</span> : null}
-                    {p.play_credits != null ? (
-                      <span>{p.play_credits} plays</span>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <PlayPacksPanel
+            packs={packs}
+            country={packCountry}
+            initialCredits={creditBalance}
+            creditsReady={creditsReady}
+          />
         ) : null}
         </div>
         </div>
@@ -331,6 +425,10 @@ export function DashboardShell({
         <Link href="/search" className="dash-ni">
           <span className="dash-ni-ico">🔍</span>
           <span className="dash-ni-lbl">Search</span>
+        </Link>
+        <Link href="/library" className="dash-ni">
+          <span className="dash-ni-ico">♥</span>
+          <span className="dash-ni-lbl">Liked</span>
         </Link>
         <Link href="/charts" className="dash-ni">
           <span className="dash-ni-ico">📊</span>
