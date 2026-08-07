@@ -72,31 +72,33 @@
 }
 
 .cult-panel {
-  position: absolute;
-  inset: 0;
-  display: flex;
+  display: none;
   flex-direction: column;
   padding: 0.5rem 0 6.5rem;
-  transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(28px);
+  flex: 1;
+  min-height: 0;
 }
 
 .cult-panel.active {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(0);
+  display: flex;
   position: relative;
+  animation: cult-in 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.cult-panel.exit-left {
-  transform: translateX(-28px);
-  opacity: 0;
+@keyframes cult-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
+.cult-panel.exit-left,
 .cult-panel.enter-from-left {
-  transform: translateX(-28px);
+  display: none;
 }
 
 .cult-body {
