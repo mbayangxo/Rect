@@ -151,8 +151,7 @@ export default async function ChartsPage() {
             What the culture is playing
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
-            Live boards across RECT SOUND — not a closed club. Open to everyone
-            who listens.
+            Live boards across RECT SOUND — the pulse of the world.
           </p>
         </div>
 

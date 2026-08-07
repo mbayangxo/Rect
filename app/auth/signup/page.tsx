@@ -3,7 +3,7 @@ import { CulturalOnboarding } from "@/components/cultural-onboarding";
 
 export const metadata: Metadata = {
   title: "Join RECT SOUND",
-  description: "Music for everyone. Build Your Soundprint.",
+  description: "Join RECT SOUND — a world of music.",
 };
 
 export default function SignupPage() {

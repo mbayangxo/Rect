@@ -174,14 +174,13 @@ export default async function HomePage() {
         <div className="md:hidden">
           <section className="mb-10">
             <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight">
-              Music for everyone.
-              <br />
-              Your Soundprint.
+              RECT SOUND
             </h1>
+            <p className="mt-3 text-lg text-white/70">A world of music.</p>
             <ul className="mt-6 space-y-2 text-sm text-white/55">
-              <li>Open to every listener — not a closed scene</li>
+              <li>Listen inside a curated sonic world</li>
               <li>Support artists directly</li>
-              <li>Build Your Soundprint — your year in culture</li>
+              <li>Charts, portals, and culture — connected</li>
             </ul>
             {!user ? (
               <div className="mt-8 flex flex-col gap-3">
@@ -219,14 +218,14 @@ export default async function HomePage() {
         <div className="hidden md:grid md:grid-cols-2 md:items-start md:gap-14 lg:gap-20">
           <section className="pt-4">
             <h1 className="font-display text-5xl font-semibold leading-[1.05] tracking-tight lg:text-6xl">
-              Music for everyone.
-              <br />
-              Your Soundprint.
+              RECT SOUND
             </h1>
+            <p className="mt-4 text-xl font-medium tracking-tight text-white/80 lg:text-2xl">
+              A world of music.
+            </p>
             <p className="mt-5 max-w-md text-base leading-relaxed text-white/55">
-              RECT SOUND is open — stream, support artists, and collect a
-              Soundprint that tells your year in listening. Our own story. Not a
-              copy of anyone else&apos;s wrap.
+              Not a feed. A world — where listening, artists, and culture meet
+              with intention.
             </p>
             {!user ? (
               <div className="mt-10 flex flex-col items-start gap-3">
