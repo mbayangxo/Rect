@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { CulturalOnboarding } from "@/components/cultural-onboarding";
-import "../cultural-onboarding.css";
 
 export const metadata: Metadata = {
   title: "RECT — Join",
