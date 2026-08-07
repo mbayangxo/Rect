@@ -1,4 +1,4 @@
-/* Cultural onboarding — green night, mobile 430px */
+/* Cultural onboarding — RECT SOUND green night */
 .cult {
   --c-bg: #040d06;
   --c-green: #1db954;
@@ -17,6 +17,21 @@
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+  .cult {
+    width: 100%;
+    max-width: 960px;
+    padding: 0 2rem 2rem;
+  }
+}
+
+@media (min-width: 1100px) {
+  .cult {
+    max-width: 1100px;
+    padding: 0 3rem 2.5rem;
+  }
 }
 
 .cult-progress {
@@ -39,6 +54,12 @@
   justify-content: space-between;
   padding: 0.9rem 1.25rem 0.4rem;
   flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .cult-top {
+    padding: 1.25rem 0 0.75rem;
+  }
 }
 
 .cult-back {
@@ -109,6 +130,23 @@
   -webkit-overflow-scrolling: touch;
 }
 
+@media (min-width: 768px) {
+  .cult-body {
+    padding: 0;
+  }
+
+  .cult-title {
+    font-size: clamp(2.2rem, 4vw, 3rem);
+    max-width: 18ch;
+  }
+
+  .cult-sub {
+    font-size: 1.05rem;
+    max-width: 42ch;
+    margin-bottom: 2.25rem;
+  }
+}
+
 .cult-label {
   color: var(--c-green);
   font-size: 0.65rem;
@@ -134,36 +172,47 @@
   font-weight: 300;
 }
 
+/* Wrap grid — never a single horizontal scroll row */
 .cult-chips {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 0.55rem;
-  overflow-x: auto;
-  padding: 0.15rem 0 1.25rem;
-  margin: 0 -1.25rem;
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
-  scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.25rem 0 1.5rem;
+  margin: 0;
 }
 
-.cult-chips::-webkit-scrollbar {
-  display: none;
+@media (min-width: 768px) {
+  .cult-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1rem 1.1rem;
+    padding: 0.5rem 0 2rem;
+    width: 100%;
+  }
 }
 
 .cult-chip {
-  flex: 0 0 auto;
-  scroll-snap-align: start;
+  flex: 1 1 auto;
+  min-width: 120px;
   border: 1px solid var(--c-faint);
   background: rgba(255, 255, 255, 0.03);
   color: rgba(248, 248, 248, 0.78);
   border-radius: 999px;
-  padding: 0.7rem 1.05rem;
-  font-size: 0.85rem;
+  padding: 0.85rem 1.25rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: border-color 0.18s, background 0.18s, color 0.18s;
   white-space: nowrap;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .cult-chip {
+    min-width: 0;
+    width: 100%;
+    padding: 1.05rem 1.35rem;
+    font-size: 0.95rem;
+  }
 }
 
 .cult-chip.selected {
@@ -179,6 +228,13 @@
   gap: 0.7rem;
 }
 
+@media (min-width: 768px) {
+  .cult-times {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+}
+
 .cult-time {
   text-align: left;
   border: 1px solid var(--c-faint);
@@ -188,6 +244,12 @@
   cursor: pointer;
   transition: border-color 0.18s, background 0.18s;
   color: inherit;
+}
+
+@media (min-width: 768px) {
+  .cult-time {
+    padding: 1.35rem 1.1rem;
+  }
 }
 
 .cult-time.selected {
@@ -212,52 +274,10 @@
   line-height: 1.35;
 }
 
-.cult-roles {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.7rem;
-}
-
-.cult-role {
-  text-align: left;
-  border: 1px solid var(--c-faint);
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 14px;
-  padding: 1.15rem 0.9rem;
-  cursor: pointer;
-  color: inherit;
-  min-height: 11rem;
-  transition: border-color 0.18s, background 0.18s, transform 0.18s;
-}
-
-.cult-role.selected {
-  border-color: var(--c-green);
-  background: rgba(29, 185, 84, 0.16);
-  transform: translateY(-1px);
-}
-
-.cult-role-emoji {
-  font-size: 1.5rem;
-  margin-bottom: 0.55rem;
-}
-
-.cult-role-title {
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  font-size: 0.95rem;
-  margin-bottom: 0.55rem;
-}
-
-.cult-role-sub {
-  color: var(--c-muted);
-  font-size: 0.78rem;
-  line-height: 1.45;
-  white-space: pre-line;
-}
-
 .cult-field {
   display: block;
   margin-bottom: 1rem;
+  max-width: 420px;
 }
 
 .cult-field span {
@@ -292,6 +312,12 @@
   border-color: var(--c-green);
 }
 
+.cult-mismatch {
+  color: #ff4d4d;
+  font-size: 0.85rem;
+  margin: -0.35rem 0 1rem;
+}
+
 .cult-error {
   color: var(--c-green);
   background: rgba(29, 185, 84, 0.1);
@@ -300,6 +326,7 @@
   padding: 0.7rem 0.85rem;
   font-size: 0.85rem;
   margin-bottom: 0.75rem;
+  max-width: 420px;
 }
 
 .cult-footer {
@@ -312,6 +339,14 @@
   padding: 0.85rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
   background: var(--c-bg);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+@media (min-width: 768px) {
+  .cult-footer {
+    padding-left: 0;
+    padding-right: 0;
+    max-width: 420px;
+  }
 }
 
 .cult-continue {

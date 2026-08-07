@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { CulturalOnboarding } from "@/components/cultural-onboarding";
 
 export const metadata: Metadata = {
-  title: "RECT — Join",
-  description: "Africa's music. Your world.",
+  title: "Join RECT SOUND",
+  description: "Music for everyone. Build Your Soundprint.",
 };
 
 export default function SignupPage() {

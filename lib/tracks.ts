@@ -11,21 +11,28 @@ export type TrackRow = {
   artist_name?: string | null;
 };
 
+/** Seed / fixture demos — never show on public landing or charts. */
+export function isDemoTrack(t: TrackRow) {
+  const title = t.title?.trim() || "";
+  const artist = t.artist_name?.trim() || "";
+  return (
+    /SoundHelix/i.test(title) ||
+    /^SoundHelix(\s+Demo)?$/i.test(title.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim()) ||
+    /Demo\s*Track/i.test(title) ||
+    /^RECT(\s+Demo)?$/i.test(artist) ||
+    /^SoundHelix$/i.test(artist)
+  );
+}
+
 export function trackTitle(t: TrackRow) {
   const raw = t.title?.trim() || "Untitled";
-  const cleaned = raw.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim();
-  if (/^SoundHelix(\s+Demo)?$/i.test(cleaned) || /^SoundHelix\s+Demo$/i.test(cleaned)) {
-    return "Demo Track";
-  }
-  return cleaned || "Untitled";
+  return raw.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim() || "Untitled";
 }
 
 export function trackArtist(t: TrackRow) {
   const name = t.artist_name?.trim();
-  if (name && !/^RECT(\s+Demo)?$/i.test(name)) return name;
-  const title = t.title?.trim() || "";
-  if (/SoundHelix/i.test(title)) return "SoundHelix";
-  return name || "Unknown artist";
+  if (name) return name;
+  return "Unknown artist";
 }
 
 export const TRACKS_BUCKET = "tracks";

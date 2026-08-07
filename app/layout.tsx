@@ -15,7 +15,8 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: "RECT SOUND",
-  description: "African Music. Owned by Africa.",
+  description:
+    "RECT SOUND — music for everyone. Build Your Soundprint.",
   icons: {
     icon: [{ url: "/rect-icon.svg", type: "image/svg+xml" }],
     apple: [{ url: "/rect-icon.svg" }],

@@ -101,9 +101,13 @@ export function CulturalOnboarding() {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const showPasswordMismatch =
+    confirmPassword.length > 0 && password !== confirmPassword;
 
   const canContinue = useMemo(() => {
     if (step === 1) return countries.length > 0;
@@ -114,7 +118,9 @@ export function CulturalOnboarding() {
       return (
         displayName.trim().length >= 2 &&
         email.trim().includes("@") &&
-        password.length >= 6
+        password.length >= 6 &&
+        confirmPassword.length >= 6 &&
+        password === confirmPassword
       );
     }
     return false;
@@ -127,6 +133,7 @@ export function CulturalOnboarding() {
     displayName,
     email,
     password,
+    confirmPassword,
   ]);
 
   function go(next: number, direction: "forward" | "back") {
@@ -167,7 +174,7 @@ export function CulturalOnboarding() {
         setError("Account created — confirm email if required, then log in.");
         return;
       }
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
@@ -180,6 +187,10 @@ export function CulturalOnboarding() {
     if (!canContinue || pending) return;
     if (step < TOTAL) {
       go(step + 1, "forward");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords don't match");
       return;
     }
     void createAccount();
@@ -346,6 +357,21 @@ export function CulturalOnboarding() {
                 placeholder="At least 6 characters"
               />
             </label>
+
+            <label className="cult-field">
+              <span>Confirm Password</span>
+              <input
+                className="cult-input"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter your password"
+              />
+            </label>
+            {showPasswordMismatch ? (
+              <p className="cult-mismatch">Passwords don&apos;t match</p>
+            ) : null}
 
             <label className="cult-field">
               <span>Phone number — optional</span>

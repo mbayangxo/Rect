@@ -3,7 +3,7 @@ import { RectLogo } from "@/components/rect-logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import { TrackList } from "@/components/track-list";
 import { createClient } from "@/lib/supabase/server";
-import type { TrackRow } from "@/lib/tracks";
+import { isDemoTrack, type TrackRow } from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ async function loadTracksWithArtists(): Promise<{
       "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
     )
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(40);
 
   if (error) {
     return { tracks: [], error: error.message };
@@ -40,15 +40,17 @@ async function loadTracksWithArtists(): Promise<{
     }
   }
 
-  return {
-    tracks: rows.map((r) => ({
+  const tracks = rows
+    .map((r) => ({
       ...r,
       artist_name: r.artist_id
         ? (nameById.get(r.artist_id) ?? null)
-        : "RECT",
-    })),
-    error: null,
-  };
+        : null,
+    }))
+    .filter((t) => !isDemoTrack(t))
+    .slice(0, 20);
+
+  return { tracks, error: null };
 }
 
 function FeaturedPanel({
@@ -72,7 +74,10 @@ function FeaturedPanel({
         </p>
       ) : empty ? (
         <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-10 text-center">
-          <p className="text-sm text-white/55">No songs yet</p>
+          <p className="text-sm text-white/55">Coming soon</p>
+          <p className="mt-1 text-xs text-white/35">
+            Real releases will land here.
+          </p>
         </div>
       ) : (
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2 md:p-3">
@@ -134,6 +139,12 @@ export default async function HomePage() {
             {user ? (
               <div className="flex items-center gap-3">
                 <Link
+                  href="/charts"
+                  className="hidden text-white/70 transition hover:text-white sm:inline"
+                >
+                  Charts
+                </Link>
+                <Link
                   href="/dashboard"
                   className="text-white/70 transition hover:text-white"
                 >
@@ -160,16 +171,17 @@ export default async function HomePage() {
           </nav>
         </header>
 
-        {/* Mobile layout */}
         <div className="md:hidden">
           <section className="mb-10">
             <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight">
-              Where African music lives.
+              Music for everyone.
+              <br />
+              Your Soundprint.
             </h1>
             <ul className="mt-6 space-y-2 text-sm text-white/55">
-              <li>Stream music from across Africa</li>
+              <li>Open to every listener — not a closed scene</li>
               <li>Support artists directly</li>
-              <li>Be part of the culture</li>
+              <li>Build Your Soundprint — your year in culture</li>
             </ul>
             {!user ? (
               <div className="mt-8 flex flex-col gap-3">
@@ -192,22 +204,29 @@ export default async function HomePage() {
                   Are you an artist?
                 </Link>
               </div>
-            ) : null}
+            ) : (
+              <Link
+                href="/dashboard"
+                className="mt-8 block rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
+              >
+                Open dashboard
+              </Link>
+            )}
           </section>
           <FeaturedPanel tracks={tracks} error={error} empty={empty} />
         </div>
 
-        {/* Desktop split */}
         <div className="hidden md:grid md:grid-cols-2 md:items-start md:gap-14 lg:gap-20">
           <section className="pt-4">
             <h1 className="font-display text-5xl font-semibold leading-[1.05] tracking-tight lg:text-6xl">
-              Africa&apos;s music.
+              Music for everyone.
               <br />
-              Your world.
+              Your Soundprint.
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-white/55">
-              Stream the continent. Support artists directly. Be part of the
-              culture — not just the crowd.
+              RECT SOUND is open — stream, support artists, and collect a
+              Soundprint that tells your year in listening. Our own story. Not a
+              copy of anyone else&apos;s wrap.
             </p>
             {!user ? (
               <div className="mt-10 flex flex-col items-start gap-3">
@@ -233,18 +252,26 @@ export default async function HomePage() {
                 </Link>
               </div>
             ) : profile?.role === "artist" ? (
-              <Link
-                href="/artist"
-                className="mt-10 inline-block rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
-              >
-                Open artist library
-              </Link>
+              <div className="mt-10 flex flex-wrap gap-3">
+                <Link
+                  href="/dashboard"
+                  className="inline-block rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
+                >
+                  Open dashboard
+                </Link>
+                <Link
+                  href="/artist"
+                  className="inline-block rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
+                >
+                  Artist library
+                </Link>
+              </div>
             ) : (
               <Link
-                href="/"
+                href="/dashboard"
                 className="mt-10 inline-block rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
               >
-                Keep listening
+                Open dashboard
               </Link>
             )}
           </section>

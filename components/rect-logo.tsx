@@ -41,13 +41,13 @@ export function RectLogo({ size = 40, showWordmark = true }: RectLogoProps) {
           height: size,
           borderRadius: radius,
         }}
-        aria-label="RECT"
+        aria-label="RECT SOUND"
       >
         <RectMark size={Math.round(size * 0.55)} />
       </div>
       {showWordmark ? (
-        <span className="text-xl font-bold tracking-[0.2em] text-[#1DB954]">
-          RECT
+        <span className="text-lg font-bold tracking-[0.12em] text-[#1DB954] sm:text-xl">
+          RECT SOUND
         </span>
       ) : null}
     </div>
