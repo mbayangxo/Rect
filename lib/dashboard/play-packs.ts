@@ -59,7 +59,7 @@ export async function loadPlayPacks(
       const missing =
         /relation .* does not exist|Could not find the table|PGRST205/i.test(
           error.message,
-        );
+        ) || /column .* does not exist/i.test(error.message);
       if (missing) {
         return {
           ok: true,

@@ -1,19 +1,39 @@
 -- Play packs for RECT SOUND (Connection 5)
--- Country-scoped purchase tiers: Micro / Standard / Mega
+-- Harden for existing tables that may lack expected columns.
 
 create table if not exists public.play_packs (
   id uuid primary key default gen_random_uuid(),
-  country text not null,
-  code text not null,
-  name text not null,
-  description text,
-  price_label text,
-  play_credits integer,
-  sort_order integer not null default 0,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint play_packs_country_code_key unique (country, code)
+  created_at timestamptz not null default now()
 );
+
+alter table public.play_packs add column if not exists country text;
+alter table public.play_packs add column if not exists code text;
+alter table public.play_packs add column if not exists name text;
+alter table public.play_packs add column if not exists description text;
+alter table public.play_packs add column if not exists price_label text;
+alter table public.play_packs add column if not exists play_credits integer;
+alter table public.play_packs add column if not exists sort_order integer not null default 0;
+alter table public.play_packs add column if not exists updated_at timestamptz not null default now();
+
+-- Backfill required fields on any legacy rows
+update public.play_packs set country = 'SN' where country is null;
+update public.play_packs set code = lower(coalesce(name, id::text)) where code is null;
+update public.play_packs set name = coalesce(name, code, 'Pack') where name is null;
+
+alter table public.play_packs alter column country set default 'SN';
+alter table public.play_packs alter column country set not null;
+alter table public.play_packs alter column code set not null;
+alter table public.play_packs alter column name set not null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'play_packs_country_code_key'
+  ) then
+    alter table public.play_packs
+      add constraint play_packs_country_code_key unique (country, code);
+  end if;
+end $$;
 
 alter table public.play_packs enable row level security;
 
@@ -23,7 +43,6 @@ create policy "play_packs_select_public"
   to anon, authenticated
   using (true);
 
--- Seed Senegal packs (idempotent)
 insert into public.play_packs (country, code, name, description, price_label, play_credits, sort_order)
 values
   ('SN', 'micro', 'Micro', 'Quick listens for the day', '500 CFA', 50, 1),
