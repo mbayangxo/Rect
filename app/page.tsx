@@ -14,7 +14,9 @@ async function loadTracksWithArtists(): Promise<{
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tracks")
-    .select("id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at")
+    .select(
+      "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
+    )
     .order("created_at", { ascending: false })
     .limit(20);
 
@@ -42,11 +44,43 @@ async function loadTracksWithArtists(): Promise<{
     tracks: rows.map((r) => ({
       ...r,
       artist_name: r.artist_id
-        ? nameById.get(r.artist_id) ?? null
-        : "RECT Demo",
+        ? (nameById.get(r.artist_id) ?? null)
+        : "RECT",
     })),
     error: null,
   };
+}
+
+function FeaturedPanel({
+  tracks,
+  error,
+  empty,
+}: {
+  tracks: TrackRow[];
+  error: string | null;
+  empty: boolean;
+}) {
+  return (
+    <section className="w-full">
+      <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+        Featured
+      </h2>
+
+      {error ? (
+        <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
+          Could not load songs. {error}
+        </p>
+      ) : empty ? (
+        <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-10 text-center">
+          <p className="text-sm text-white/55">No songs yet</p>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2 md:p-3">
+          <TrackList tracks={tracks} />
+        </div>
+      )}
+    </section>
+  );
 }
 
 export default async function HomePage() {
@@ -58,25 +92,15 @@ export default async function HomePage() {
   let profile: {
     display_name?: string | null;
     role?: string | null;
-    city?: string | null;
   } | null = null;
 
   if (user) {
     const full = await supabase
       .from("users")
-      .select("display_name, role, city")
+      .select("display_name, role")
       .eq("id", user.id)
       .maybeSingle();
-    if (!full.error) {
-      profile = full.data;
-    } else {
-      const minimal = await supabase
-        .from("users")
-        .select("display_name, role")
-        .eq("id", user.id)
-        .maybeSingle();
-      profile = minimal.data;
-    }
+    profile = full.data;
   }
 
   const displayName =
@@ -87,17 +111,11 @@ export default async function HomePage() {
     user?.email ||
     null;
 
-  const city =
-    profile?.city ||
-    (typeof user?.user_metadata?.city === "string"
-      ? user.user_metadata.city
-      : null);
-
   const { tracks, error } = await loadTracksWithArtists();
   const empty = !error && tracks.length === 0;
 
   return (
-    <div className="relative bg-[#040d06] text-[#f8f8f8]">
+    <div className="relative min-h-full overflow-x-hidden bg-[#040d06] text-[#f8f8f8]">
       <div
         aria-hidden
         className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#1DB954]/15 blur-[100px]"
@@ -107,114 +125,111 @@ export default async function HomePage() {
         className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-[#1DB954]/10 blur-[90px]"
       />
 
-      <div className="relative mx-auto flex w-full max-w-3xl flex-col px-5 pb-28 pt-8 sm:px-6">
-        <header className="mb-10 flex items-center justify-between gap-4">
+      <div className="relative mx-auto w-full max-w-6xl px-5 pb-36 pt-8 sm:px-8 lg:px-10">
+        <header className="mb-10 flex items-center justify-between gap-4 md:mb-14">
           <Link href="/" className="flex items-center gap-3">
-            <RectLogo size={36} />
-            <span className="text-sm font-semibold tracking-[0.18em] text-white/80">
-              SOUND
-            </span>
+            <RectLogo size={36} showWordmark />
           </Link>
           <nav className="flex items-center gap-3 text-sm">
-            <Link
-              href="/artist"
-              className="hidden text-white/55 transition hover:text-white sm:inline"
-            >
-              Library
-            </Link>
-            <Link
-              href="/artist/upload"
-              className="hidden text-white/55 transition hover:text-white sm:inline"
-            >
-              Upload
-            </Link>
             {user ? (
-              <div className="text-right">
-                <p className="font-medium text-white">{displayName}</p>
-                <p className="text-xs text-white/40">
-                  {[profile?.role || user.user_metadata?.role, city]
-                    .filter(Boolean)
-                    .join(" · ") || user.email}
-                </p>
-                <div className="mt-1 flex items-center justify-end gap-3">
-                  <Link
-                    href="/artist"
-                    className="text-xs text-[#1DB954] hover:underline sm:hidden"
-                  >
-                    Library
-                  </Link>
-                  <Link
-                    href="/artist/upload"
-                    className="text-xs text-[#1DB954] hover:underline sm:hidden"
-                  >
-                    Upload
-                  </Link>
-                  <SignOutButton />
-                </div>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/dashboard"
+                  className="text-white/70 transition hover:text-white"
+                >
+                  {displayName}
+                </Link>
+                <SignOutButton />
               </div>
             ) : (
               <>
                 <Link
                   href="/auth/login"
-                  className="text-white/60 transition hover:text-white"
+                  className="text-white/70 transition hover:text-white"
                 >
-                  Log in
+                  Log In
                 </Link>
                 <Link
                   href="/auth/signup"
                   className="rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#17a349]"
                 >
-                  Sign up
+                  Sign Up
                 </Link>
               </>
             )}
           </nav>
         </header>
 
-        <section className="mb-12">
-          <p className="mb-3 text-[0.65rem] font-medium uppercase tracking-[0.28em] text-[#1DB954]">
-            Pan-African listening
-          </p>
-          <h1 className="font-display max-w-xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl">
-            African Music.
-            <br />
-            Owned by Africa.
-          </h1>
-          <p className="mt-4 max-w-md text-sm leading-relaxed text-white/50">
-            {user
-              ? `Welcome back${city ? ` · ${city}` : ""}. Press play — every stream hits Supabase.`
-              : "Discover tracks from the continent. Sign up to save your taste and count plays."}
-          </p>
-        </section>
+        {/* Mobile layout */}
+        <div className="md:hidden">
+          <section className="mb-10">
+            <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight">
+              Where African music lives.
+            </h1>
+            <ul className="mt-6 space-y-2 text-sm text-white/55">
+              <li>Stream music from across Africa</li>
+              <li>Support artists directly</li>
+              <li>Be part of the culture</li>
+            </ul>
+            {!user ? (
+              <div className="mt-8 flex flex-col gap-3">
+                <Link
+                  href="/auth/signup"
+                  className="rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
+                >
+                  I&apos;m a Fan
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
+                >
+                  I&apos;m an Artist
+                </Link>
+              </div>
+            ) : null}
+          </section>
+          <FeaturedPanel tracks={tracks} error={error} empty={empty} />
+        </div>
 
-        <section>
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
-              Featured
-            </h2>
-            <span className="text-xs text-white/30">
-              {tracks.length} from Supabase
-            </span>
-          </div>
-
-          {error ? (
-            <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
-              Could not load songs. {error}
+        {/* Desktop split */}
+        <div className="hidden md:grid md:grid-cols-2 md:items-start md:gap-14 lg:gap-20">
+          <section className="pt-4">
+            <h1 className="font-display text-5xl font-semibold leading-[1.05] tracking-tight lg:text-6xl">
+              Africa&apos;s music.
+              <br />
+              Your world.
+            </h1>
+            <p className="mt-5 max-w-md text-base leading-relaxed text-white/55">
+              Stream the continent. Support artists directly. Be part of the
+              culture — not just the crowd.
             </p>
-          ) : empty ? (
-            <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-10 text-center">
-              <p className="text-sm text-white/55">No songs yet</p>
-              <p className="mt-2 text-xs text-white/35">
-                <Link href="/artist/upload" className="text-[#1DB954] hover:underline">
-                  Upload a track
-                </Link>{" "}
-                (signed in) or run the seed SQL once.
-              </p>
-            </div>
-          ) : (
-            <TrackList tracks={tracks} />
-          )}
-        </section>
+            {!user ? (
+              <div className="mt-10 flex flex-wrap gap-3">
+                <Link
+                  href="/auth/signup"
+                  className="rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
+                >
+                  I&apos;m a Fan
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
+                >
+                  I&apos;m an Artist
+                </Link>
+              </div>
+            ) : (
+              <Link
+                href="/dashboard"
+                className="mt-10 inline-block rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
+              >
+                Open dashboard
+              </Link>
+            )}
+          </section>
+
+          <FeaturedPanel tracks={tracks} error={error} empty={empty} />
+        </div>
       </div>
     </div>
   );

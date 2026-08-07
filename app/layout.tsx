@@ -28,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${syne.variable} ${dmSans.variable} antialiased`}
     >
-      <body className="overflow-y-auto bg-[#040d06] font-[family-name:var(--font-dm-sans)] text-[#f8f8f8]">
+      <body className="bg-[#040d06] font-[family-name:var(--font-dm-sans)] text-[#f8f8f8]">
         <PlayerProvider>{children}</PlayerProvider>
       </body>
     </html>

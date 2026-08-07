@@ -123,7 +123,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       {children}
       {track ? (
         <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#071208]/95 backdrop-blur-md">
-          <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-8 lg:px-10">
             <button
               type="button"
               onClick={toggle}

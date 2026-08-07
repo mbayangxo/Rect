@@ -136,26 +136,20 @@
 
 .cult-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.55rem;
+  overflow-x: auto;
   padding: 0.15rem 0 1.25rem;
+  margin: 0 -1.25rem;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
 
-@media (max-width: 430px) {
-  .cult-chips {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 1rem;
-    margin: 0 -1.25rem;
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-  }
-  .cult-chips::-webkit-scrollbar {
-    display: none;
-  }
+.cult-chips::-webkit-scrollbar {
+  display: none;
 }
 
 .cult-chip {

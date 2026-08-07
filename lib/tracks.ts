@@ -12,11 +12,20 @@ export type TrackRow = {
 };
 
 export function trackTitle(t: TrackRow) {
-  return t.title?.trim() || "Untitled";
+  const raw = t.title?.trim() || "Untitled";
+  // Clean seeded demo labels like "SoundHelix Demo · RECT"
+  return raw
+    .replace(/\s*[·•|]\s*RECT\s*$/i, "")
+    .replace(/^SoundHelix\s+Demo$/i, "Demo Track")
+    .trim() || "Untitled";
 }
 
 export function trackArtist(t: TrackRow) {
-  return t.artist_name?.trim() || "Unknown artist";
+  const name = t.artist_name?.trim();
+  if (name && !/^RECT Demo$/i.test(name)) return name;
+  const title = t.title?.trim() || "";
+  if (/SoundHelix/i.test(title)) return "SoundHelix";
+  return name || "Unknown artist";
 }
 
 export const TRACKS_BUCKET = "tracks";
