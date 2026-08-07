@@ -245,19 +245,18 @@ export function CulturalOnboarding() {
             <p className="cult-sub">
               So we know whose music to put in front of you first.
             </p>
-          </div>
-          <div className="cult-chips" role="list">
-            {COUNTRIES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                role="listitem"
-                className={`cult-chip ${countries.includes(c) ? "selected" : ""}`}
-                onClick={() => setCountries((prev) => toggleItem(prev, c))}
-              >
-                {c}
-              </button>
-            ))}
+            <div className="cult-chips">
+              {COUNTRIES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`cult-chip ${countries.includes(c) ? "selected" : ""}`}
+                  onClick={() => setCountries((prev) => toggleItem(prev, c))}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -266,18 +265,18 @@ export function CulturalOnboarding() {
             <p className="cult-label">Step 2 of 6</p>
             <h1 className="cult-title">What moves you?</h1>
             <p className="cult-sub">Pick everything that hits different.</p>
-          </div>
-          <div className="cult-chips" role="list">
-            {GENRES.map((g) => (
-              <button
-                key={g}
-                type="button"
-                className={`cult-chip ${genres.includes(g) ? "selected" : ""}`}
-                onClick={() => setGenres((prev) => toggleItem(prev, g))}
-              >
-                {g}
-              </button>
-            ))}
+            <div className="cult-chips">
+              {GENRES.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  className={`cult-chip ${genres.includes(g) ? "selected" : ""}`}
+                  onClick={() => setGenres((prev) => toggleItem(prev, g))}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -289,18 +288,18 @@ export function CulturalOnboarding() {
               We&apos;ll make sure you always understand what you&apos;re
               feeling.
             </p>
-          </div>
-          <div className="cult-chips" role="list">
-            {LANGUAGES.map((l) => (
-              <button
-                key={l}
-                type="button"
-                className={`cult-chip ${languages.includes(l) ? "selected" : ""}`}
-                onClick={() => setLanguages((prev) => toggleItem(prev, l))}
-              >
-                {l}
-              </button>
-            ))}
+            <div className="cult-chips">
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  className={`cult-chip ${languages.includes(l) ? "selected" : ""}`}
+                  onClick={() => setLanguages((prev) => toggleItem(prev, l))}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
