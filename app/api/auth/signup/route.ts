@@ -148,12 +148,15 @@ export async function POST(request: Request) {
   let profile_save: { ok: boolean; mode?: string; error?: string } | null =
     null;
 
-  const writer = session ? supabase : admin;
-  if (writer) {
-    const result = await upsertUserProfile(writer, user.id, profile);
-    profile_save = result.ok
-      ? { ok: true, mode: result.mode }
-      : { ok: false, error: result.error };
+  // Prefer service-role writer so profile persists even if RLS/trigger races.
+  const writers = [admin, session ? supabase : null].filter(Boolean);
+  for (const writer of writers) {
+    const result = await upsertUserProfile(writer!, user.id, profile);
+    if (result.ok) {
+      profile_save = { ok: true, mode: result.mode };
+      break;
+    }
+    profile_save = { ok: false, error: result.error };
   }
 
   return NextResponse.json({

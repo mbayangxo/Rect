@@ -13,16 +13,16 @@ export type TrackRow = {
 
 export function trackTitle(t: TrackRow) {
   const raw = t.title?.trim() || "Untitled";
-  // Clean seeded demo labels like "SoundHelix Demo · RECT"
-  return raw
-    .replace(/\s*[·•|]\s*RECT\s*$/i, "")
-    .replace(/^SoundHelix\s+Demo$/i, "Demo Track")
-    .trim() || "Untitled";
+  const cleaned = raw.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim();
+  if (/^SoundHelix(\s+Demo)?$/i.test(cleaned) || /^SoundHelix\s+Demo$/i.test(cleaned)) {
+    return "Demo Track";
+  }
+  return cleaned || "Untitled";
 }
 
 export function trackArtist(t: TrackRow) {
   const name = t.artist_name?.trim();
-  if (name && !/^RECT Demo$/i.test(name)) return name;
+  if (name && !/^RECT(\s+Demo)?$/i.test(name)) return name;
   const title = t.title?.trim() || "";
   if (/SoundHelix/i.test(title)) return "SoundHelix";
   return name || "Unknown artist";

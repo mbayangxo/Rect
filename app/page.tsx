@@ -177,13 +177,19 @@ export default async function HomePage() {
                   href="/auth/signup"
                   className="rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
                 >
-                  I&apos;m a Fan
+                  Sign up free
                 </Link>
                 <Link
-                  href="/auth/signup"
+                  href="/auth/login"
                   className="rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
                 >
-                  I&apos;m an Artist
+                  Log in
+                </Link>
+                <Link
+                  href="/for-artists"
+                  className="pt-1 text-center text-xs text-white/40 hover:text-white/70"
+                >
+                  Are you an artist?
                 </Link>
               </div>
             ) : null}
@@ -204,26 +210,41 @@ export default async function HomePage() {
               culture — not just the crowd.
             </p>
             {!user ? (
-              <div className="mt-10 flex flex-wrap gap-3">
+              <div className="mt-10 flex flex-col items-start gap-3">
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    href="/auth/signup"
+                    className="rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
+                  >
+                    Sign up free
+                  </Link>
+                  <Link
+                    href="/auth/login"
+                    className="rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
+                  >
+                    Log in
+                  </Link>
+                </div>
                 <Link
-                  href="/auth/signup"
-                  className="rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
+                  href="/for-artists"
+                  className="text-xs text-white/40 hover:text-white/70"
                 >
-                  I&apos;m a Fan
-                </Link>
-                <Link
-                  href="/auth/signup"
-                  className="rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
-                >
-                  I&apos;m an Artist
+                  Are you an artist? Upload on RECT for Artists →
                 </Link>
               </div>
-            ) : (
+            ) : profile?.role === "artist" ? (
               <Link
-                href="/dashboard"
+                href="/artist"
                 className="mt-10 inline-block rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
               >
-                Open dashboard
+                Open artist library
+              </Link>
+            ) : (
+              <Link
+                href="/"
+                className="mt-10 inline-block rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
+              >
+                Keep listening
               </Link>
             )}
           </section>

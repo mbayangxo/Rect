@@ -6,61 +6,52 @@ import { useMemo, useState } from "react";
 import "./cultural-onboarding.css";
 
 const COUNTRIES = [
-  "Sénégal",
+  "Senegal",
   "Nigeria",
-  "Côte d'Ivoire",
-  "Mali",
   "Ghana",
-  "Guinée",
-  "Cameroun",
+  "Ivory Coast",
+  "Mali",
+  "Guinea",
+  "Cameroon",
   "Congo",
+  "South Africa",
   "Kenya",
-  "Maroc",
-  "Algérie",
-  "Égypte",
-  "Éthiopie",
-  "Diaspora",
-  "Other",
+  "Morocco",
+  "Egypt",
+  "USA",
+  "France",
+  "UK",
+  "Canada",
 ] as const;
 
 const GENRES = [
-  "Mbalax",
   "Afrobeats",
-  "Hip-Hop",
-  "Rap",
-  "Afro-Soul",
-  "R&B",
   "Amapiano",
-  "Gospel",
-  "Griotic",
-  "Reggae",
-  "Jazz",
-  "Electronic",
+  "Mbalax",
   "Highlife",
-  "Dancehall",
-  "Kuduro",
-  "Pop",
-  "Wassoulou",
+  "Afrohouse",
   "Coupé-Décalé",
-  "Ndombolo",
+  "Soukous",
+  "Afro-R&B",
+  "Drill",
+  "Gospel",
+  "Traditional",
+  "Hip-Hop",
 ] as const;
 
 const LANGUAGES = [
   "Wolof",
-  "Français",
-  "English",
   "Yoruba",
-  "Twi",
-  "Bambara",
-  "Fulani",
+  "Igbo",
+  "Hausa",
+  "French",
+  "English",
   "Swahili",
-  "Lingala",
   "Arabic",
-  "Amharic",
-  "Dioula",
-  "Serer",
   "Portuguese",
-  "Spanish",
+  "Zulu",
+  "Akan",
+  "Lingala",
 ] as const;
 
 const TIMES = [
@@ -68,36 +59,37 @@ const TIMES = [
     id: "morning",
     emoji: "🌅",
     title: "Morning",
-    sub: "Starting the day right",
+    sub: "Soft energy. Start the day right.",
   },
   {
     id: "afternoon",
     emoji: "☀️",
     title: "Afternoon",
-    sub: "Background to everything",
+    sub: "Focus mode. Work and create.",
   },
   {
     id: "evening",
     emoji: "🌆",
     title: "Evening",
-    sub: "When the city comes alive",
+    sub: "Unwind. The culture softens.",
   },
   {
-    id: "late_night",
+    id: "night",
     emoji: "🌙",
     title: "Late Night",
-    sub: "Just you and the sound",
+    sub: "Deep cuts. Alone with the sound.",
   },
 ] as const;
 
-type Role = "fan" | "artist";
+const TOTAL = 5;
 
 function toggleItem(list: string[], value: string): string[] {
   return list.includes(value)
-    ? list.filter((v) => v !== value)
+    ? list.filter((x) => x !== value)
     : [...list, value];
 }
 
+/** Fan-only cultural onboarding — artists use /for-artists */
 export function CulturalOnboarding() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -106,7 +98,6 @@ export function CulturalOnboarding() {
   const [genres, setGenres] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [listeningTimes, setListeningTimes] = useState<string[]>([]);
-  const [role, setRole] = useState<Role | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -119,8 +110,7 @@ export function CulturalOnboarding() {
     if (step === 2) return genres.length > 0;
     if (step === 3) return languages.length > 0;
     if (step === 4) return listeningTimes.length > 0;
-    if (step === 5) return role !== null;
-    if (step === 6) {
+    if (step === 5) {
       return (
         displayName.trim().length >= 2 &&
         email.trim().includes("@") &&
@@ -134,7 +124,6 @@ export function CulturalOnboarding() {
     genres,
     languages,
     listeningTimes,
-    role,
     displayName,
     email,
     password,
@@ -147,10 +136,6 @@ export function CulturalOnboarding() {
   }
 
   async function createAccount() {
-    if (!role) {
-      setError("Choose Fan or Artist.");
-      return;
-    }
     setPending(true);
     setError(null);
     try {
@@ -161,7 +146,7 @@ export function CulturalOnboarding() {
           email: email.trim(),
           password,
           display_name: displayName.trim(),
-          role,
+          role: "fan",
           phone: phone.trim() || null,
           countries,
           genres,
@@ -182,17 +167,7 @@ export function CulturalOnboarding() {
         setError("Account created — confirm email if required, then log in.");
         return;
       }
-      if (data.profile_save && data.profile_save.ok === false) {
-        setError(
-          data.profile_save.error ||
-            "Account created but profile save failed. You can still enter.",
-        );
-        // still enter — auth exists
-        router.push("/dashboard");
-        router.refresh();
-        return;
-      }
-      router.push("/dashboard");
+      router.push("/");
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
@@ -203,7 +178,7 @@ export function CulturalOnboarding() {
 
   function onContinue() {
     if (!canContinue || pending) return;
-    if (step < 6) {
+    if (step < TOTAL) {
       go(step + 1, "forward");
       return;
     }
@@ -220,7 +195,7 @@ export function CulturalOnboarding() {
   return (
     <div className="cult">
       <div className="cult-progress" aria-hidden>
-        <span style={{ width: `${(step / 6) * 100}%` }} />
+        <span style={{ width: `${(step / TOTAL) * 100}%` }} />
       </div>
 
       <div className="cult-top">
@@ -233,14 +208,14 @@ export function CulturalOnboarding() {
           ← Back
         </button>
         <span className="cult-stepnum">
-          {step} / 6
+          {step} / {TOTAL}
         </span>
       </div>
 
       <div className="cult-stage">
         <section className={panelClass(1)} aria-hidden={step !== 1}>
           <div className="cult-body">
-            <p className="cult-label">Step 1 of 6</p>
+            <p className="cult-label">Step 1 of {TOTAL}</p>
             <h1 className="cult-title">Where are you from?</h1>
             <p className="cult-sub">
               So we know whose music to put in front of you first.
@@ -262,7 +237,7 @@ export function CulturalOnboarding() {
 
         <section className={panelClass(2)} aria-hidden={step !== 2}>
           <div className="cult-body">
-            <p className="cult-label">Step 2 of 6</p>
+            <p className="cult-label">Step 2 of {TOTAL}</p>
             <h1 className="cult-title">What moves you?</h1>
             <p className="cult-sub">Pick everything that hits different.</p>
             <div className="cult-chips">
@@ -282,7 +257,7 @@ export function CulturalOnboarding() {
 
         <section className={panelClass(3)} aria-hidden={step !== 3}>
           <div className="cult-body">
-            <p className="cult-label">Step 3 of 6</p>
+            <p className="cult-label">Step 3 of {TOTAL}</p>
             <h1 className="cult-title">What languages do you feel music in?</h1>
             <p className="cult-sub">
               We&apos;ll make sure you always understand what you&apos;re
@@ -305,7 +280,7 @@ export function CulturalOnboarding() {
 
         <section className={panelClass(4)} aria-hidden={step !== 4}>
           <div className="cult-body">
-            <p className="cult-label">Step 4 of 6</p>
+            <p className="cult-label">Step 4 of {TOTAL}</p>
             <h1 className="cult-title">What time of day do you listen most?</h1>
             <p className="cult-sub">
               We&apos;ll have the right energy waiting for you.
@@ -331,42 +306,10 @@ export function CulturalOnboarding() {
 
         <section className={panelClass(5)} aria-hidden={step !== 5}>
           <div className="cult-body">
-            <p className="cult-label">Step 5 of 6</p>
-            <h1 className="cult-title">Who are you on RECT?</h1>
-            <p className="cult-sub">This shapes everything.</p>
-            <div className="cult-roles">
-              <button
-                type="button"
-                className={`cult-role ${role === "fan" ? "selected" : ""}`}
-                onClick={() => setRole("fan")}
-              >
-                <div className="cult-role-emoji">🎧</div>
-                <div className="cult-role-title">FAN</div>
-                <div className="cult-role-sub">
-                  {"I discover. I support.\nI make artists famous."}
-                </div>
-              </button>
-              <button
-                type="button"
-                className={`cult-role ${role === "artist" ? "selected" : ""}`}
-                onClick={() => setRole("artist")}
-              >
-                <div className="cult-role-emoji">🎤</div>
-                <div className="cult-role-title">ARTIST</div>
-                <div className="cult-role-sub">
-                  {"I create. I upload.\nI get paid fairly."}
-                </div>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <section className={panelClass(6)} aria-hidden={step !== 6}>
-          <div className="cult-body">
-            <p className="cult-label">Step 6 of 6</p>
-            <h1 className="cult-title">Almost inside.</h1>
+            <p className="cult-label">Step 5 of {TOTAL}</p>
+            <h1 className="cult-title">Create your account</h1>
             <p className="cult-sub">
-              Your data stays yours. We never sell it.
+              Start listening. Artists join separately at For artists.
             </p>
 
             <label className="cult-field">
@@ -378,7 +321,6 @@ export function CulturalOnboarding() {
                 maxLength={24}
                 placeholder="Your name in the culture"
               />
-              <small>Your name in the culture. Not your government name.</small>
             </label>
 
             <label className="cult-field">
@@ -414,7 +356,6 @@ export function CulturalOnboarding() {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+221 70 000 0000"
               />
-              <small>For JOKO payments and login</small>
             </label>
 
             {error ? <p className="cult-error">{error}</p> : null}
@@ -429,16 +370,20 @@ export function CulturalOnboarding() {
           disabled={!canContinue || pending}
           onClick={onContinue}
         >
-          {step < 6
+          {step < TOTAL
             ? "Continue →"
             : pending
               ? "Creating…"
-              : "Create My RECT →"}
+              : "Start listening →"}
         </button>
-        {step === 6 ? (
+        {step === TOTAL ? (
           <p className="cult-login">
             Already have an account?{" "}
             <Link href="/auth/login">Log in</Link>
+            <br />
+            <Link href="/for-artists" style={{ opacity: 0.7 }}>
+              Are you an artist?
+            </Link>
           </p>
         ) : null}
       </div>

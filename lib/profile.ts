@@ -13,7 +13,6 @@ export type OnboardingProfile = {
   languages: string[];
   listening_times: string[];
   onboarding_completed: boolean;
-  /** legacy optional fields */
   city?: string | null;
   artist_bio?: string | null;
   listen_liked?: boolean | null;
@@ -31,9 +30,14 @@ function asStringArray(value: unknown): string[] {
     .filter(Boolean);
 }
 
+/** Always unique within varchar(20) — live DB has UNIQUE NOT NULL phone_number. */
+function uniquePhoneKey(userId: string) {
+  return `u${userId.replace(/-/g, "").slice(0, 19)}`;
+}
+
 /**
  * Persist cultural onboarding onto public.users.
- * Falls back when newer columns are missing or role constraints differ.
+ * Falls back when newer columns / role constraints differ.
  */
 export async function upsertUserProfile(
   supabase: SupabaseClient,
@@ -41,15 +45,25 @@ export async function upsertUserProfile(
   profile: OnboardingProfile,
 ): Promise<ProfileUpsertResult> {
   const phoneTrimmed = profile.phone?.trim() || "";
-  const phoneValue =
-    phoneTrimmed.slice(0, 20) ||
-    `u${userId.replace(/-/g, "").slice(0, 19)}`;
   const phoneColumn = phoneTrimmed || null;
+  // Never put optional user phone into UNIQUE phone_number — collisions wipe the row.
+  const phoneNumberKey = uniquePhoneKey(userId);
 
   const rolesToTry: string[] = [profile.role];
   if (profile.role === "fan") rolesToTry.push("listener");
 
   let lastError = "";
+
+  async function attempt(
+    payload: Record<string, unknown>,
+  ): Promise<ProfileUpsertResult | null> {
+    const res = await supabase.from("users").upsert(payload).select().maybeSingle();
+    if (!res.error) {
+      return { ok: true, row: res.data ?? payload, mode: "full" };
+    }
+    lastError = res.error.message;
+    return null;
+  }
 
   for (const role of rolesToTry) {
     const full: Record<string, unknown> = {
@@ -59,7 +73,7 @@ export async function upsertUserProfile(
       account_type: profile.account_type,
       email: profile.email,
       phone: phoneColumn,
-      phone_number: phoneValue,
+      phone_number: phoneNumberKey,
       countries: profile.countries,
       genres: profile.genres,
       languages: profile.languages,
@@ -74,100 +88,76 @@ export async function upsertUserProfile(
       full.listen_liked = profile.listen_liked;
     }
 
-    const fullAttempt = await supabase
-      .from("users")
-      .upsert(full)
-      .select()
-      .maybeSingle();
+    const okFull = await attempt(full);
+    if (okFull) return okFull;
 
-    if (!fullAttempt.error) {
-      return { ok: true, row: fullAttempt.data ?? full, mode: "full" };
-    }
+    if (/users_role_check/i.test(lastError)) continue;
 
-    lastError = fullAttempt.error.message;
-
-    if (/users_role_check/i.test(fullAttempt.error.message)) {
-      continue;
+    // Duplicate phone_number — force unique key and retry
+    if (/users_phone_number_key|duplicate key/i.test(lastError)) {
+      const forced = { ...full, phone_number: uniquePhoneKey(userId) };
+      const okForced = await attempt(forced);
+      if (okForced) return okForced;
     }
 
     const missingColumn =
-      /column .* does not exist/i.test(fullAttempt.error.message) ||
-      fullAttempt.error.code === "PGRST204";
+      /column .* does not exist/i.test(lastError) ||
+      /PGRST204/i.test(lastError);
 
-    if (!missingColumn) {
-      // Try without cultural array / account_type columns
-      const stripped = { ...full };
-      delete stripped.countries;
-      delete stripped.genres;
-      delete stripped.languages;
-      delete stripped.listening_times;
-      delete stripped.account_type;
-      const retry = await supabase
-        .from("users")
-        .upsert(stripped)
-        .select()
-        .maybeSingle();
-      if (!retry.error) {
-        return { ok: true, row: retry.data ?? stripped, mode: "full" };
-      }
-      lastError = retry.error.message;
-      if (/users_role_check/i.test(retry.error.message)) continue;
-      return { ok: false, error: lastError };
-    }
+    // Strip cultural columns if migration not applied
+    const stripped = { ...full };
+    delete stripped.countries;
+    delete stripped.genres;
+    delete stripped.languages;
+    delete stripped.listening_times;
+    delete stripped.account_type;
+    const okStripped = await attempt(stripped);
+    if (okStripped) return okStripped;
 
-    // Missing column path: drop phone_number / cultural cols progressively
-    const candidates: Record<string, unknown>[] = [];
-    {
-      const a = { ...full };
-      delete a.phone_number;
-      candidates.push(a);
-    }
-    {
-      const a = { ...full };
-      delete a.countries;
-      delete a.genres;
-      delete a.languages;
-      delete a.listening_times;
-      delete a.account_type;
-      delete a.phone_number;
-      candidates.push(a);
-    }
+    if (/users_role_check/i.test(lastError)) continue;
 
-    for (const payload of candidates) {
-      const retry = await supabase
-        .from("users")
-        .upsert(payload)
-        .select()
-        .maybeSingle();
-      if (!retry.error) {
-        return { ok: true, row: retry.data ?? payload, mode: "full" };
-      }
-      lastError = retry.error.message;
-      if (/users_role_check/i.test(retry.error.message)) break;
+    // Drop optional columns that may not exist on live schema
+    const lean = { ...stripped };
+    delete lean.phone;
+    delete lean.email;
+    delete lean.city;
+    delete lean.artist_bio;
+    delete lean.listen_liked;
+    const okLean = await attempt(lean);
+    if (okLean) return okLean;
+
+    if (missingColumn || /column .* does not exist/i.test(lastError)) {
+      const noPhoneCol = { ...lean };
+      delete noPhoneCol.phone_number;
+      const okNoPhone = await attempt(noPhoneCol);
+      if (okNoPhone) return okNoPhone;
     }
   }
 
-  const minimal = {
-    id: userId,
-    display_name: profile.display_name,
-    role: profile.role === "fan" ? "listener" : profile.role,
-    phone_number: phoneValue,
-  };
-  const minAttempt = await supabase
-    .from("users")
-    .upsert(minimal)
-    .select()
-    .maybeSingle();
+  // Last resort — smallest row that still satisfies legacy NOT NULL phone_number
+  const minimalPayloads: Record<string, unknown>[] = [
+    {
+      id: userId,
+      display_name: profile.display_name,
+      role: profile.role === "fan" ? "listener" : profile.role,
+      phone_number: phoneNumberKey,
+    },
+    {
+      id: userId,
+      display_name: profile.display_name,
+      role: profile.role === "fan" ? "listener" : profile.role,
+    },
+  ];
 
-  if (minAttempt.error) {
-    return { ok: false, error: minAttempt.error.message || lastError };
+  for (const payload of minimalPayloads) {
+    const res = await supabase.from("users").upsert(payload).select().maybeSingle();
+    if (!res.error) {
+      return { ok: true, row: res.data ?? payload, mode: "minimal" };
+    }
+    lastError = res.error.message;
   }
 
-  return {
-    ok: true,
-    row: minAttempt.data ?? minimal,
-    mode: "minimal",
-  };
+  return { ok: false, error: lastError || "Profile upsert failed." };
 }
 
 export function profileFromMetadata(
