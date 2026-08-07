@@ -15,7 +15,8 @@
   color: var(--c-text);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .cult-progress {
@@ -66,15 +67,15 @@
 .cult-stage {
   flex: 1;
   position: relative;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .cult-panel {
   display: none;
   flex-direction: column;
-  padding: 0.5rem 0 6.5rem;
+  padding: 0.5rem 0 1rem;
   flex: 1;
   min-height: 0;
 }
@@ -308,12 +309,15 @@
 }
 
 .cult-footer {
-  position: absolute;
+  position: sticky;
+  bottom: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  z-index: 5;
+  flex-shrink: 0;
   padding: 0.85rem 1.25rem calc(1rem + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, transparent, var(--c-bg) 28%);
+  background: var(--c-bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .cult-continue {
