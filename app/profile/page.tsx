@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ProfileSettings } from "@/components/profile-settings";
 import { RectLogo } from "@/components/rect-logo";
-import { SignOutButton } from "@/components/sign-out-button";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,10 @@ function asStringArray(value: unknown): string[] {
     .filter((v): v is string => typeof v === "string")
     .map((v) => v.trim())
     .filter(Boolean);
+}
+
+function asBool(value: unknown, fallback: boolean) {
+  return typeof value === "boolean" ? value : fallback;
 }
 
 export default async function ProfilePage() {
@@ -25,11 +29,33 @@ export default async function ProfilePage() {
   }
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-  const { data: profile } = await supabase
+  let profile: {
+    display_name?: string | null;
+    countries?: unknown;
+    genres?: unknown;
+    privacy_public_profile?: boolean | null;
+    privacy_show_activity?: boolean | null;
+    privacy_show_on_charts?: boolean | null;
+  } | null = null;
+
+  const full = await supabase
     .from("users")
-    .select("display_name, role, countries, genres, account_type")
+    .select(
+      "display_name, role, countries, genres, account_type, privacy_public_profile, privacy_show_activity, privacy_show_on_charts",
+    )
     .eq("id", user.id)
     .maybeSingle();
+
+  if (full.error) {
+    const lean = await supabase
+      .from("users")
+      .select("display_name, role, countries, genres, account_type")
+      .eq("id", user.id)
+      .maybeSingle();
+    profile = lean.data;
+  } else {
+    profile = full.data;
+  }
 
   const displayName =
     profile?.display_name ||
@@ -50,45 +76,45 @@ export default async function ProfilePage() {
     ]),
   ];
 
+  const privacy = {
+    privacy_public_profile: asBool(
+      profile?.privacy_public_profile ?? meta.privacy_public_profile,
+      true,
+    ),
+    privacy_show_activity: asBool(
+      profile?.privacy_show_activity ?? meta.privacy_show_activity,
+      true,
+    ),
+    privacy_show_on_charts: asBool(
+      profile?.privacy_show_on_charts ?? meta.privacy_show_on_charts,
+      true,
+    ),
+  };
+
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
       <header className="border-b border-white/10">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
-          <Link href="/">
+          <Link href="/dashboard">
             <RectLogo size={34} showWordmark />
           </Link>
-          <SignOutButton />
+          <nav className="flex gap-3 text-sm text-white/55">
+            <Link href="/dashboard" className="hover:text-white">
+              Home
+            </Link>
+            <Link href="/profile" className="text-[#1DB954]">
+              You
+            </Link>
+          </nav>
         </div>
       </header>
-      <div className="mx-auto max-w-lg space-y-6 px-5 py-10 sm:px-8">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            Profile
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            {displayName}
-          </h1>
-          <p className="mt-1 text-sm text-white/40">{user.email}</p>
-        </div>
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-          <h2 className="text-xs uppercase tracking-[0.16em] text-white/40">
-            Taste
-          </h2>
-          <p className="mt-3 text-sm text-white/70">
-            {genres.length ? genres.join(" · ") : "No genres yet"}
-          </p>
-          <p className="mt-2 text-sm text-white/50">
-            {countries.length ? countries.join(" · ") : "No places yet"}
-          </p>
-        </div>
-        <p className="rounded-2xl border border-dashed border-white/15 px-5 py-6 text-sm text-white/45">
-          Your Soundprint — a creative year-in-listening story — will live here.
-          Not a copy of Wrapped. Yours.
-        </p>
-        <Link href="/dashboard" className="inline-block text-sm text-[#1DB954]">
-          ← Back to dashboard
-        </Link>
-      </div>
+      <ProfileSettings
+        displayName={displayName}
+        email={user.email || ""}
+        genres={genres}
+        countries={countries}
+        privacy={privacy}
+      />
     </main>
   );
 }
