@@ -27,10 +27,12 @@ export async function upsertUserProfile(
   userId: string,
   profile: OnboardingProfile,
 ): Promise<ProfileUpsertResult> {
-  // Live schema may require phone_number (NOT NULL + UNIQUE).
-  // Empty string collides across users — use a stable unique placeholder.
+  // Live schema may require phone_number (NOT NULL + UNIQUE, varchar(20)).
+  // Empty string collides — use a short unique placeholder within 20 chars.
   const phoneTrimmed = profile.phone?.trim() || "";
-  const phoneValue = phoneTrimmed || `pending:${userId}`;
+  const phoneValue =
+    phoneTrimmed.slice(0, 20) ||
+    `u${userId.replace(/-/g, "").slice(0, 19)}`;
   const phoneColumn = phoneTrimmed || null;
 
   // Live DB may still enforce role IN ('listener','artist',...). Prefer fan; fall back.
