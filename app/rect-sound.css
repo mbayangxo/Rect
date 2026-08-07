@@ -16,7 +16,7 @@
   --w1: rgba(248, 248, 248, 0.82);
   --w2: rgba(248, 248, 248, 0.48);
   --w3: rgba(248, 248, 248, 0.22);
-  --red: #e8214a;
+  --red: #1db954;
   --gold: #f5a623;
   --ff: "Clash Display", var(--font-syne), system-ui, sans-serif;
   --fb: var(--font-dm-sans), system-ui, sans-serif;
@@ -549,7 +549,7 @@ body {
 .cr-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
 .mv-b { font-family: var(--fb); font-weight: 700; font-size: 0.48rem; padding: 1px 6px; border-radius: 3px; }
 .mv-up { background: rgba(29, 185, 84, 0.14); color: var(--g); }
-.mv-dn { background: rgba(232, 33, 74, 0.1); color: var(--red); }
+.mv-dn { background: rgba(29, 185, 84, 0.1); color: var(--red); }
 .mv-nw { background: rgba(245, 166, 35, 0.1); color: var(--gold); }
 .cr-st { font-size: 0.46rem; font-weight: 500; color: var(--w3); }
 .ca1 { background: linear-gradient(135deg, #1db954, #0d8a3a); }

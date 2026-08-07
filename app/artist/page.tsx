@@ -84,7 +84,7 @@ export default async function ArtistLibraryPage() {
   const totalPlays = tracks.reduce((sum, t) => sum + t.play_count, 0);
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#040d06] text-[#f8f8f8]">
+    <main className="relative bg-[#040d06] text-[#f8f8f8]">
       <div
         aria-hidden
         className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-[#1DB954]/12 blur-[100px]"
@@ -149,7 +149,7 @@ export default async function ArtistLibraryPage() {
           </h2>
 
           {error ? (
-            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
               {error}
             </p>
           ) : tracks.length === 0 ? (

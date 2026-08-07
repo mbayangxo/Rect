@@ -198,7 +198,7 @@ export default async function HomePage() {
           </div>
 
           {error ? (
-            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
               Could not load songs. {error}
             </p>
           ) : empty ? (

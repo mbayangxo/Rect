@@ -61,7 +61,7 @@ export default async function SongPage({ params }: Props) {
           </div>
 
           {!track.audio_url ? (
-            <p className="mt-4 text-sm text-red-200">No audio_url on this row.</p>
+            <p className="mt-4 text-sm text-[#1DB954]">No audio_url on this row.</p>
           ) : null}
         </div>
       </div>

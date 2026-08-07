@@ -12,10 +12,6 @@ type Body = {
   password?: string;
   display_name?: string;
   role?: RectRole;
-  city?: string | null;
-  phone?: string | null;
-  artist_bio?: string | null;
-  listen_liked?: boolean | null;
 };
 
 function isValidEmail(email: string) {
@@ -34,12 +30,6 @@ export async function POST(request: Request) {
   const password = body.password ?? "";
   const display_name = body.display_name?.trim() ?? "";
   const role: RectRole = body.role === "artist" ? "artist" : "fan";
-  const city = body.city?.trim() || null;
-  const phone = body.phone?.trim() || null;
-  const artist_bio =
-    role === "artist" ? body.artist_bio?.trim() || null : null;
-  const listen_liked =
-    typeof body.listen_liked === "boolean" ? body.listen_liked : null;
 
   if (display_name.length < 2 || display_name.length > 24) {
     return NextResponse.json(
@@ -61,13 +51,10 @@ export async function POST(request: Request) {
   const metadata = {
     display_name,
     role,
-    city,
-    phone,
-    artist_bio,
-    listen_liked,
     onboarding_completed: true,
   };
 
+  // Supabase Auth user creation (creates row in auth.users)
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -106,11 +93,8 @@ export async function POST(request: Request) {
   }
 
   const profile = profileFromMetadata(metadata, email);
-  let profile_save: {
-    ok: boolean;
-    mode?: string;
-    error?: string;
-  } | null = null;
+  let profile_save: { ok: boolean; mode?: string; error?: string } | null =
+    null;
 
   const writer = session ? supabase : admin;
   if (writer) {
@@ -126,7 +110,6 @@ export async function POST(request: Request) {
     email,
     display_name,
     role,
-    city,
     has_session: !!session,
     email_confirmation_required: emailConfirmationRequired,
     profile_save,

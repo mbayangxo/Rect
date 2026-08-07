@@ -12,7 +12,7 @@ export function SignOutButton() {
     setPending(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/");
+    router.push("/auth/login");
     router.refresh();
     setPending(false);
   }
@@ -22,9 +22,9 @@ export function SignOutButton() {
       type="button"
       onClick={() => void signOut()}
       disabled={pending}
-      className="text-xs font-medium text-white/50 underline-offset-2 hover:text-white hover:underline disabled:opacity-50"
+      className="rounded-full border border-white/15 px-4 py-2 text-xs font-medium text-white/70 hover:border-[#1DB954] hover:text-[#1DB954] disabled:opacity-50"
     >
-      {pending ? "Signing out…" : "Sign out"}
+      {pending ? "Logging out…" : "Logout"}
     </button>
   );
 }

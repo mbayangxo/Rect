@@ -68,7 +68,7 @@ export default function ArtistUploadPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#040d06] text-[#f8f8f8]">
+    <main className="relative bg-[#040d06] text-[#f8f8f8]">
       <div
         aria-hidden
         className="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-[#1DB954]/15 blur-[100px]"
@@ -154,7 +154,7 @@ export default function ArtistUploadPage() {
           </label>
 
           {error ? (
-            <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+            <p className="rounded-lg border border-[#1DB954]/30 bg-[#1DB954]/10 px-3 py-2 text-sm text-[#1DB954]">
               {error}
             </p>
           ) : null}

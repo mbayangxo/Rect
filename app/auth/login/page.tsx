@@ -8,7 +8,7 @@ import { RectLogo } from "@/components/rect-logo";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/";
+  const nextPath = searchParams.get("next") || "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -30,7 +30,9 @@ function LoginForm() {
         return;
       }
       const safeNext =
-        nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/";
+        nextPath.startsWith("/") && !nextPath.startsWith("//")
+          ? nextPath
+          : "/dashboard";
       router.push(safeNext);
       router.refresh();
     } catch (err) {
@@ -41,10 +43,10 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#040d06] px-4 py-10 text-[#f8f8f8]">
+    <main className="bg-[#040d06] px-4 py-10 text-[#f8f8f8]">
       <form
         onSubmit={(e) => void onSubmit(e)}
-        className="w-full max-w-[430px] space-y-4"
+        className="mx-auto w-full max-w-[400px] space-y-4"
       >
         <div className="mb-6 flex justify-center">
           <RectLogo size={48} />
@@ -77,7 +79,7 @@ function LoginForm() {
           />
         </label>
         {error ? (
-          <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+          <p className="rounded-lg border border-[#1DB954]/30 bg-[#1DB954]/10 px-3 py-2 text-sm text-[#1DB954]">
             {error}
           </p>
         ) : null}
@@ -86,7 +88,7 @@ function LoginForm() {
           disabled={pending}
           className="w-full rounded-full bg-[#1DB954] py-3 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-60"
         >
-          {pending ? "Signing in…" : "Login"}
+          {pending ? "Signing in…" : "Log in"}
         </button>
         <p className="text-center text-sm text-white/45">
           New here?{" "}
@@ -103,7 +105,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#040d06] text-white/50">
+        <main className="bg-[#040d06] px-4 py-10 text-center text-white/50">
           Loading…
         </main>
       }

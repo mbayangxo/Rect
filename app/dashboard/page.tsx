@@ -18,7 +18,7 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("display_name, role, city")
+    .select("display_name, role")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -27,7 +27,8 @@ export default async function DashboardPage() {
     (typeof user.user_metadata?.display_name === "string"
       ? user.user_metadata.display_name
       : null) ||
-    user.email;
+    user.email ||
+    "User";
 
   const role =
     profile?.role ||
@@ -35,8 +36,15 @@ export default async function DashboardPage() {
       ? user.user_metadata.role
       : "fan");
 
+  const accountType =
+    role === "artist" || role === "listener" || role === "fan"
+      ? role === "listener"
+        ? "Fan"
+        : role.charAt(0).toUpperCase() + role.slice(1)
+      : String(role);
+
   return (
-    <main className="min-h-screen bg-[#040d06] px-4 py-10 text-[#f8f8f8]">
+    <main className="bg-[#040d06] px-4 py-10 text-[#f8f8f8]">
       <div className="mx-auto w-full max-w-[400px] space-y-6">
         <div className="flex items-center justify-between">
           <RectLogo size={40} />
@@ -48,30 +56,21 @@ export default async function DashboardPage() {
             Dashboard
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Welcome, {displayName}
+            Welcome {displayName}
           </h1>
           <p className="mt-2 text-sm text-white/50">
-            Account type: <span className="text-white/80">{role}</span>
+            Account type:{" "}
+            <span className="text-white/80">{accountType}</span>
           </p>
           <p className="mt-1 text-xs text-white/35">{user.email}</p>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Link
-            href="/"
-            className="rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
-          >
-            Go to home
-          </Link>
-          {role === "artist" ? (
-            <Link
-              href="/artist/upload"
-              className="rounded-full border border-white/15 py-3 text-center text-sm font-medium text-white hover:border-white/30"
-            >
-              Upload a track
-            </Link>
-          ) : null}
-        </div>
+        <Link
+          href="/"
+          className="block w-full rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
+        >
+          Go to home
+        </Link>
       </div>
     </main>
   );
