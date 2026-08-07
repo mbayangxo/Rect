@@ -1,107 +1,120 @@
 import Link from "next/link";
 import { RectLogo } from "@/components/rect-logo";
-import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  formatPlayCount,
+  loadRankedTracks,
+  trackArtist,
+  trackTitle,
+  type RankedTrack,
+} from "@/lib/dashboard/tracks";
 import { createClient } from "@/lib/supabase/server";
-import { isDemoTrack, trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
-type ChartTrack = TrackRow & { play_count: number };
+const CHART_BOARDS = [
+  {
+    id: "dakar",
+    title: "DAKAR TOP 7",
+    subtitle: "City pulse · Dakar",
+    limit: 7,
+  },
+  {
+    id: "current",
+    title: "THE CURRENT",
+    subtitle: "Top songs across RECT SOUND",
+    limit: 10,
+  },
+  {
+    id: "first-light",
+    title: "FIRST LIGHT",
+    subtitle: "Emerging artists",
+    limit: 8,
+    sort: "newest" as const,
+  },
+  {
+    id: "alkebulan",
+    title: "THE ALKEBULAN",
+    subtitle: "Continental pulse",
+    limit: 12,
+  },
+] as const;
 
-function isRealTrack(t: TrackRow) {
-  return !isDemoTrack(t);
-}
-
-async function loadChartTracks(): Promise<ChartTrack[]> {
-  const supabase = await createClient();
-  const admin = createAdminClient();
-  const db = admin ?? supabase;
-
-  const { data, error } = await db
-    .from("tracks")
-    .select(
-      "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  if (error || !data) return [];
-
-  const rows = (data as TrackRow[]).filter(isRealTrack);
-  if (rows.length === 0) return [];
-
-  const artistIds = [
-    ...new Set(rows.map((r) => r.artist_id).filter(Boolean) as string[]),
-  ];
-  const nameById = new Map<string, string>();
-  if (artistIds.length > 0) {
-    const { data: artists } = await db
-      .from("users")
-      .select("id, display_name")
-      .in("id", artistIds);
-    for (const a of artists ?? []) {
-      if (a.display_name) nameById.set(a.id, a.display_name);
-    }
-  }
-
-  const ids = rows.map((r) => r.id);
-  const counts = new Map<string, number>();
-  const { data: playRows } = await db.from("plays").select("track_id").in("track_id", ids);
-  for (const p of playRows ?? []) {
-    const tid = p.track_id as string;
-    counts.set(tid, (counts.get(tid) ?? 0) + 1);
-  }
-
-  return rows
-    .map((r) => ({
-      ...r,
-      artist_name: r.artist_id ? (nameById.get(r.artist_id) ?? null) : null,
-      play_count: counts.get(r.id) ?? 0,
-    }))
-    .sort((a, b) => b.play_count - a.play_count || (b.created_at || "").localeCompare(a.created_at || ""));
-}
-
-function ChartList({
+function ChartBoard({
   title,
   subtitle,
   tracks,
+  empty,
+  error,
 }: {
   title: string;
   subtitle: string;
-  tracks: ChartTrack[];
+  tracks: RankedTrack[];
+  empty: boolean;
+  error: string | null;
 }) {
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
-      <h2 className="font-[family-name:var(--font-syne)] text-xl font-semibold tracking-tight text-[#1DB954] sm:text-2xl">
-        {title}
-      </h2>
-      <p className="mt-1 text-sm text-white/45">{subtitle}</p>
-      {tracks.length === 0 ? (
+    <section
+      id={title.toLowerCase().replace(/\s+/g, "-")}
+      className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6"
+    >
+      <div className="flex items-baseline justify-between gap-3 border-b border-white/10 pb-4">
+        <div>
+          <h2 className="font-[family-name:var(--font-syne)] text-lg font-semibold tracking-tight text-[#1DB954] sm:text-xl">
+            {title}
+          </h2>
+          <p className="mt-1 text-xs text-white/40 sm:text-sm">{subtitle}</p>
+        </div>
+        <span className="text-[0.55rem] font-semibold uppercase tracking-[0.14em] text-white/30">
+          RECT Charts
+        </span>
+      </div>
+
+      {error ? (
+        <p className="mt-6 text-center text-sm text-[#1DB954]">{error}</p>
+      ) : empty || tracks.length === 0 ? (
         <p className="mt-8 text-center text-sm text-white/40">
-          Charts launching soon
+          Charts launching soon.
         </p>
       ) : (
-        <ol className="mt-6 space-y-3">
-          {tracks.map((t, i) => (
-            <li
-              key={t.id}
-              className="flex items-center gap-3 border-b border-white/5 pb-3 last:border-0"
-            >
-              <span className="w-6 text-sm tabular-nums text-white/35">
-                {i + 1}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{trackTitle(t)}</p>
-                <p className="truncate text-xs text-white/40">
-                  {trackArtist(t)}
-                  {t.genre ? ` · ${t.genre}` : ""}
-                </p>
-              </div>
-              <span className="text-xs tabular-nums text-white/35">
-                {t.play_count}
-              </span>
-            </li>
-          ))}
+        <ol className="mt-4 space-y-0">
+          {tracks.map((t, i) => {
+            const rank = i + 1;
+            return (
+              <li
+                key={t.id}
+                className="flex items-center gap-3 border-b border-white/[0.04] py-3 last:border-0"
+              >
+                <span
+                  className={`w-6 text-center text-sm font-bold tabular-nums ${
+                    rank === 1
+                      ? "text-[#F5A623]"
+                      : rank === 2
+                        ? "text-white/55"
+                        : rank === 3
+                          ? "text-[#A07040]"
+                          : "text-white/30"
+                  }`}
+                >
+                  {rank}
+                </span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1DB954]/20 text-xs font-bold text-[#1DB954]">
+                  {trackTitle(t).slice(0, 2).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {trackTitle(t)}
+                  </p>
+                  <p className="truncate text-xs text-white/40">
+                    {trackArtist(t)}
+                    {t.genre ? ` · ${t.genre}` : ""}
+                  </p>
+                </div>
+                <span className="text-xs tabular-nums text-white/35">
+                  {formatPlayCount(t.play_count)}
+                </span>
+              </li>
+            );
+          })}
         </ol>
       )}
     </section>
@@ -109,34 +122,43 @@ function ChartList({
 }
 
 export default async function ChartsPage() {
-  const ranked = await loadChartTracks();
-  const empty = ranked.length === 0;
-  const current = ranked.slice(0, 10);
-  const firstLight = [...ranked]
-    .sort(
-      (a, b) =>
-        (a.created_at || "").localeCompare(b.created_at || "") ||
-        b.play_count - a.play_count,
-    )
-    .slice(0, 8);
-  const alkebulan = ranked.slice(0, 12);
+  const supabase = await createClient();
+  const rankedRes = await loadRankedTracks(supabase, 40);
+  const ranked = rankedRes.ok ? rankedRes.tracks : [];
+  const loadError = rankedRes.ok ? null : rankedRes.error;
+  const empty = rankedRes.ok && ranked.length === 0;
+
+  const boards = CHART_BOARDS.map((board) => {
+    let tracks = [...ranked];
+    if ("sort" in board && board.sort === "newest") {
+      tracks = tracks.sort(
+        (a, b) =>
+          (a.created_at || "").localeCompare(b.created_at || "") ||
+          b.play_count - a.play_count,
+      );
+    }
+    return {
+      ...board,
+      tracks: tracks.slice(0, board.limit),
+    };
+  });
 
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
       <header className="border-b border-white/10">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2">
             <RectLogo size={34} showWordmark />
           </Link>
           <nav className="flex gap-3 text-sm text-white/55">
-            <Link href="/" className="hover:text-white">
-              Home
-            </Link>
             <Link href="/dashboard" className="hover:text-white">
-              Dashboard
+              Home
             </Link>
             <Link href="/charts" className="text-[#1DB954]">
               Charts
+            </Link>
+            <Link href="/profile" className="hover:text-white">
+              You
             </Link>
           </nav>
         </div>
@@ -148,37 +170,50 @@ export default async function ChartsPage() {
             RECT SOUND Charts
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
-            What the culture is playing
+            Chart room
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
-            Live boards across RECT SOUND — the pulse of the world.
+            Designated boards for the world — Dakar, the Current, First Light,
+            and Alkebulan. Not nested inside Home.
           </p>
         </div>
 
-        {empty ? (
+        {/* Chart switcher */}
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {boards.map((b) => (
+            <a
+              key={b.id}
+              href={`#${b.title.toLowerCase().replace(/\s+/g, "-")}`}
+              className="shrink-0 rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/55 hover:border-[#1DB954]/50 hover:text-[#1DB954]"
+            >
+              {b.title}
+            </a>
+          ))}
+        </div>
+
+        {loadError ? (
+          <div className="rounded-2xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-6 py-8 text-center text-sm text-[#1DB954]">
+            Could not load charts. {loadError}
+          </div>
+        ) : empty ? (
           <div className="rounded-2xl border border-dashed border-white/15 px-6 py-16 text-center">
-            <p className="text-lg font-medium">Charts launching soon</p>
+            <p className="text-lg font-medium">Charts launching soon.</p>
             <p className="mt-2 text-sm text-white/40">
-              Real plays will fill THE CURRENT, FIRST LIGHT, and THE ALKEBULAN.
+              Boards are ready. Real plays will fill them.
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-3">
-            <ChartList
-              title="THE CURRENT"
-              subtitle="Top songs right now"
-              tracks={current}
-            />
-            <ChartList
-              title="FIRST LIGHT"
-              subtitle="Emerging artists"
-              tracks={firstLight}
-            />
-            <ChartList
-              title="THE ALKEBULAN"
-              subtitle="Continental pulse"
-              tracks={alkebulan}
-            />
+          <div className="grid gap-6 lg:grid-cols-2">
+            {boards.map((b) => (
+              <ChartBoard
+                key={b.id}
+                title={b.title}
+                subtitle={b.subtitle}
+                tracks={b.tracks}
+                empty={empty}
+                error={null}
+              />
+            ))}
           </div>
         )}
       </div>

@@ -17,8 +17,6 @@ type Props = {
   displayName: string;
   featured: RankedTrack[];
   featuredError: string | null;
-  chart: RankedTrack[];
-  chartError: string | null;
   artists: ArtistPortal[];
   artistsError: string | null;
   packs: PlayPack[];
@@ -31,15 +29,12 @@ function formatTime(secs: number) {
   return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
 
-const SWATCH = ["ca1", "ca2", "ca3", "ca4", "ca5", "ca6", "ca7"] as const;
 const PORTAL_BG = ["pbg1", "pbg2", "pbg3", "pbg4"] as const;
 
 export function DashboardShell({
   displayName,
   featured,
   featuredError,
-  chart,
-  chartError,
   artists,
   artistsError,
   packs,
@@ -272,59 +267,6 @@ export function DashboardShell({
             ))}
           </div>
         )}
-
-        {/* CONNECTION 3 — Dakar chart */}
-        <div className="dash-sh">
-          <span className="dash-sh-t">Dakar Top 7</span>
-          <Link href="/charts" className="dash-sh-m">
-            Full chart →
-          </Link>
-        </div>
-        <div className="dash-chart-box">
-          <div className="dash-chart-hd">
-            <span className="dash-chd-l">RECT Charts · Dakar</span>
-            <span className="dash-chd-r">Live plays</span>
-          </div>
-          {chartError ? (
-            <div className="dash-empty dash-empty-inset" role="alert">
-              <p className="dash-empty-title">Could not load chart</p>
-              <p className="dash-empty-body">{chartError}</p>
-            </div>
-          ) : chart.length === 0 ? (
-            <div className="dash-empty dash-empty-inset">
-              <p className="dash-empty-title">Charts launching soon.</p>
-            </div>
-          ) : (
-            chart.map((t, i) => {
-              const rank = i + 1;
-              const initials = trackTitle(t).slice(0, 2).toUpperCase();
-              return (
-                <button
-                  key={t.id}
-                  type="button"
-                  className="dash-cr"
-                  onClick={() => playFeatured(t)}
-                >
-                  <span
-                    className={`dash-cr-rank ${rank === 1 ? "p1" : rank === 2 ? "p2" : rank === 3 ? "p3" : ""}`}
-                  >
-                    {rank}
-                  </span>
-                  <span className={`dash-cr-swatch ${SWATCH[i] ?? "ca7"}`}>
-                    {initials}
-                  </span>
-                  <span className="dash-cr-info">
-                    <span className="dash-cr-song">{trackTitle(t)}</span>
-                    <span className="dash-cr-artist">{trackArtist(t)}</span>
-                  </span>
-                  <span className="dash-cr-st">
-                    {formatPlayCount(t.play_count)}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
 
         {/* CONNECTION 5 — Play packs (hide entirely if empty) */}
         {packs.length > 0 ? (

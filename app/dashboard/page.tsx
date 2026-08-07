@@ -4,10 +4,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { loadArtistPortals } from "@/lib/dashboard/artists";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { loadPlayPacks } from "@/lib/dashboard/play-packs";
-import {
-  loadDakarChart,
-  loadFeaturedTracks,
-} from "@/lib/dashboard/tracks";
+import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
 import { createClient } from "@/lib/supabase/server";
 import "./dashboard.css";
 
@@ -44,9 +41,8 @@ export default async function DashboardPage() {
     );
   }
 
-  const [featuredRes, chartRes, artistsRes, packsRes] = await Promise.all([
+  const [featuredRes, artistsRes, packsRes] = await Promise.all([
     loadFeaturedTracks(supabase),
-    loadDakarChart(supabase),
     loadArtistPortals(supabase),
     loadPlayPacks(supabase, "SN"),
   ]);
@@ -56,8 +52,6 @@ export default async function DashboardPage() {
       displayName={current.displayName}
       featured={featuredRes.tracks}
       featuredError={featuredRes.ok ? null : featuredRes.error}
-      chart={chartRes.tracks}
-      chartError={chartRes.ok ? null : chartRes.error}
       artists={artistsRes.artists}
       artistsError={artistsRes.ok ? null : artistsRes.error}
       packs={packsRes.ok ? packsRes.packs : []}
