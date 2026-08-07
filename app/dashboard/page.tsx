@@ -19,9 +19,16 @@ export default async function DashboardPage() {
   }
 
   if (!current.ok) {
+    // Treat missing session the same as logged out
+    if (
+      current.reason === "no_session" ||
+      /session missing|Auth session missing/i.test(current.error)
+    ) {
+      redirect("/onboarding");
+    }
     return (
-      <main className="dash-app">
-        <header className="dash-topbar">
+      <main className="dash-app w-full max-w-none">
+        <header className="dash-topbar mx-auto w-full max-w-7xl px-4 sm:px-8">
           <div className="dash-logo-wrap">
             <div className="dash-logo-box">
               <span className="dash-logo-ect">RECT</span>

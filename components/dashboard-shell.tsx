@@ -71,7 +71,7 @@ export function DashboardShell({
   }
 
   return (
-    <div className="dash-app">
+    <div className="dash-app w-full min-h-dvh max-w-none">
       <div
         className={`dash-ov ${drawerOpen ? "open" : ""}`}
         onClick={() => setDrawerOpen(false)}
@@ -106,7 +106,7 @@ export function DashboardShell({
         </Link>
       </aside>
 
-      <header className="dash-topbar">
+      <header className="dash-topbar mx-auto w-full max-w-7xl px-4 sm:px-8">
         <div className="dash-logo-wrap">
           <div className="dash-logo-box">
             <span className="dash-logo-ect">RECT</span>
@@ -129,7 +129,7 @@ export function DashboardShell({
         </div>
       </header>
 
-      <div className="dash-hub">
+      <div className="dash-hub mx-auto w-full max-w-7xl px-4 sm:px-8">
         <span className="dash-hub-label">RECT Hub</span>
         <div className="dash-hub-sep" />
         <Link href="/charts" className="dash-hub-exit">
@@ -143,10 +143,10 @@ export function DashboardShell({
         </Link>
       </div>
 
-      <div className="dash-page">
-        <div className="dash-layout">
+      <div className="dash-page mx-auto w-full max-w-7xl px-4 pb-28 sm:px-8">
+        <div className="dash-layout flex flex-col gap-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-10">
         {/* CONNECTION 2 — Featured / vinyl now-playing */}
-        <section className="dash-now" aria-label="Now playing">
+        <section className="dash-now lg:col-span-7 lg:sticky lg:top-4 lg:m-0" aria-label="Now playing">
           {featuredError ? (
             <div className="dash-empty" role="alert">
               <p className="dash-empty-title">Could not load tracks</p>
@@ -158,10 +158,10 @@ export function DashboardShell({
             </div>
           ) : active ? (
             <div className="dash-ni-glass">
-              <div className="dash-ni-art">
+              <div className="dash-ni-art min-h-[190px] sm:min-h-[280px] lg:min-h-[340px]">
                 <div className="dash-ni-grad" />
                 <div
-                  className={`dash-ni-vinyl ${player.playing && player.track?.id === active.id ? "playing" : ""}`}
+                  className={`dash-ni-vinyl h-[110px] w-[110px] sm:h-[150px] sm:w-[150px] lg:h-[170px] lg:w-[170px] ${player.playing && player.track?.id === active.id ? "playing" : ""}`}
                 >
                   <div className="dash-ni-vinyl-center" />
                 </div>
@@ -171,7 +171,7 @@ export function DashboardShell({
                   </span>
                 </div>
                 <div className="dash-ni-identity">
-                  <div className="dash-ni-artist">{trackArtist(active)}</div>
+                  <div className="dash-ni-artist text-3xl sm:text-4xl lg:text-5xl">{trackArtist(active)}</div>
                   <div className="dash-ni-track">
                     {trackTitle(active)}
                     {active.genre ? ` · ${active.genre}` : ""}
@@ -238,25 +238,25 @@ export function DashboardShell({
           ) : null}
         </section>
 
-        <div className="dash-side">
+        <div className="dash-side lg:col-span-5">
         {/* CONNECTION 4 — Artist portals */}
-        <div className="dash-sh">
+        <div className="dash-sh px-0">
           <span className="dash-sh-t">Portals</span>
           <Link href="/search" className="dash-sh-m">
             All →
           </Link>
         </div>
         {artistsError ? (
-          <div className="dash-empty" role="alert">
+          <div className="dash-empty !mx-0" role="alert">
             <p className="dash-empty-title">Could not load artists</p>
             <p className="dash-empty-body">{artistsError}</p>
           </div>
         ) : artists.length === 0 ? (
-          <div className="dash-empty">
+          <div className="dash-empty !mx-0">
             <p className="dash-empty-title">Artists joining soon.</p>
           </div>
         ) : (
-          <div className="dash-scroll">
+          <div className="dash-scroll flex flex-wrap gap-4 px-0">
             {artists.map((a, i) => (
               <div key={a.id} className="dash-portal-card">
                 <div className={`dash-pc-art ${PORTAL_BG[i % PORTAL_BG.length]}`}>
@@ -273,10 +273,10 @@ export function DashboardShell({
         {/* CONNECTION 5 — Play packs (hide entirely if empty) */}
         {packs.length > 0 ? (
           <>
-            <div className="dash-sh">
+            <div className="dash-sh px-0">
               <span className="dash-sh-t">Play packs · SN</span>
             </div>
-            <div className="dash-packs">
+            <div className="dash-packs grid gap-3 px-0 sm:grid-cols-3">
               {packs.map((p) => (
                 <div key={p.id} className="dash-pack">
                   <div className="dash-pack-code">{p.code}</div>
