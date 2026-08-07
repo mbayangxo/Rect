@@ -12,10 +12,28 @@ type Body = {
   password?: string;
   display_name?: string;
   role?: RectRole;
+  phone?: string | null;
+  countries?: string[];
+  genres?: string[];
+  languages?: string[];
+  listening_times?: string[];
 };
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function cleanList(value: unknown, max = 40): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const t = item.trim();
+    if (!t || out.includes(t)) continue;
+    out.push(t);
+    if (out.length >= max) break;
+  }
+  return out;
 }
 
 export async function POST(request: Request) {
@@ -30,7 +48,36 @@ export async function POST(request: Request) {
   const password = body.password ?? "";
   const display_name = body.display_name?.trim() ?? "";
   const role: RectRole = body.role === "artist" ? "artist" : "fan";
+  const phone = body.phone?.trim() || null;
+  const countries = cleanList(body.countries);
+  const genres = cleanList(body.genres);
+  const languages = cleanList(body.languages);
+  const listening_times = cleanList(body.listening_times, 8);
 
+  if (countries.length < 1) {
+    return NextResponse.json(
+      { error: "Select at least one place you're from." },
+      { status: 400 },
+    );
+  }
+  if (genres.length < 1) {
+    return NextResponse.json(
+      { error: "Select at least one genre that moves you." },
+      { status: 400 },
+    );
+  }
+  if (languages.length < 1) {
+    return NextResponse.json(
+      { error: "Select at least one language." },
+      { status: 400 },
+    );
+  }
+  if (listening_times.length < 1) {
+    return NextResponse.json(
+      { error: "Select at least one listening time." },
+      { status: 400 },
+    );
+  }
   if (display_name.length < 2 || display_name.length > 24) {
     return NextResponse.json(
       { error: "Display name must be 2–24 characters." },
@@ -51,10 +98,15 @@ export async function POST(request: Request) {
   const metadata = {
     display_name,
     role,
+    account_type: role,
+    phone,
+    countries,
+    genres,
+    languages,
+    listening_times,
     onboarding_completed: true,
   };
 
-  // Supabase Auth user creation (creates row in auth.users)
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -110,6 +162,11 @@ export async function POST(request: Request) {
     email,
     display_name,
     role,
+    account_type: role,
+    countries,
+    genres,
+    languages,
+    listening_times,
     has_session: !!session,
     email_confirmation_required: emailConfirmationRequired,
     profile_save,

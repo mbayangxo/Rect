@@ -5,88 +5,145 @@ export type RectRole = "fan" | "artist";
 export type OnboardingProfile = {
   display_name: string;
   role: RectRole;
-  city: string | null;
+  account_type: RectRole;
   phone: string | null;
   email: string | null;
-  artist_bio: string | null;
-  listen_liked: boolean | null;
+  countries: string[];
+  genres: string[];
+  languages: string[];
+  listening_times: string[];
   onboarding_completed: boolean;
+  /** legacy optional fields */
+  city?: string | null;
+  artist_bio?: string | null;
+  listen_liked?: boolean | null;
 };
 
 export type ProfileUpsertResult =
   | { ok: true; row: Record<string, unknown>; mode: "full" | "minimal" }
   | { ok: false; error: string };
 
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((v): v is string => typeof v === "string")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
 /**
- * Persist onboarding onto public.users.
- * Tries full column set first; falls back to id/display_name/role if
- * the schema migration has not been applied yet.
+ * Persist cultural onboarding onto public.users.
+ * Falls back when newer columns are missing or role constraints differ.
  */
 export async function upsertUserProfile(
   supabase: SupabaseClient,
   userId: string,
   profile: OnboardingProfile,
 ): Promise<ProfileUpsertResult> {
-  // Live schema may require phone_number (NOT NULL + UNIQUE, varchar(20)).
-  // Empty string collides — use a short unique placeholder within 20 chars.
   const phoneTrimmed = profile.phone?.trim() || "";
   const phoneValue =
     phoneTrimmed.slice(0, 20) ||
     `u${userId.replace(/-/g, "").slice(0, 19)}`;
   const phoneColumn = phoneTrimmed || null;
 
-  // Live DB may still enforce role IN ('listener','artist',...). Prefer fan; fall back.
   const rolesToTry: string[] = [profile.role];
   if (profile.role === "fan") rolesToTry.push("listener");
 
   let lastError = "";
+
   for (const role of rolesToTry) {
-    const full = {
+    const full: Record<string, unknown> = {
       id: userId,
       display_name: profile.display_name,
       role,
+      account_type: profile.account_type,
       email: profile.email,
       phone: phoneColumn,
       phone_number: phoneValue,
-      city: profile.city,
-      artist_bio: profile.artist_bio,
-      listen_liked: profile.listen_liked,
+      countries: profile.countries,
+      genres: profile.genres,
+      languages: profile.languages,
+      listening_times: profile.listening_times,
       onboarding_completed: profile.onboarding_completed,
       updated_at: new Date().toISOString(),
     };
 
-    const fullAttempt = await supabase.from("users").upsert(full).select().maybeSingle();
+    if (profile.city !== undefined) full.city = profile.city;
+    if (profile.artist_bio !== undefined) full.artist_bio = profile.artist_bio;
+    if (profile.listen_liked !== undefined) {
+      full.listen_liked = profile.listen_liked;
+    }
+
+    const fullAttempt = await supabase
+      .from("users")
+      .upsert(full)
+      .select()
+      .maybeSingle();
+
     if (!fullAttempt.error) {
       return { ok: true, row: fullAttempt.data ?? full, mode: "full" };
     }
 
     lastError = fullAttempt.error.message;
 
-    const missingColumn =
-      /column .* does not exist/i.test(fullAttempt.error.message) ||
-      fullAttempt.error.code === "PGRST204";
-
-    if (missingColumn && /phone_number/i.test(fullAttempt.error.message)) {
-      const withoutPhoneNumber = { ...full };
-      delete (withoutPhoneNumber as { phone_number?: string }).phone_number;
-      const retry = await supabase
-        .from("users")
-        .upsert(withoutPhoneNumber)
-        .select()
-        .maybeSingle();
-      if (!retry.error) {
-        return { ok: true, row: retry.data ?? withoutPhoneNumber, mode: "full" };
-      }
-      lastError = retry.error.message;
-    }
-
-    // Role check — try next alias (fan → listener)
     if (/users_role_check/i.test(fullAttempt.error.message)) {
       continue;
     }
 
+    const missingColumn =
+      /column .* does not exist/i.test(fullAttempt.error.message) ||
+      fullAttempt.error.code === "PGRST204";
+
     if (!missingColumn) {
-      return { ok: false, error: fullAttempt.error.message };
+      // Try without cultural array / account_type columns
+      const stripped = { ...full };
+      delete stripped.countries;
+      delete stripped.genres;
+      delete stripped.languages;
+      delete stripped.listening_times;
+      delete stripped.account_type;
+      const retry = await supabase
+        .from("users")
+        .upsert(stripped)
+        .select()
+        .maybeSingle();
+      if (!retry.error) {
+        return { ok: true, row: retry.data ?? stripped, mode: "full" };
+      }
+      lastError = retry.error.message;
+      if (/users_role_check/i.test(retry.error.message)) continue;
+      return { ok: false, error: lastError };
+    }
+
+    // Missing column path: drop phone_number / cultural cols progressively
+    const candidates: Record<string, unknown>[] = [];
+    {
+      const a = { ...full };
+      delete a.phone_number;
+      candidates.push(a);
+    }
+    {
+      const a = { ...full };
+      delete a.countries;
+      delete a.genres;
+      delete a.languages;
+      delete a.listening_times;
+      delete a.account_type;
+      delete a.phone_number;
+      candidates.push(a);
+    }
+
+    for (const payload of candidates) {
+      const retry = await supabase
+        .from("users")
+        .upsert(payload)
+        .select()
+        .maybeSingle();
+      if (!retry.error) {
+        return { ok: true, row: retry.data ?? payload, mode: "full" };
+      }
+      lastError = retry.error.message;
+      if (/users_role_check/i.test(retry.error.message)) break;
     }
   }
 
@@ -118,22 +175,26 @@ export function profileFromMetadata(
   email: string | null | undefined,
 ): OnboardingProfile {
   const role = meta?.role === "artist" ? "artist" : "fan";
-  const listenRaw = meta?.listen_liked;
-  let listen_liked: boolean | null = null;
-  if (typeof listenRaw === "boolean") listen_liked = listenRaw;
-  else if (listenRaw === "true") listen_liked = true;
-  else if (listenRaw === "false") listen_liked = false;
+  const accountRaw = meta?.account_type;
+  const account_type: RectRole =
+    accountRaw === "artist" || accountRaw === "fan" ? accountRaw : role;
 
   return {
     display_name:
       (typeof meta?.display_name === "string" && meta.display_name.trim()) ||
       "User",
     role,
-    city: typeof meta?.city === "string" ? meta.city : null,
+    account_type,
     phone: typeof meta?.phone === "string" ? meta.phone : null,
     email: email ?? null,
-    artist_bio: typeof meta?.artist_bio === "string" ? meta.artist_bio : null,
-    listen_liked,
+    countries: asStringArray(meta?.countries),
+    genres: asStringArray(meta?.genres),
+    languages: asStringArray(meta?.languages),
+    listening_times: asStringArray(meta?.listening_times),
     onboarding_completed: true,
+    city: typeof meta?.city === "string" ? meta.city : null,
+    artist_bio: typeof meta?.artist_bio === "string" ? meta.artist_bio : null,
+    listen_liked:
+      typeof meta?.listen_liked === "boolean" ? meta.listen_liked : null,
   };
 }
