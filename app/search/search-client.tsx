@@ -8,16 +8,28 @@ import {
   useTransition,
   type FormEvent,
 } from "react";
+import { AddToPlaylist } from "@/components/add-to-playlist";
 import { usePlayer } from "@/components/player-provider";
 import { RectLogo } from "@/components/rect-logo";
+import { QueueTrackButton } from "@/components/queue-track-button";
+import { ShareTrackButton } from "@/components/share-track-button";
+import { TrackCover } from "@/components/track-cover";
 import type { SearchArtist, SearchTrack } from "@/lib/dashboard/search";
 import { trackArtist, trackTitle } from "@/lib/tracks";
 
 const BROWSE = [
   { href: "/charts", label: "Charts", tone: "from-[#0F2B1A] to-[#060908]" },
+  { href: "/new", label: "New", tone: "from-[#1a2b14] to-[#060908]" },
+  { href: "/places", label: "Places", tone: "from-[#1a2410] to-[#060908]" },
+  { href: "/genres", label: "Genres", tone: "from-[#142b0f] to-[#060908]" },
+  { href: "/radio", label: "Radio", tone: "from-[#0a2e18] to-[#060908]" },
+  { href: "/following", label: "Following", tone: "from-[#1a2b0f] to-[#060908]" },
+  { href: "/inbox", label: "Inbox", tone: "from-[#0f1a14] to-[#060908]" },
+  { href: "/playlists", label: "Playlists", tone: "from-[#1a1f0f] to-[#060908]" },
+  { href: "/tips", label: "Tips", tone: "from-[#2b1f0f] to-[#090806]" },
+  { href: "/artist", label: "Studio", tone: "from-[#0f2b1a] to-[#060908]" },
   { href: "/library", label: "Liked", tone: "from-[#2B0F1A] to-[#090608]" },
   { href: "/journal", label: "Journal", tone: "from-[#0F1A2B] to-[#06080A]" },
-  { href: "/profile", label: "You", tone: "from-[#2B1A0F] to-[#090806]" },
 ] as const;
 
 type Props = {
@@ -151,18 +163,19 @@ export function SearchClient({
               ) : (
                 <ul className="space-y-1">
                   {initialTracks.map((t) => (
-                    <li key={t.id}>
+                    <li
+                      key={t.id}
+                      className="flex items-center gap-2 rounded-xl px-3 py-3 hover:bg-white/[0.04]"
+                    >
                       <button
                         type="button"
                         onClick={() => {
                           if (t.audio_url) player.play(t);
                         }}
                         disabled={!t.audio_url}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-white/[0.04] disabled:opacity-40"
+                        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-40"
                       >
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1DB954]/15 text-xs font-bold text-[#1DB954]">
-                          {trackTitle(t).slice(0, 2).toUpperCase()}
-                        </span>
+                        <TrackCover track={t} size="sm" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium">
                             {trackTitle(t)}
@@ -174,6 +187,19 @@ export function SearchClient({
                         </span>
                         <span className="text-[#1DB954]">▶</span>
                       </button>
+                      <Link
+                        href={`/songs/${t.id}`}
+                        className="shrink-0 text-xs text-white/35 hover:text-[#1DB954]"
+                      >
+                        Open
+                      </Link>
+                      <AddToPlaylist
+                        trackId={t.id}
+                        compact
+                        loginNext={`/search?q=${encodeURIComponent(initialQuery)}`}
+                      />
+                      <QueueTrackButton track={t} compact />
+            <ShareTrackButton track={t} compact />
                     </li>
                   ))}
                 </ul>

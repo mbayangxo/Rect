@@ -2,8 +2,9 @@ import Link from "next/link";
 import { RectLogo } from "@/components/rect-logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import { TrackList } from "@/components/track-list";
+import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
 import { createClient } from "@/lib/supabase/server";
-import { isDemoTrack, type TrackRow } from "@/lib/tracks";
+import { isDemoTrack, isPublishedTrack, type TrackRow } from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
@@ -29,16 +30,7 @@ async function loadTracksWithArtists(): Promise<{
     ...new Set(rows.map((r) => r.artist_id).filter(Boolean) as string[]),
   ];
 
-  const nameById = new Map<string, string>();
-  if (artistIds.length > 0) {
-    const { data: artists } = await supabase
-      .from("users")
-      .select("id, display_name")
-      .in("id", artistIds);
-    for (const a of artists ?? []) {
-      if (a.display_name) nameById.set(a.id, a.display_name);
-    }
-  }
+  const nameById = await loadArtistCreditMap(supabase, artistIds);
 
   const tracks = rows
     .map((r) => ({
@@ -47,7 +39,7 @@ async function loadTracksWithArtists(): Promise<{
         ? (nameById.get(r.artist_id) ?? null)
         : null,
     }))
-    .filter((t) => !isDemoTrack(t))
+    .filter((t) => isPublishedTrack(t) && !isDemoTrack(t))
     .slice(0, 20);
 
   return { tracks, error: null };

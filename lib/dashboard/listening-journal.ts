@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
 import { isDemoTrack, type TrackRow } from "@/lib/tracks";
 
 export type JournalEntry = TrackRow & {
@@ -12,6 +13,90 @@ export type JournalLoadResult = {
   missingTable: boolean;
   error: string | null;
 };
+
+export async function clearListeningJournal(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<
+  | { ok: true; deleted: number }
+  | { ok: false; error: string; code?: "missing_table" | "failed" }
+> {
+  const { data, error } = await supabase
+    .from("plays")
+    .delete()
+    .eq("listener_id", userId)
+    .select("id");
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error: "Play history table missing",
+        code: "missing_table",
+      };
+    }
+    if (/permission|policy|RLS/i.test(error.message)) {
+      return {
+        ok: false,
+        error: "Run 20260808_plays_delete_own.sql in Supabase first",
+        code: "failed",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  return { ok: true, deleted: data?.length ?? 0 };
+}
+
+export async function deleteListeningPlay(
+  supabase: SupabaseClient,
+  userId: string,
+  playId: string,
+): Promise<
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      code?: "missing_table" | "not_found" | "failed";
+    }
+> {
+  const id = playId.trim();
+  if (!id) {
+    return { ok: false, error: "play_id required", code: "failed" };
+  }
+
+  const { data, error } = await supabase
+    .from("plays")
+    .delete()
+    .eq("id", id)
+    .eq("listener_id", userId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error: "Play history table missing",
+        code: "missing_table",
+      };
+    }
+    if (/permission|policy|RLS/i.test(error.message)) {
+      return {
+        ok: false,
+        error: "Run 20260808_plays_delete_own.sql in Supabase first",
+        code: "failed",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  if (!data) {
+    return { ok: false, error: "Play not found", code: "not_found" };
+  }
+
+  return { ok: true };
+}
 
 function isMissingRelation(message: string) {
   return /relation .* does not exist|Could not find the table|PGRST205|column .* does not exist/i.test(
@@ -109,16 +194,7 @@ export async function loadListeningJournal(
     const artistIds = [
       ...new Set(tracks.map((t) => t.artist_id).filter(Boolean) as string[]),
     ];
-    const nameById = new Map<string, string>();
-    if (artistIds.length > 0) {
-      const { data: artists } = await supabase
-        .from("users")
-        .select("id, display_name")
-        .in("id", artistIds);
-      for (const a of artists ?? []) {
-        if (a.display_name) nameById.set(a.id, a.display_name);
-      }
-    }
+    const nameById = await loadArtistCreditMap(supabase, artistIds);
 
     const trackById = new Map(
       tracks.map((t) => [
@@ -152,6 +228,31 @@ export async function loadListeningJournal(
       error: isMissingRelation(msg) ? null : msg,
     };
   }
+}
+
+/**
+ * Continue listening — unique recent tracks from own plays (newest first).
+ */
+export async function loadContinueListening(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 8,
+): Promise<JournalLoadResult> {
+  const result = await loadListeningJournal(supabase, userId, Math.max(limit * 4, 40));
+  if (result.missingTable || result.error) {
+    return result;
+  }
+
+  const seen = new Set<string>();
+  const entries: JournalEntry[] = [];
+  for (const e of result.entries) {
+    if (!e.audio_url || seen.has(e.id)) continue;
+    seen.add(e.id);
+    entries.push(e);
+    if (entries.length >= limit) break;
+  }
+
+  return { entries, missingTable: false, error: null };
 }
 
 export function formatPlayedAt(iso: string | null) {

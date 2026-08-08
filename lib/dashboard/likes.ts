@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
 import { isDemoTrack, type TrackRow } from "@/lib/tracks";
 
 function isMissingRelation(message: string) {
@@ -110,16 +111,7 @@ export async function loadLikedTracks(
     const artistIds = [
       ...new Set(rows.map((r) => r.artist_id).filter(Boolean) as string[]),
     ];
-    const nameById = new Map<string, string>();
-    if (artistIds.length > 0) {
-      const { data: artists } = await supabase
-        .from("users")
-        .select("id, display_name")
-        .in("id", artistIds);
-      for (const a of artists ?? []) {
-        if (a.display_name) nameById.set(a.id, a.display_name);
-      }
-    }
+    const nameById = await loadArtistCreditMap(supabase, artistIds);
 
     const byId = new Map(
       rows.map((r) => [
@@ -158,6 +150,64 @@ export type ToggleLikeResult =
       error: string;
       code?: "not_authenticated" | "missing_table" | "failed";
     };
+
+/**
+ * Public like counts for discovery (track_like_counts view, with fallback).
+ */
+export async function loadLikeCountMap(
+  supabase: SupabaseClient,
+  trackIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const ids = [...new Set(trackIds.filter(Boolean))];
+  if (ids.length === 0) return map;
+
+  const { data, error } = await supabase
+    .from("track_like_counts")
+    .select("track_id, like_count")
+    .in("track_id", ids);
+
+  if (!error && data) {
+    for (const row of data) {
+      map.set(row.track_id as string, Number(row.like_count) || 0);
+    }
+    return map;
+  }
+
+  // Fallback: count from track_likes (may be RLS-limited to own likes)
+  const { data: likes, error: likeError } = await supabase
+    .from("track_likes")
+    .select("track_id")
+    .in("track_id", ids);
+
+  if (likeError || !likes) return map;
+  for (const row of likes) {
+    const tid = row.track_id as string;
+    map.set(tid, (map.get(tid) ?? 0) + 1);
+  }
+  return map;
+}
+
+export async function loadTrackLikeCount(
+  supabase: SupabaseClient,
+  trackId: string,
+): Promise<{ count: number; missingView: boolean }> {
+  const map = await loadLikeCountMap(supabase, [trackId]);
+  if (map.has(trackId)) {
+    return { count: map.get(trackId) ?? 0, missingView: false };
+  }
+
+  const { error } = await supabase
+    .from("track_like_counts")
+    .select("track_id")
+    .eq("track_id", trackId)
+    .maybeSingle();
+
+  if (error && isMissingRelation(error.message)) {
+    return { count: 0, missingView: true };
+  }
+  return { count: 0, missingView: false };
+}
 
 export async function toggleTrackLike(
   supabase: SupabaseClient,
@@ -246,4 +296,65 @@ async function toggleTrackLikeFallback(
     return { ok: false, error: insError.message, code: "failed" };
   }
   return { ok: true, liked: true, track_id: trackId };
+}
+
+export async function isTrackLiked(
+  supabase: SupabaseClient,
+  userId: string,
+  trackId: string,
+): Promise<
+  | { ok: true; liked: boolean }
+  | { ok: false; error: string; code?: "missing_table" | "failed" }
+> {
+  const id = trackId.trim();
+  if (!id) {
+    return { ok: false, error: "track_id is required", code: "failed" };
+  }
+
+  const { data, error } = await supabase
+    .from("track_likes")
+    .select("track_id")
+    .eq("user_id", userId)
+    .eq("track_id", id)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error: "Run track likes SQL in Supabase first",
+        code: "missing_table",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  return { ok: true, liked: Boolean(data) };
+}
+
+export async function clearAllLikes(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<
+  | { ok: true; deleted: number }
+  | { ok: false; error: string; code?: "missing_table" | "failed" }
+> {
+  const { data, error } = await supabase
+    .from("track_likes")
+    .delete()
+    .eq("user_id", userId)
+    .select("track_id");
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error: "Run track likes SQL in Supabase first",
+        code: "missing_table",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  return { ok: true, deleted: data?.length ?? 0 };
 }

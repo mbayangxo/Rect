@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isDemoTrack, trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
+import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
+import { isProfilePublic } from "@/lib/dashboard/privacy";
+import { isDemoTrack, isPublishedTrack, trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 export type SearchTrack = TrackRow & {
   artist_name: string | null;
@@ -20,6 +22,13 @@ export type SearchResult = {
   error: string | null;
 };
 
+type ArtistRow = {
+  id: string;
+  display_name: string | null;
+  genres?: unknown;
+  privacy_public_profile?: boolean | null;
+};
+
 /** Strip PostgREST filter metacharacters from user input. */
 function sanitizeFilter(raw: string) {
   return raw.replace(/[%_,.()"'\\]/g, " ").replace(/\s+/g, " ").trim();
@@ -28,6 +37,7 @@ function sanitizeFilter(raw: string) {
 /**
  * Search tracks + artists in Supabase.
  * Empty query returns recent tracks / artists (browse mode).
+ * Honors privacy_public_profile for artist discovery.
  */
 export async function searchCatalog(
   supabase: SupabaseClient,
@@ -63,38 +73,53 @@ export async function searchCatalog(
       };
     }
 
-    const rows = ((trackRows ?? []) as TrackRow[]).filter((t) => !isDemoTrack(t));
+    const rows = ((trackRows ?? []) as TrackRow[]).filter(
+      (t) => isPublishedTrack(t) && !isDemoTrack(t),
+    );
     const artistIds = [
       ...new Set(rows.map((r) => r.artist_id).filter(Boolean) as string[]),
     ];
-    const nameById = new Map<string, string>();
-
-    if (artistIds.length > 0) {
-      const { data: named } = await db
-        .from("users")
-        .select("id, display_name")
-        .in("id", artistIds);
-      for (const a of named ?? []) {
-        if (a.display_name) nameById.set(a.id, a.display_name);
-      }
-    }
+    const nameById = await loadArtistCreditMap(db, artistIds);
 
     let tracks: SearchTrack[] = rows.map((r) => ({
       ...r,
       artist_name: r.artist_id ? (nameById.get(r.artist_id) ?? null) : null,
     }));
 
-    // If query matches artist names, also pull their tracks
     if (query) {
-      const { data: matchedArtists } = await db
+      const fullMatch = await db
         .from("users")
-        .select("id, display_name, genres, account_type, role")
+        .select(
+          "id, display_name, genres, account_type, role, privacy_public_profile",
+        )
         .or("account_type.eq.artist,role.eq.artist")
         .ilike("display_name", `%${query}%`)
         .limit(20);
 
-      const extraIds = (matchedArtists ?? [])
-        .map((a) => a.id as string)
+      let matched: ArtistRow[] = [];
+      if (
+        fullMatch.error &&
+        /privacy_public_profile|column .* does not exist/i.test(
+          fullMatch.error.message,
+        )
+      ) {
+        const lean = await db
+          .from("users")
+          .select("id, display_name, genres, account_type, role")
+          .or("account_type.eq.artist,role.eq.artist")
+          .ilike("display_name", `%${query}%`)
+          .limit(20);
+        matched = (lean.data ?? []) as ArtistRow[];
+      } else if (!fullMatch.error) {
+        matched = ((fullMatch.data ?? []) as ArtistRow[]).filter((a) =>
+          isProfilePublic({
+            privacy_public_profile: a.privacy_public_profile ?? true,
+          }),
+        );
+      }
+
+      const extraIds = matched
+        .map((a) => a.id)
         .filter((id) => !artistIds.includes(id));
 
       if (extraIds.length > 0) {
@@ -105,11 +130,10 @@ export async function searchCatalog(
           )
           .in("artist_id", extraIds)
           .limit(30);
-        for (const a of matchedArtists ?? []) {
-          if (a.display_name) nameById.set(a.id, a.display_name);
-        }
+        const extraNames = await loadArtistCreditMap(db, extraIds);
+        for (const [id, name] of extraNames) nameById.set(id, name);
         const extra = ((moreTracks ?? []) as TrackRow[])
-          .filter((t) => !isDemoTrack(t))
+          .filter((t) => isPublishedTrack(t) && !isDemoTrack(t))
           .map((r) => ({
             ...r,
             artist_name: r.artist_id
@@ -123,7 +147,6 @@ export async function searchCatalog(
       }
     }
 
-    // Filter by artist name client-side too (ilike on join not available)
     if (query) {
       const q = query.toLowerCase();
       tracks = tracks.filter(
@@ -134,19 +157,57 @@ export async function searchCatalog(
       );
     }
 
-    let artistQuery = db
-      .from("users")
-      .select("id, display_name, genres, account_type, role, created_at")
-      .or("account_type.eq.artist,role.eq.artist")
-      .order("created_at", { ascending: false })
-      .limit(24);
+    const listFull = query
+      ? await db
+          .from("users")
+          .select(
+            "id, display_name, genres, account_type, role, created_at, privacy_public_profile",
+          )
+          .or("account_type.eq.artist,role.eq.artist")
+          .ilike("display_name", `%${query}%`)
+          .order("created_at", { ascending: false })
+          .limit(24)
+      : await db
+          .from("users")
+          .select(
+            "id, display_name, genres, account_type, role, created_at, privacy_public_profile",
+          )
+          .or("account_type.eq.artist,role.eq.artist")
+          .order("created_at", { ascending: false })
+          .limit(24);
 
-    if (query) {
-      artistQuery = artistQuery.ilike("display_name", `%${query}%`);
-    }
-
-    const { data: artistRows, error: artistError } = await artistQuery;
-    if (artistError) {
+    let artistRows: ArtistRow[] = [];
+    if (
+      listFull.error &&
+      /privacy_public_profile|column .* does not exist/i.test(
+        listFull.error.message,
+      )
+    ) {
+      const lean = query
+        ? await db
+            .from("users")
+            .select("id, display_name, genres, account_type, role, created_at")
+            .or("account_type.eq.artist,role.eq.artist")
+            .ilike("display_name", `%${query}%`)
+            .order("created_at", { ascending: false })
+            .limit(24)
+        : await db
+            .from("users")
+            .select("id, display_name, genres, account_type, role, created_at")
+            .or("account_type.eq.artist,role.eq.artist")
+            .order("created_at", { ascending: false })
+            .limit(24);
+      if (lean.error) {
+        return {
+          ok: true,
+          query,
+          tracks: tracks.slice(0, 30),
+          artists: [],
+          error: null,
+        };
+      }
+      artistRows = (lean.data ?? []) as ArtistRow[];
+    } else if (listFull.error) {
       return {
         ok: true,
         query,
@@ -154,20 +215,28 @@ export async function searchCatalog(
         artists: [],
         error: null,
       };
+    } else {
+      artistRows = (listFull.data ?? []) as ArtistRow[];
     }
 
-    const artists: SearchArtist[] = (artistRows ?? []).map((a) => {
-      const genres = Array.isArray(a.genres)
-        ? a.genres.filter((g): g is string => typeof g === "string")
-        : [];
-      return {
-        id: a.id as string,
-        display_name:
-          (typeof a.display_name === "string" && a.display_name.trim()) ||
-          "Artist",
-        genre: genres[0] ?? null,
-      };
-    });
+    const artists: SearchArtist[] = artistRows
+      .filter((a) =>
+        isProfilePublic({
+          privacy_public_profile: a.privacy_public_profile ?? true,
+        }),
+      )
+      .map((a) => {
+        const genres = Array.isArray(a.genres)
+          ? a.genres.filter((g): g is string => typeof g === "string")
+          : [];
+        return {
+          id: a.id,
+          display_name:
+            (typeof a.display_name === "string" && a.display_name.trim()) ||
+            "Artist",
+          genre: genres[0] ?? null,
+        };
+      });
 
     return {
       ok: true,

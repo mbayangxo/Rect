@@ -9,6 +9,7 @@ export default function ArtistUploadPage() {
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [cover, setCover] = useState<File | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function ArtistUploadPage() {
       body.set("title", title.trim());
       if (genre.trim()) body.set("genre", genre.trim());
       body.set("audio", file);
+      if (cover) body.set("cover", cover);
 
       const res = await fetch("/api/tracks/upload", {
         method: "POST",
@@ -56,6 +58,7 @@ export default function ArtistUploadPage() {
       setTitle("");
       setGenre("");
       setFile(null);
+      setCover(null);
       window.setTimeout(() => {
         router.push("/");
         router.refresh();
@@ -99,9 +102,8 @@ export default function ArtistUploadPage() {
           Upload a track
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-white/50">
-          Audio goes to Supabase Storage. A row is written to{" "}
-          <code className="text-[#1DB954]">tracks</code> and shows on home
-          immediately.
+          Audio goes to Supabase Storage. Tracks start as drafts — publish from
+          your library to appear on Home, Search, and Charts.
         </p>
 
         <form
@@ -151,6 +153,25 @@ export default function ArtistUploadPage() {
                 {file.name} · {(file.size / (1024 * 1024)).toFixed(1)} MB
               </p>
             ) : null}
+          </label>
+
+          <label className="block space-y-2">
+            <span className="text-[0.65rem] uppercase tracking-[0.2em] text-white/40">
+              Cover art (optional)
+            </span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+              onChange={(e) => setCover(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm text-white/70 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+            />
+            {cover ? (
+              <p className="text-xs text-white/40">
+                {cover.name} · {(cover.size / 1024).toFixed(0)} KB
+              </p>
+            ) : (
+              <p className="text-xs text-white/30">JPG, PNG, or WebP · max 5MB</p>
+            )}
           </label>
 
           {error ? (

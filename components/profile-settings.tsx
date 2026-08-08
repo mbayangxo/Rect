@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { SignOutButton } from "@/components/sign-out-button";
 
 type Privacy = {
@@ -20,19 +20,71 @@ type Props = {
 };
 
 export function ProfileSettings({
-  displayName,
+  displayName: initialName,
   email,
   genres,
   countries,
   privacy: initial,
 }: Props) {
   const router = useRouter();
+  const [displayName, setDisplayName] = useState(initialName);
+  const [nameDraft, setNameDraft] = useState(initialName);
+  const [editingName, setEditingName] = useState(false);
+  const [savingName, setSavingName] = useState(false);
   const [privacy, setPrivacy] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDisplayName(initialName);
+    if (!editingName) setNameDraft(initialName);
+  }, [initialName, editingName]);
+
+  async function saveDisplayName(e: FormEvent) {
+    e.preventDefault();
+    if (savingName) return;
+    const next = nameDraft.trim().replace(/\s+/g, " ").slice(0, 48);
+    if (next.length < 2) {
+      setError("Display name must be at least 2 characters.");
+      return;
+    }
+    if (next === displayName) {
+      setEditingName(false);
+      return;
+    }
+
+    setSavingName(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ display_name: next }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        display_name?: string;
+      };
+      if (!res.ok || data.error) {
+        setError(data.error || "Could not update name.");
+        return;
+      }
+      const saved = (data.display_name || next).trim();
+      setDisplayName(saved);
+      setNameDraft(saved);
+      setEditingName(false);
+      setMessage("Display name saved.");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSavingName(false);
+    }
+  }
 
   async function savePrivacy(next: Privacy) {
     setSaving(true);
@@ -52,8 +104,8 @@ export function ProfileSettings({
       }
       setMessage("Privacy settings saved.");
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Network error");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setSaving(false);
     }
@@ -77,8 +129,8 @@ export function ProfileSettings({
       }
       router.push("/onboarding");
       router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Network error");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
       setDeleting(false);
     }
   }
@@ -86,13 +138,64 @@ export function ProfileSettings({
   return (
     <div className="mx-auto max-w-lg space-y-6 px-5 py-10 sm:px-8">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
             You
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            {displayName}
-          </h1>
+          {editingName ? (
+            <form
+              onSubmit={(e) => void saveDisplayName(e)}
+              className="mt-2 space-y-2"
+            >
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                maxLength={48}
+                autoFocus
+                disabled={savingName}
+                className="w-full rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-2xl font-semibold tracking-tight text-white outline-none focus:border-[#1DB954]/50"
+                aria-label="Display name"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={savingName}
+                  className="rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
+                >
+                  {savingName ? "Saving…" : "Save name"}
+                </button>
+                <button
+                  type="button"
+                  disabled={savingName}
+                  onClick={() => {
+                    setNameDraft(displayName);
+                    setEditingName(false);
+                    setError(null);
+                  }}
+                  className="rounded-full border border-white/20 px-4 py-2 text-sm text-white/70 hover:bg-white/10 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="mt-2 flex flex-wrap items-baseline gap-3">
+              <h1 className="text-3xl font-semibold tracking-tight">
+                {displayName}
+              </h1>
+              <button
+                type="button"
+                onClick={() => {
+                  setNameDraft(displayName);
+                  setEditingName(true);
+                  setMessage(null);
+                }}
+                className="text-sm text-white/45 hover:text-[#1DB954]"
+              >
+                Edit name
+              </button>
+            </div>
+          )}
           <p className="mt-1 text-sm text-white/40">{email}</p>
         </div>
         <SignOutButton />
@@ -123,7 +226,7 @@ export function ProfileSettings({
               {
                 key: "privacy_public_profile" as const,
                 title: "Public profile",
-                desc: "Show your display name on RECT SOUND.",
+                desc: "When off, you’re hidden from Portals & Search; tracks show as Private artist.",
               },
               {
                 key: "privacy_show_activity" as const,

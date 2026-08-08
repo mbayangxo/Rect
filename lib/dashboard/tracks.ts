@@ -1,13 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
+import { loadLikeCountMap } from "@/lib/dashboard/likes";
 import {
   genreOverlapScore,
   type ListenerTaste,
 } from "@/lib/dashboard/taste";
-import { isDemoTrack, trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
+import { isDemoTrack, isPublishedTrack, trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 export type RankedTrack = TrackRow & {
   play_count: number;
+  like_count: number;
   artist_name: string | null;
 };
 
@@ -60,7 +63,8 @@ export async function loadRankedTracks(
       };
     }
 
-    const rows = ((data ?? []) as TrackRow[]).filter((t) => !isDemoTrack(t));
+    const rows = ((data ?? []) as TrackRow[])
+      .filter((t) => isPublishedTrack(t) && !isDemoTrack(t));
     if (rows.length === 0) {
       return {
         ok: true,
@@ -76,22 +80,8 @@ export async function loadRankedTracks(
     ];
     const nameById = new Map<string, string>();
     if (artistIds.length > 0) {
-      const { data: artists, error: artistError } = await db
-        .from("users")
-        .select("id, display_name")
-        .in("id", artistIds);
-      if (artistError) {
-        return {
-          ok: false,
-          tracks: [],
-          empty: true,
-          error: artistError.message,
-          source: null,
-        };
-      }
-      for (const a of artists ?? []) {
-        if (a.display_name) nameById.set(a.id, a.display_name);
-      }
+      const map = await loadArtistCreditMap(db, artistIds);
+      for (const [id, name] of map) nameById.set(id, name);
     }
 
     const ids = rows.map((r) => r.id);
@@ -157,6 +147,7 @@ export async function loadRankedTracks(
     }
 
     const preferredGenres = taste?.genres ?? [];
+    const likeCounts = await loadLikeCountMap(db, ids);
 
     const ranked: RankedTrack[] = rows
       .map((r) => ({
@@ -165,6 +156,7 @@ export async function loadRankedTracks(
           ? (nameById.get(r.artist_id) ?? null)
           : null,
         play_count: counts.get(r.id) ?? 0,
+        like_count: likeCounts.get(r.id) ?? 0,
       }))
       .filter((t) => !isDemoTrack(t))
       .sort((a, b) => {
@@ -173,6 +165,7 @@ export async function loadRankedTracks(
         return (
           tasteB - tasteA ||
           b.play_count - a.play_count ||
+          b.like_count - a.like_count ||
           (b.created_at || "").localeCompare(a.created_at || "")
         );
       })

@@ -5,8 +5,15 @@ import { useEffect, useMemo, useState } from "react";
 import { usePlayer } from "@/components/player-provider";
 import { PlayPacksPanel } from "@/components/play-packs-panel";
 import { SignOutButton } from "@/components/sign-out-button";
+import { TrackCover } from "@/components/track-cover";
 import type { ArtistPortal } from "@/lib/dashboard/artists";
+import {
+  formatPlayedAt,
+  type JournalEntry,
+} from "@/lib/dashboard/listening-journal";
 import type { PlayPack } from "@/lib/dashboard/play-packs";
+import { genreToSlug } from "@/lib/dashboard/genres";
+import { placeToSlug } from "@/lib/dashboard/places";
 import {
   formatPlayCount,
   trackArtist,
@@ -24,10 +31,14 @@ type Props = {
   packCountry: string;
   personalized: boolean;
   tasteGenres: string[];
+  tasteCountries: string[];
   creditBalance: number;
   creditsReady: boolean;
   likedTrackIds: string[];
   likesReady: boolean;
+  showArtistStudio?: boolean;
+  continueListening: JournalEntry[];
+  continueError: string | null;
 };
 
 function formatTime(secs: number) {
@@ -49,10 +60,14 @@ export function DashboardShell({
   packCountry,
   personalized,
   tasteGenres,
+  tasteCountries,
   creditBalance,
   creditsReady,
   likedTrackIds,
   likesReady,
+  showArtistStudio = false,
+  continueListening,
+  continueError,
 }: Props) {
   const player = usePlayer();
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -67,7 +82,12 @@ export function DashboardShell({
   const active = useMemo(() => {
     if (player.track) {
       const match = featured.find((t) => t.id === player.track?.id);
-      return match ?? { ...player.track, play_count: 0, artist_name: player.track.artist_name ?? null };
+      return match ?? {
+        ...player.track,
+        play_count: 0,
+        like_count: 0,
+        artist_name: player.track.artist_name ?? null,
+      };
     }
     return featured[0] ?? null;
   }, [player.track, featured]);
@@ -170,8 +190,52 @@ export function DashboardShell({
           <span>Liked songs</span>
           <span>›</span>
         </Link>
+        <Link href="/following" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Following</span>
+          <span>›</span>
+        </Link>
+        <Link href="/inbox" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Inbox</span>
+          <span>›</span>
+        </Link>
+        <Link href="/playlists" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Playlists</span>
+          <span>›</span>
+        </Link>
+        <Link href="/tips" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>My tips</span>
+          <span>›</span>
+        </Link>
+        {showArtistStudio ? (
+          <Link href="/artist" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+            <span>Artist studio</span>
+            <span>›</span>
+          </Link>
+        ) : null}
+        {showArtistStudio ? (
+          <Link href="/artist/inbox" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+            <span>Artist inbox</span>
+            <span>›</span>
+          </Link>
+        ) : null}
         <Link href="/journal" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
           <span>Listening journal</span>
+          <span>›</span>
+        </Link>
+        <Link href="/radio" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>RECT Radio</span>
+          <span>›</span>
+        </Link>
+        <Link href="/genres" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Genres</span>
+          <span>›</span>
+        </Link>
+        <Link href="/new" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>New releases</span>
+          <span>›</span>
+        </Link>
+        <Link href="/places" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Places</span>
           <span>›</span>
         </Link>
         <Link href="/charts" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
@@ -216,8 +280,42 @@ export function DashboardShell({
         <Link href="/library" className="dash-hub-exit">
           Liked <span className="dash-hub-arr">↗</span>
         </Link>
+        <Link href="/following" className="dash-hub-exit">
+          Following <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/inbox" className="dash-hub-exit">
+          Inbox <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/playlists" className="dash-hub-exit">
+          Playlists <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/tips" className="dash-hub-exit">
+          Tips <span className="dash-hub-arr">↗</span>
+        </Link>
+        {showArtistStudio ? (
+          <Link href="/artist" className="dash-hub-exit">
+            Studio <span className="dash-hub-arr">↗</span>
+          </Link>
+        ) : null}
+        {showArtistStudio ? (
+          <Link href="/artist/inbox" className="dash-hub-exit">
+            Inbox <span className="dash-hub-arr">↗</span>
+          </Link>
+        ) : null}
         <Link href="/journal" className="dash-hub-exit">
           Journal <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/radio" className="dash-hub-exit">
+          Radio <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/genres" className="dash-hub-exit">
+          Genres <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/new" className="dash-hub-exit">
+          New <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/places" className="dash-hub-exit">
+          Places <span className="dash-hub-arr">↗</span>
         </Link>
         <Link href="/charts" className="dash-hub-exit">
           Charts <span className="dash-hub-arr">↗</span>
@@ -245,10 +343,30 @@ export function DashboardShell({
             </div>
           ) : active ? (
             <div className="dash-ni-glass">
-              <div className="dash-ni-art min-h-[190px] sm:min-h-[280px] lg:min-h-[340px]">
+              <div
+                className="dash-ni-art min-h-[190px] sm:min-h-[280px] lg:min-h-[340px]"
+                style={
+                  active.cover_art_url
+                    ? {
+                        backgroundImage: `linear-gradient(to top, rgba(4,13,6,0.92) 0%, rgba(4,13,6,0.35) 45%, rgba(4,13,6,0.55) 100%), url(${active.cover_art_url})`,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                      }
+                    : undefined
+                }
+              >
                 <div className="dash-ni-grad" />
                 <div
                   className={`dash-ni-vinyl h-[110px] w-[110px] sm:h-[150px] sm:w-[150px] lg:h-[170px] lg:w-[170px] ${player.playing && player.track?.id === active.id ? "playing" : ""}`}
+                  style={
+                    active.cover_art_url
+                      ? {
+                          backgroundImage: `url(${active.cover_art_url})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }
+                      : undefined
+                  }
                 >
                   <div className="dash-ni-vinyl-center" />
                 </div>
@@ -256,6 +374,9 @@ export function DashboardShell({
                   <span className="dash-ns-count">
                     {personalized ? "For you · " : ""}
                     {formatPlayCount(active.play_count)} plays
+                    {(active.like_count ?? 0) > 0
+                      ? ` · ${formatPlayCount(active.like_count)} likes`
+                      : ""}
                   </span>
                 </div>
                 <div className="dash-ni-identity">
@@ -318,9 +439,49 @@ export function DashboardShell({
                 ) : null}
                 {featured.length > 1 ? (
                   <div className="dash-featured-list">
-                    {personalized && tasteGenres.length > 0 ? (
-                      <p className="mb-2 px-1 text-[0.58rem] uppercase tracking-[0.12em] text-white/35">
-                        Tuned to {tasteGenres.join(" · ")}
+                    {personalized &&
+                    (tasteGenres.length > 0 || tasteCountries.length > 0) ? (
+                      <p className="mb-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 px-1 text-[0.58rem] uppercase tracking-[0.12em] text-white/35">
+                        <span>Tuned to</span>
+                        {tasteGenres.map((g, i) => {
+                          const slug = genreToSlug(g);
+                          return (
+                            <span key={`g-${g}`} className="inline-flex items-center gap-1.5">
+                              {i > 0 ? <span aria-hidden>·</span> : null}
+                              {slug ? (
+                                <Link
+                                  href={`/genres/${slug}`}
+                                  className="text-white/55 hover:text-[#1DB954]"
+                                >
+                                  {g}
+                                </Link>
+                              ) : (
+                                <span>{g}</span>
+                              )}
+                            </span>
+                          );
+                        })}
+                        {tasteGenres.length > 0 && tasteCountries.length > 0 ? (
+                          <span aria-hidden>·</span>
+                        ) : null}
+                        {tasteCountries.map((c, i) => {
+                          const slug = placeToSlug(c);
+                          return (
+                            <span key={`c-${c}`} className="inline-flex items-center gap-1.5">
+                              {i > 0 ? <span aria-hidden>·</span> : null}
+                              {slug ? (
+                                <Link
+                                  href={`/places/${slug}`}
+                                  className="text-white/55 hover:text-[#1DB954]"
+                                >
+                                  {c}
+                                </Link>
+                              ) : (
+                                <span>{c}</span>
+                              )}
+                            </span>
+                          );
+                        })}
                       </p>
                     ) : null}
                     {featured.slice(0, 6).map((t, i) => (
@@ -343,6 +504,51 @@ export function DashboardShell({
         </section>
 
         <div className="dash-side lg:col-span-5">
+        {(continueListening.length > 0 || continueError) && (
+          <>
+            <div className="dash-sh px-0">
+              <span className="dash-sh-t">Continue listening</span>
+              <Link href="/journal" className="dash-sh-m">
+                Journal →
+              </Link>
+            </div>
+            {continueError ? (
+              <div className="dash-empty !mx-0 mb-6" role="alert">
+                <p className="dash-empty-title">Could not load history</p>
+                <p className="dash-empty-body">{continueError}</p>
+              </div>
+            ) : (
+              <ul className="mb-8 space-y-1 px-0">
+                {continueListening.map((t, i) => (
+                  <li key={`${t.id}-${t.play_id}`}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        player.playQueue(
+                          continueListening.filter((x) => x.audio_url),
+                          i,
+                        )
+                      }
+                      className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/[0.05]"
+                    >
+                      <TrackCover track={t} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-white">
+                          {trackTitle(t)}
+                        </p>
+                        <p className="truncate text-xs text-white/40">
+                          {trackArtist(t)} · {formatPlayedAt(t.played_at)}
+                        </p>
+                      </div>
+                      <span className="shrink-0 text-xs text-[#1DB954]">▶</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
         {/* CONNECTION 4 — Artist portals */}
         <div className="dash-sh px-0">
           <span className="dash-sh-t">

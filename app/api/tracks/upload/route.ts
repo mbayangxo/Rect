@@ -6,6 +6,7 @@ import { TRACKS_BUCKET } from "@/lib/tracks";
 export const runtime = "nodejs";
 
 const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
+const MAX_COVER_BYTES = 5 * 1024 * 1024;
 const ALLOWED_AUDIO = new Set([
   "audio/mpeg",
   "audio/mp3",
@@ -15,6 +16,12 @@ const ALLOWED_AUDIO = new Set([
   "audio/aac",
   "audio/ogg",
   "audio/webm",
+]);
+const ALLOWED_COVER = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
 ]);
 
 async function ensureTracksBucket(
@@ -52,6 +59,9 @@ function safeExt(name: string, mime: string) {
   if (mime.includes("wav")) return "wav";
   if (mime.includes("ogg")) return "ogg";
   if (mime.includes("aac") || mime.includes("mp4")) return "m4a";
+  if (mime.includes("png")) return "png";
+  if (mime.includes("webp")) return "webp";
+  if (mime.includes("jpeg") || mime.includes("jpg")) return "jpg";
   return "mp3";
 }
 
@@ -87,6 +97,7 @@ export async function POST(request: Request) {
   const title = String(form.get("title") ?? "").trim();
   const genre = String(form.get("genre") ?? "").trim() || null;
   const audio = form.get("audio");
+  const cover = form.get("cover");
 
   if (title.length < 1 || title.length > 120) {
     return NextResponse.json(
@@ -109,6 +120,24 @@ export async function POST(request: Request) {
       { error: `Unsupported audio type: ${mime}` },
       { status: 400 },
     );
+  }
+
+  let coverFile: File | null = null;
+  if (cover instanceof File && cover.size > 0) {
+    if (cover.size > MAX_COVER_BYTES) {
+      return NextResponse.json(
+        { error: "Cover image must be under 5MB." },
+        { status: 400 },
+      );
+    }
+    const coverMime = cover.type || "image/jpeg";
+    if (!ALLOWED_COVER.has(coverMime) && !coverMime.startsWith("image/")) {
+      return NextResponse.json(
+        { error: `Unsupported cover type: ${coverMime}` },
+        { status: 400 },
+      );
+    }
+    coverFile = cover;
   }
 
   try {
@@ -141,6 +170,34 @@ export async function POST(request: Request) {
   const { data: pub } = admin.storage.from(TRACKS_BUCKET).getPublicUrl(path);
   const audio_url = pub.publicUrl;
 
+  let cover_art_url: string | null = null;
+  const uploadedPaths = [path];
+
+  if (coverFile) {
+    const coverMime = coverFile.type || "image/jpeg";
+    const coverExt = safeExt(coverFile.name || "cover.jpg", coverMime);
+    const coverPath = `${user.id}/covers/${Date.now()}-${crypto.randomUUID()}.${coverExt}`;
+    const coverBuffer = Buffer.from(await coverFile.arrayBuffer());
+    const { error: coverError } = await admin.storage
+      .from(TRACKS_BUCKET)
+      .upload(coverPath, coverBuffer, {
+        contentType: coverMime,
+        upsert: false,
+      });
+    if (coverError) {
+      await admin.storage.from(TRACKS_BUCKET).remove(uploadedPaths);
+      return NextResponse.json(
+        { error: `Cover upload failed: ${coverError.message}` },
+        { status: 500 },
+      );
+    }
+    uploadedPaths.push(coverPath);
+    const { data: coverPub } = admin.storage
+      .from(TRACKS_BUCKET)
+      .getPublicUrl(coverPath);
+    cover_art_url = coverPub.publicUrl;
+  }
+
   // Keep artist role on profile
   const displayName =
     (typeof user.user_metadata?.display_name === "string" &&
@@ -163,33 +220,36 @@ export async function POST(request: Request) {
     audio_url,
     artist_id: user.id,
   };
+  if (cover_art_url) insertPayload.cover_art_url = cover_art_url;
 
   // Match existing DB values (seed uses "pending")
+  let workingPayload = { ...insertPayload };
   const attempts = [
-    { ...insertPayload, status: "pending" },
-    insertPayload,
-    { ...insertPayload, status: "published" },
+    () => ({ ...workingPayload, status: "pending" }),
+    () => ({ ...workingPayload }),
+    () => ({ ...workingPayload, status: "published" }),
   ];
 
   let track: Record<string, unknown> | null = null;
   let lastError: string | null = null;
 
-  for (const row of attempts) {
+  for (const build of attempts) {
+    const row = build();
     const { data, error } = await admin.from("tracks").insert(row).select("*").maybeSingle();
     if (!error && data) {
       track = data;
       break;
     }
     lastError = error?.message ?? "insert failed";
-    // If status column rejects value, try without it next loop
-    if (error && !/status|check|invalid/i.test(error.message) && row === attempts[0]) {
-      // continue
+    if (error && /cover_art_url|column .* does not exist/i.test(error.message)) {
+      delete workingPayload.cover_art_url;
+      cover_art_url = null;
     }
   }
 
   if (!track) {
-    // Roll back file to avoid orphans
-    await admin.storage.from(TRACKS_BUCKET).remove([path]);
+    // Roll back files to avoid orphans
+    await admin.storage.from(TRACKS_BUCKET).remove(uploadedPaths);
     return NextResponse.json(
       { error: `Saved file but could not create track row: ${lastError}` },
       { status: 500 },
@@ -200,5 +260,6 @@ export async function POST(request: Request) {
     ok: true,
     track,
     audio_url,
+    cover_art_url,
   });
 }

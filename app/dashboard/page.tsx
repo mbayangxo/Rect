@@ -5,6 +5,7 @@ import { loadArtistPortals } from "@/lib/dashboard/artists";
 import { loadPlayCreditBalance } from "@/lib/dashboard/credits";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { loadLikedTrackIds } from "@/lib/dashboard/likes";
+import { loadContinueListening } from "@/lib/dashboard/listening-journal";
 import { loadPlayPacks } from "@/lib/dashboard/play-packs";
 import {
   hasTasteSignal,
@@ -57,15 +58,29 @@ export default async function DashboardPage() {
   const taste = tasteFromProfile(current.profile);
   const packCountry = packCountryFromTaste(taste);
   const personalized = hasTasteSignal(taste);
+  const showArtistStudio =
+    current.profile?.account_type === "artist" ||
+    current.profile?.role === "artist" ||
+    (typeof current.user.user_metadata?.role === "string" &&
+      current.user.user_metadata.role === "artist") ||
+    (typeof current.user.user_metadata?.account_type === "string" &&
+      current.user.user_metadata.account_type === "artist");
 
-  const [featuredRes, artistsRes, packsRes, creditsRes, likesRes] =
-    await Promise.all([
-      loadFeaturedTracks(supabase, taste),
-      loadArtistPortals(supabase, taste),
-      loadPlayPacks(supabase, packCountry),
-      loadPlayCreditBalance(supabase),
-      loadLikedTrackIds(supabase, current.user.id),
-    ]);
+  const [
+    featuredRes,
+    artistsRes,
+    packsRes,
+    creditsRes,
+    likesRes,
+    continueRes,
+  ] = await Promise.all([
+    loadFeaturedTracks(supabase, taste),
+    loadArtistPortals(supabase, taste),
+    loadPlayPacks(supabase, packCountry),
+    loadPlayCreditBalance(supabase),
+    loadLikedTrackIds(supabase, current.user.id),
+    loadContinueListening(supabase, current.user.id, 8),
+  ]);
 
   return (
     <DashboardShell
@@ -82,10 +97,14 @@ export default async function DashboardPage() {
       }
       personalized={personalized}
       tasteGenres={taste.genres.slice(0, 3)}
+      tasteCountries={taste.countries.slice(0, 2)}
       creditBalance={creditsRes.credits}
       creditsReady={!creditsRes.missingTable}
       likedTrackIds={likesRes.likedIds}
       likesReady={!likesRes.missingTable}
+      showArtistStudio={showArtistStudio}
+      continueListening={continueRes.entries}
+      continueError={continueRes.error}
     />
   );
 }

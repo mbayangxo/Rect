@@ -1,6 +1,10 @@
 "use client";
 
+import { AddToPlaylist } from "@/components/add-to-playlist";
 import { usePlayer } from "@/components/player-provider";
+import { QueueTrackButton } from "@/components/queue-track-button";
+import { ShareTrackButton } from "@/components/share-track-button";
+import { TrackCover } from "@/components/track-cover";
 import {
   formatPlayCount,
   trackArtist,
@@ -41,9 +45,7 @@ export function ChartTrackRow({
         }}
         className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-90 disabled:opacity-40"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1DB954]/20 text-xs font-bold text-[#1DB954]">
-          {trackTitle(track).slice(0, 2).toUpperCase()}
-        </span>
+        <TrackCover track={track} size="sm" />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">
             {trackTitle(track)}
@@ -59,8 +61,16 @@ export function ChartTrackRow({
           </span>
         ) : null}
       </button>
-      <span className="text-xs tabular-nums text-white/35">
-        {formatPlayCount(track.play_count)}
+      <AddToPlaylist trackId={track.id} compact loginNext="/charts" />
+      <QueueTrackButton track={track} compact />
+            <ShareTrackButton track={track} compact />
+      <span className="shrink-0 text-right text-xs tabular-nums text-white/35">
+        <span className="block">{formatPlayCount(track.play_count)} plays</span>
+        {(track.like_count ?? 0) > 0 ? (
+          <span className="block text-white/25">
+            {formatPlayCount(track.like_count)} likes
+          </span>
+        ) : null}
       </span>
     </li>
   );

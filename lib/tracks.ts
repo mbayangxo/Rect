@@ -24,6 +24,15 @@ export function isDemoTrack(t: TrackRow) {
   );
 }
 
+/**
+ * Live on discovery when status is missing/published.
+ * Explicit pending/draft stay in the artist library only.
+ */
+export function isPublishedTrack(t: Pick<TrackRow, "status">) {
+  const s = (t.status || "published").trim().toLowerCase();
+  return s !== "pending" && s !== "draft" && s !== "unpublished";
+}
+
 export function trackTitle(t: TrackRow) {
   const raw = t.title?.trim() || "Untitled";
   return raw.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim() || "Untitled";

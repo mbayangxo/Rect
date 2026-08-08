@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { AddToPlaylist } from "@/components/add-to-playlist";
 import { usePlayer } from "@/components/player-provider";
+import { QueueTrackButton } from "@/components/queue-track-button";
+import { ShareTrackButton } from "@/components/share-track-button";
+import { TrackCover } from "@/components/track-cover";
 import { trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 export function TrackList({ tracks }: { tracks: TrackRow[] }) {
@@ -22,6 +26,7 @@ export function TrackList({ tracks }: { tracks: TrackRow[] }) {
             <span className="w-6 shrink-0 text-center text-xs tabular-nums text-white/35">
               {i + 1}
             </span>
+            <TrackCover track={t} size="sm" />
             <div className="min-w-0 flex-1">
               <Link
                 href={`/songs/${t.id}`}
@@ -34,6 +39,9 @@ export function TrackList({ tracks }: { tracks: TrackRow[] }) {
                 {t.genre ? ` · ${t.genre}` : ""}
               </p>
             </div>
+            <AddToPlaylist trackId={t.id} compact loginNext={`/songs/${t.id}`} />
+            <QueueTrackButton track={t} compact />
+            <ShareTrackButton track={t} compact />
             <button
               type="button"
               disabled={!canPlay}
