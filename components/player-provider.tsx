@@ -125,6 +125,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [creditNotice, setCreditNotice] = useState<string | null>(null);
+  const nextRef = useRef<() => void>(() => undefined);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
   const [repeat, setRepeat] = useState(false);
@@ -224,11 +225,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
+    const onError = () => {
+      setPlaying(false);
+      setCreditNotice(
+        "Couldn't load this track. Check the audio file or try another song.",
+      );
+      const q = queueRef.current;
+      if (q.length > 1) {
+        window.setTimeout(() => nextRef.current(), 500);
+      }
+    };
 
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onMeta);
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
+    audio.addEventListener("error", onError);
 
     return () => {
       audio.pause();
@@ -236,6 +248,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("error", onError);
       audioRef.current = null;
     };
   }, []);
@@ -315,7 +328,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         .then(() => {
           void recordPlay(next.id);
         })
-        .catch(() => setPlaying(false));
+        .catch(() => {
+          setPlaying(false);
+          setCreditNotice(
+            "Couldn't play this track. The file may be missing or unsupported.",
+          );
+          const q = queueRef.current;
+          if (q.length > 1) {
+            window.setTimeout(() => nextRef.current(), 500);
+          }
+        });
     },
     [recordPlay, syncQueueFlags],
   );
@@ -530,6 +552,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [startTrack]);
 
+  nextRef.current = next;
+
   const prev = useCallback(() => {
     const audio = audioRef.current;
     const q = queueRef.current;
@@ -665,9 +689,19 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-x-0 bottom-[4.5rem] z-50 mx-auto w-full max-w-6xl px-4 sm:px-8 lg:px-10">
           <div className="rounded-xl border border-[#F5A623]/40 bg-[#120e06]/95 px-4 py-3 text-sm text-[#F5A623] backdrop-blur-md">
             {creditNotice}{" "}
-            <a href="/dashboard" className="font-semibold underline">
-              Get a pack
-            </a>
+            {/credit|pack/i.test(creditNotice) ? (
+              <a href="/dashboard" className="font-semibold underline">
+                Get a pack
+              </a>
+            ) : null}
+            {/sign in/i.test(creditNotice) ? (
+              <a
+                href="/auth/login?next=/dashboard"
+                className="font-semibold underline"
+              >
+                Sign in
+              </a>
+            ) : null}
             <button
               type="button"
               className="ml-3 text-xs text-white/50 hover:text-white"

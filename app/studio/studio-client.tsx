@@ -22,6 +22,10 @@ type Props = {
   displayName: string;
   avatarUrl: string | null;
   artistId: string;
+  city: string;
+  artistBio: string;
+  countries: string[];
+  genres: string[];
   tracks: ArtistStatTrack[];
   totalPlays: number;
   publishedCount: number;
@@ -29,6 +33,7 @@ type Props = {
   loadError: string | null;
   focusTrackId?: string | null;
   setupPlaces?: boolean;
+  needsPlaces?: boolean;
 };
 
 function newWriter(name = "", percent = ""): WriterRow {
@@ -43,6 +48,10 @@ export function StudioClient({
   displayName,
   avatarUrl,
   artistId,
+  city,
+  artistBio,
+  countries,
+  genres,
   tracks,
   totalPlays,
   publishedCount,
@@ -50,6 +59,7 @@ export function StudioClient({
   loadError,
   focusTrackId = null,
   setupPlaces = false,
+  needsPlaces = false,
 }: Props) {
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -138,10 +148,13 @@ export function StudioClient({
       }
 
       const trackId = data.track?.id?.trim();
+      const placesNote = needsPlaces
+        ? " Add your place below so you appear on Dakar & Alkebulan charts."
+        : "";
       setSuccess(
         data.writers_error
-          ? `Published “${data.track?.title || title}”. ${data.writers_error}`
-          : `Published “${data.track?.title || title}” — live on Home & Charts.`,
+          ? `Published “${data.track?.title || title}”. ${data.writers_error}${placesNote}`
+          : `Published “${data.track?.title || title}” — live on Home & Charts.${placesNote}`,
       );
       setTitle("");
       setGenre("");
@@ -150,10 +163,19 @@ export function StudioClient({
       setCover(null);
       setWriters([newWriter(displayName, "100")]);
       window.setTimeout(() => {
+        if (needsPlaces) {
+          document
+            .getElementById("studio-profile")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
         router.push(
           trackId
-            ? `/studio?focus=${encodeURIComponent(trackId)}`
-            : "/studio",
+            ? `/studio?focus=${encodeURIComponent(trackId)}${
+                needsPlaces ? "&setup=places" : ""
+              }`
+            : needsPlaces
+              ? "/studio?setup=places"
+              : "/studio",
         );
         router.refresh();
       }, 700);
@@ -205,6 +227,19 @@ export function StudioClient({
           Upload, publish, and manage your catalog. Live tracks appear on Home
           and Charts.
         </p>
+
+        {needsPlaces ? (
+          <div
+            id="studio-places-banner"
+            className="mt-6 rounded-xl border border-[#F5A623]/35 bg-[#F5A623]/10 px-4 py-3 text-sm text-[#F5A623]"
+          >
+            Set at least one place in My portal so your songs can appear on Dakar
+            and Alkebulan chart boards.{" "}
+            <a href="#studio-profile" className="font-semibold underline">
+              Set places now
+            </a>
+          </div>
+        ) : null}
 
         <div className="mt-6 grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
@@ -487,7 +522,16 @@ export function StudioClient({
               </div>
             </div>
             <div className="mt-6 border-t border-white/[0.06] pt-5">
-              <ArtistProfileForm emphasizePlaces={setupPlaces} />
+              <ArtistProfileForm
+                displayName={displayName}
+                city={city}
+                artistBio={artistBio}
+                countries={countries}
+                genres={genres}
+                avatarUrl={avatarUrl}
+                publicPortalHref={`/artists/${artistId}`}
+                emphasizeSetup={setupPlaces || needsPlaces}
+              />
             </div>
           </div>
         </section>

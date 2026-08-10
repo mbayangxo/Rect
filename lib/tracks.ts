@@ -56,12 +56,8 @@ export function trackStatusForWrite(
  * Push live-catalog filters into a tracks query BEFORE .limit().
  * Prevents pending drafts from crowding out real uploads.
  */
-export function withLiveCatalogTracks<
-  Q extends {
-    in: (column: string, values: readonly string[]) => Q;
-    not: (column: string, operator: string, value: null) => Q;
-  },
->(query: Q): Q {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function withLiveCatalogTracks(query: any) {
   return query
     .in("status", [TRACK_STATUS_LIVE, "published"])
     .not("audio_url", "is", null);

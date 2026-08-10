@@ -56,6 +56,18 @@ type StorageDb = {
         }>;
       };
     };
+    update: (row: Record<string, unknown>) => {
+      eq: (col: string, val: string) => {
+        eq: (col: string, val: string) => {
+          select: (cols: string) => {
+            maybeSingle: () => Promise<{
+              data: Record<string, unknown> | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+    };
   };
   rpc: (
     fn: string,
