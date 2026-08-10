@@ -235,13 +235,14 @@ export async function searchCatalog(
         .filter((id) => !artistIds.includes(id));
 
       if (extraIds.length > 0) {
-        const { data: moreTracks } = await db
-          .from("tracks")
-          .select(
-            "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-          )
-          .in("artist_id", extraIds)
-          .limit(30);
+        const { data: moreTracks } = await withLiveCatalogTracks(
+          db
+            .from("tracks")
+            .select(
+              "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at",
+            )
+            .in("artist_id", extraIds),
+        ).limit(30);
         const [extraNames, extraCountries] = await Promise.all([
           loadArtistCreditMap(db, extraIds),
           placeFilter
@@ -285,6 +286,7 @@ export async function searchCatalog(
         (t) =>
           trackTitle(t).toLowerCase().includes(q) ||
           (t.genre || "").toLowerCase().includes(q) ||
+          (t.language || "").toLowerCase().includes(q) ||
           trackArtist(t).toLowerCase().includes(q),
       );
     }

@@ -11,6 +11,10 @@ type Props = {
   /** Where to return after login (defaults to artist portal). */
   loginNext?: string;
   className?: string;
+  /** Hide follower count (e.g. search cards). */
+  showCount?: boolean;
+  /** Compact padding for dense lists. */
+  compact?: boolean;
 };
 
 export function ArtistFollowButton({
@@ -20,6 +24,8 @@ export function ArtistFollowButton({
   followsReady,
   loginNext,
   className = "mt-5",
+  showCount = true,
+  compact = false,
 }: Props) {
   const router = useRouter();
   const [following, setFollowing] = useState(initialFollowing);
@@ -78,6 +84,8 @@ export function ArtistFollowButton({
     }
   }
 
+  const pad = compact ? "px-3 py-1.5 text-xs" : "px-5 py-2 text-sm";
+
   return (
     <div className={`flex flex-wrap items-center gap-3 ${className}`}>
       <button
@@ -86,16 +94,18 @@ export function ArtistFollowButton({
         disabled={!followsReady || pending}
         className={
           following
-            ? "rounded-full border border-white/25 bg-white/10 px-5 py-2 text-sm font-semibold text-white hover:bg-white/15 disabled:opacity-50"
-            : "rounded-full bg-[#1DB954] px-5 py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
+            ? `rounded-full border border-white/25 bg-white/10 ${pad} font-semibold text-white hover:bg-white/15 disabled:opacity-50`
+            : `rounded-full bg-[#1DB954] ${pad} font-semibold text-black hover:bg-[#17a349] disabled:opacity-50`
         }
       >
         {pending ? "…" : following ? "Following" : "Follow"}
       </button>
-      <p className="text-sm text-white/45">
-        {count.toLocaleString()}{" "}
-        {count === 1 ? "follower" : "followers"}
-      </p>
+      {showCount ? (
+        <p className="text-sm text-white/45">
+          {count.toLocaleString()}{" "}
+          {count === 1 ? "follower" : "followers"}
+        </p>
+      ) : null}
       {error ? (
         <p className="w-full text-sm text-[#1DB954]" role="alert">
           {error}
@@ -103,7 +113,9 @@ export function ArtistFollowButton({
       ) : null}
       {!followsReady ? (
         <p className="w-full text-xs text-white/35">
-          Run artist follows SQL in Supabase to enable Follow.
+          {showCount
+            ? "Run artist follows SQL in Supabase to enable Follow."
+            : "Follow unavailable"}
         </p>
       ) : null}
     </div>
