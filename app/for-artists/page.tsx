@@ -1,7 +1,31 @@
 import Link from "next/link";
+import { BecomeArtistButton } from "@/components/become-artist-button";
 import { RectLogo } from "@/components/rect-logo";
+import { createClient } from "@/lib/supabase/server";
 
-export default function ForArtistsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ForArtistsPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let isArtist = false;
+  if (user) {
+    const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role, account_type")
+      .eq("id", user.id)
+      .maybeSingle();
+    isArtist =
+      profile?.account_type === "artist" ||
+      profile?.role === "artist" ||
+      meta.account_type === "artist" ||
+      meta.role === "artist";
+  }
+
   return (
     <main className="relative min-h-full overflow-x-hidden bg-[#040d06] text-[#f8f8f8]">
       <div
@@ -13,12 +37,21 @@ export default function ForArtistsPage() {
           <Link href="/">
             <RectLogo size={36} showWordmark />
           </Link>
-          <Link
-            href="/auth/login?next=/artist"
-            className="text-sm text-white/60 hover:text-white"
-          >
-            Log in
-          </Link>
+          {user ? (
+            <Link
+              href="/dashboard"
+              className="text-sm text-white/60 hover:text-white"
+            >
+              Hub
+            </Link>
+          ) : (
+            <Link
+              href="/auth/login?next=/for-artists"
+              className="text-sm text-white/60 hover:text-white"
+            >
+              Log in
+            </Link>
+          )}
         </header>
 
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#1DB954]">
@@ -28,8 +61,9 @@ export default function ForArtistsPage() {
           Upload. Reach Africa. Get paid fairly.
         </h1>
         <p className="mt-5 text-base leading-relaxed text-white/55">
-          RECT for artists is separate from listening. Fans discover music on
-          the main app — you manage your catalog here.
+          {user && !isArtist
+            ? "You’re already on RECT as a listener. Turn on Studio on this same account — no new signup."
+            : "RECT for artists lives alongside listening. Fans discover music on the main app — you manage your catalog in Studio."}
         </p>
 
         <ul className="mt-8 space-y-3 text-sm text-white/70">
@@ -39,26 +73,50 @@ export default function ForArtistsPage() {
         </ul>
 
         <div className="mt-12 flex flex-col gap-3">
-          <Link
-            href="/auth/signup/artist"
-            className="rounded-full bg-[#1DB954] py-3.5 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
-          >
-            Create artist account
-          </Link>
-          <Link
-            href="/auth/login?next=/artist"
-            className="rounded-full border border-white/15 py-3.5 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
-          >
-            Artist log in
-          </Link>
+          {isArtist ? (
+            <Link
+              href="/studio"
+              className="rounded-full bg-[#1DB954] py-3.5 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
+            >
+              Open Studio
+            </Link>
+          ) : user ? (
+            <>
+              <BecomeArtistButton />
+              <p className="text-center text-xs text-white/40">
+                Keeps your likes, journal, and follows on this account. Next:
+                set places &amp; genres so Charts can find you.
+              </p>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/auth/signup/artist"
+                className="rounded-full bg-[#1DB954] py-3.5 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
+              >
+                Create artist account
+              </Link>
+              <Link
+                href="/auth/login?next=/for-artists"
+                className="rounded-full border border-white/15 py-3.5 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
+              >
+                Log in to upgrade
+              </Link>
+            </>
+          )}
         </div>
 
-        <p className="mt-10 text-center text-sm text-white/40">
-          Just want to listen?{" "}
-          <Link href="/auth/signup" className="text-[#1DB954] hover:underline">
-            Sign up as a fan
-          </Link>
-        </p>
+        {!user ? (
+          <p className="mt-10 text-center text-sm text-white/40">
+            Just want to listen?{" "}
+            <Link
+              href="/auth/signup"
+              className="text-[#1DB954] hover:underline"
+            >
+              Sign up as a fan
+            </Link>
+          </p>
+        ) : null}
       </div>
     </main>
   );
