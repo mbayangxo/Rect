@@ -2,8 +2,8 @@
 -- Phase 1: track status + writer splits
 -- Paste in Supabase SQL Editor → Run
 --
--- Live catalog uses status = 'live' (DB check). App also accepts
--- 'published' as an alias mapped to 'live' on write.
+-- tracks.id is UUID — writer splits must use uuid track_id.
+-- Live catalog status = 'live' (pending = draft).
 -- ============================================================
 
 -- Allow pending (draft) + live (public). Keep published as alias for safety.
@@ -24,10 +24,14 @@ where lower(coalesce(status, '')) = 'published';
 alter table public.tracks
   alter column status set default 'pending';
 
--- Writer splits (name + percent, must total 100 via RPC)
-create table if not exists public.track_writer_splits (
+-- Recreate writer splits with uuid FK matching tracks.id
+drop function if exists public.set_track_writer_splits(text, jsonb);
+drop function if exists public.set_track_writer_splits(uuid, jsonb);
+drop table if exists public.track_writer_splits cascade;
+
+create table public.track_writer_splits (
   id bigserial primary key,
-  track_id text not null references public.tracks (id) on delete cascade,
+  track_id uuid not null references public.tracks (id) on delete cascade,
   writer_name text not null,
   share_percent numeric(5, 2) not null
     check (share_percent > 0 and share_percent <= 100),
@@ -35,7 +39,7 @@ create table if not exists public.track_writer_splits (
   created_at timestamptz not null default now()
 );
 
-create index if not exists track_writer_splits_track_id_idx
+create index track_writer_splits_track_id_idx
   on public.track_writer_splits (track_id);
 
 alter table public.track_writer_splits enable row level security;
@@ -100,7 +104,7 @@ create policy "track_writer_splits_delete_own"
   );
 
 create or replace function public.set_track_writer_splits(
-  p_track_id text,
+  p_track_id uuid,
   p_writers jsonb
 )
 returns jsonb
@@ -121,7 +125,7 @@ begin
     raise exception 'not_authenticated';
   end if;
 
-  if p_track_id is null or length(trim(p_track_id)) = 0 then
+  if p_track_id is null then
     raise exception 'track_required';
   end if;
 
@@ -184,10 +188,11 @@ begin
 end;
 $$;
 
-revoke all on function public.set_track_writer_splits(text, jsonb) from public;
-grant execute on function public.set_track_writer_splits(text, jsonb) to authenticated;
+revoke all on function public.set_track_writer_splits(uuid, jsonb) from public;
+grant execute on function public.set_track_writer_splits(uuid, jsonb) to authenticated;
 
 -- Release notify: accept live OR published
+-- Keep p_track_id text so existing callers still match; cast to uuid for tracks.id.
 create or replace function public.notify_track_release(p_track_id text)
 returns jsonb
 language plpgsql
@@ -196,6 +201,7 @@ set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
+  v_track uuid;
   v_artist uuid;
   v_title text;
   v_status text;
@@ -210,10 +216,16 @@ begin
     raise exception 'track_required';
   end if;
 
+  begin
+    v_track := trim(p_track_id)::uuid;
+  exception when others then
+    raise exception 'track_required';
+  end;
+
   select artist_id, title, status
   into v_artist, v_title, v_status
   from public.tracks
-  where id = p_track_id;
+  where id = v_track;
 
   if not found then
     raise exception 'track_not_found';
@@ -245,7 +257,7 @@ begin
       v_uid,
       'release',
       coalesce(nullif(trim(v_title), ''), 'New track'),
-      p_track_id
+      v_track::text
     );
     v_count := v_count + 1;
   end loop;

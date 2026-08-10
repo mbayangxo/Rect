@@ -1,11 +1,16 @@
 -- ============================================================
 -- Track writer splits — paste in Supabase SQL Editor → Run
--- Requires tracks
+-- Prefer 20260810_phase1_track_live_status.sql (includes status fix)
+-- tracks.id is UUID
 -- ============================================================
 
-create table if not exists public.track_writer_splits (
+drop function if exists public.set_track_writer_splits(text, jsonb);
+drop function if exists public.set_track_writer_splits(uuid, jsonb);
+drop table if exists public.track_writer_splits cascade;
+
+create table public.track_writer_splits (
   id bigserial primary key,
-  track_id text not null references public.tracks (id) on delete cascade,
+  track_id uuid not null references public.tracks (id) on delete cascade,
   writer_name text not null,
   share_percent numeric(5, 2) not null
     check (share_percent > 0 and share_percent <= 100),
@@ -13,7 +18,7 @@ create table if not exists public.track_writer_splits (
   created_at timestamptz not null default now()
 );
 
-create index if not exists track_writer_splits_track_id_idx
+create index track_writer_splits_track_id_idx
   on public.track_writer_splits (track_id);
 
 alter table public.track_writer_splits enable row level security;
@@ -28,7 +33,7 @@ create policy "track_writer_splits_select_public"
       where t.id = track_id
         and (
           t.artist_id = auth.uid()
-          or lower(coalesce(t.status, 'published'))
+          or lower(coalesce(t.status, 'live'))
             not in ('pending', 'draft', 'unpublished')
         )
     )
@@ -77,9 +82,8 @@ create policy "track_writer_splits_delete_own"
     )
   );
 
--- Replace splits for a track; sum must equal 100.
 create or replace function public.set_track_writer_splits(
-  p_track_id text,
+  p_track_id uuid,
   p_writers jsonb
 )
 returns jsonb
@@ -100,7 +104,7 @@ begin
     raise exception 'not_authenticated';
   end if;
 
-  if p_track_id is null or length(trim(p_track_id)) = 0 then
+  if p_track_id is null then
     raise exception 'track_required';
   end if;
 
@@ -163,7 +167,7 @@ begin
 end;
 $$;
 
-revoke all on function public.set_track_writer_splits(text, jsonb) from public;
-grant execute on function public.set_track_writer_splits(text, jsonb) to authenticated;
+revoke all on function public.set_track_writer_splits(uuid, jsonb) from public;
+grant execute on function public.set_track_writer_splits(uuid, jsonb) to authenticated;
 
 notify pgrst, 'reload schema';
