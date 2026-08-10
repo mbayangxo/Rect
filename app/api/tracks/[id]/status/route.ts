@@ -1,16 +1,27 @@
 import { NextResponse } from "next/server";
 import { notifyTrackRelease } from "@/lib/dashboard/notifications";
 import { createClient } from "@/lib/supabase/server";
-import { isPublishedTrack } from "@/lib/tracks";
+import {
+  isPublishedTrack,
+  trackStatusForWrite,
+  TRACK_STATUS_LIVE,
+  TRACK_STATUS_PENDING,
+} from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
 type Body = { status?: string };
 type Params = { params: Promise<{ id: string }> };
 
-const ALLOWED = new Set(["pending", "published"]);
+const ALLOWED_INTENTS = new Set([
+  "pending",
+  "published",
+  "live",
+  "draft",
+  "unpublished",
+]);
 
-/** Artist toggles own track between pending and published. */
+/** Artist toggles own track between draft (pending) and live catalog. */
 export async function PATCH(request: Request, { params }: Params) {
   const { id } = await params;
   const trackId = id?.trim();
@@ -35,13 +46,15 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
-  const status = (body.status || "").trim().toLowerCase();
-  if (!ALLOWED.has(status)) {
+  const intent = (body.status || "").trim().toLowerCase();
+  if (!ALLOWED_INTENTS.has(intent)) {
     return NextResponse.json(
-      { error: "Status must be pending or published." },
+      { error: "Status must be pending or live/published." },
       { status: 400 },
     );
   }
+
+  const status = trackStatusForWrite(intent);
 
   const { data: existing, error: findError } = await supabase
     .from("tracks")
@@ -61,20 +74,36 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const wasPublished = isPublishedTrack(existing);
 
-  const { data, error } = await supabase
-    .from("tracks")
-    .update({ status })
-    .eq("id", trackId)
-    .eq("artist_id", user.id)
-    .select("id, title, status, artist_id")
-    .maybeSingle();
+  let data: { id: string; title: string | null; status: string | null; artist_id: string | null } | null =
+    null;
+  let error: { message: string } | null = null;
+
+  // Prefer DB-canonical `live`; fall back to `published` if an older check allows only that.
+  const writeOrder =
+    status === TRACK_STATUS_LIVE
+      ? [TRACK_STATUS_LIVE, "published"]
+      : [TRACK_STATUS_PENDING];
+
+  for (const writeStatus of writeOrder) {
+    const result = await supabase
+      .from("tracks")
+      .update({ status: writeStatus })
+      .eq("id", trackId)
+      .eq("artist_id", user.id)
+      .select("id, title, status, artist_id")
+      .maybeSingle();
+    data = result.data;
+    error = result.error;
+    if (!error && data) break;
+    if (error && !/tracks_status_check/i.test(error.message)) break;
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   let notified = 0;
-  if (status === "published" && !wasPublished) {
+  if (status === TRACK_STATUS_LIVE && !wasPublished) {
     const release = await notifyTrackRelease(supabase, trackId);
     notified = release.notified;
   }

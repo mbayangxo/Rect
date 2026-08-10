@@ -6,7 +6,7 @@ import {
 } from "@/lib/cultural-options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { TRACKS_BUCKET } from "@/lib/tracks";
+import { TRACKS_BUCKET, isPublishedTrack, trackStatusForWrite } from "@/lib/tracks";
 
 export const runtime = "nodejs";
 
@@ -348,16 +348,20 @@ export async function POST(request: Request) {
   if (language) insertPayload.language = language;
 
   let workingPayload = { ...insertPayload };
+  const liveStatus = trackStatusForWrite("live");
+  const draftStatus = trackStatusForWrite("pending");
+  // DB check historically allows pending|live (not "published").
   const attempts = publish
     ? [
+        () => ({ ...workingPayload, status: liveStatus }),
         () => ({ ...workingPayload, status: "published" }),
         () => ({ ...workingPayload }),
-        () => ({ ...workingPayload, status: "pending" }),
+        () => ({ ...workingPayload, status: draftStatus }),
       ]
     : [
-        () => ({ ...workingPayload, status: "pending" }),
+        () => ({ ...workingPayload, status: draftStatus }),
         () => ({ ...workingPayload }),
-        () => ({ ...workingPayload, status: "published" }),
+        () => ({ ...workingPayload, status: liveStatus }),
       ];
 
   let track: Record<string, unknown> | null = null;
@@ -399,6 +403,28 @@ export async function POST(request: Request) {
   }
 
   const trackId = String(track.id ?? "");
+
+  // If Publish was requested but insert landed as draft (legacy default/trigger), force live.
+  if (
+    publish &&
+    trackId &&
+    !isPublishedTrack({ status: String(track.status ?? "") })
+  ) {
+    for (const writeStatus of [liveStatus, "published"] as const) {
+      const { data: updated, error: upErr } = await db
+        .from("tracks")
+        .update({ status: writeStatus })
+        .eq("id", trackId)
+        .eq("artist_id", user.id)
+        .select("*")
+        .maybeSingle();
+      if (!upErr && updated) {
+        track = updated;
+        break;
+      }
+      if (upErr && !/tracks_status_check/i.test(upErr.message)) break;
+    }
+  }
   let writersSaved = false;
   let writersError: string | null = null;
   if (writers && trackId) {
@@ -417,7 +443,7 @@ export async function POST(request: Request) {
         )
       ) {
         writersError =
-          "Run 20260810_track_writer_splits.sql to store writer splits.";
+          "Run 20260810_phase1_track_live_status.sql in Supabase SQL Editor for writer splits.";
       } else {
         writersError = splitErr.message;
       }

@@ -60,7 +60,7 @@ function buildWav() {
 }
 
 function isPublished(status) {
-  const s = (status || "published").trim().toLowerCase();
+  const s = (status || "live").trim().toLowerCase();
   return s !== "pending" && s !== "draft" && s !== "unpublished";
 }
 
@@ -205,7 +205,7 @@ async function main() {
         language: "Wolof",
         audio_url: audioUrl,
         artist_id: userId,
-        status: "published",
+        status: "live",
         duration_secs: 1,
       },
       {
@@ -213,13 +213,7 @@ async function main() {
         genre: "Afrobeats",
         audio_url: audioUrl,
         artist_id: userId,
-        status: "published",
-      },
-      {
-        title,
-        genre: "Afrobeats",
-        audio_url: audioUrl,
-        artist_id: userId,
+        status: "live",
       },
     ]) {
       const { data, error } = await userClient
@@ -227,6 +221,12 @@ async function main() {
         .insert(row)
         .select("*")
         .maybeSingle();
+      console.log(
+        "insert attempt",
+        row.status,
+        row.language || "-",
+        error?.message || data?.status,
+      );
       if (!error && data) {
         inserted = data;
         break;
@@ -236,6 +236,22 @@ async function main() {
     if (!inserted) throw new Error(`tracks insert: ${lastErr}`);
     trackId = inserted.id;
 
+    if (!isPublished(inserted.status)) {
+      const forced = await userClient
+        .from("tracks")
+        .update({ status: "live" })
+        .eq("id", trackId)
+        .select("*")
+        .maybeSingle();
+      if (forced.error || !forced.data) {
+        throw new Error(
+          `force live: ${forced.error?.message || "update returned empty"}`,
+        );
+      }
+      inserted = forced.data;
+      console.log("forced live", inserted.status);
+    }
+
     const splits = await userClient.rpc("set_track_writer_splits", {
       p_track_id: trackId,
       p_writers: [{ name: "Studio E2E Artist", percent: 100 }],
@@ -244,31 +260,37 @@ async function main() {
       "writer splits",
       splits.error?.message || "ok",
       splits.error
-        ? "(run 20260810_track_writer_splits.sql if missing)"
+        ? "(run 20260810_phase1_track_live_status.sql if missing)"
         : "",
     );
   }
 
   console.log("track", trackId, audioUrl);
 
-  const { data: row, error: rowErr } = await userClient
+  // Public anon client — must see live tracks on Home/Charts
+  const anonClient = createClient(url, anon, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: row, error: rowErr } = await anonClient
     .from("tracks")
     .select("id,title,status,audio_url,artist_id,genre,language")
     .eq("id", trackId)
     .maybeSingle();
-  if (rowErr || !row) throw new Error(`reload track: ${rowErr?.message}`);
+  if (rowErr) throw new Error(`public reload: ${rowErr.message}`);
+  if (!row) throw new Error("public reload: track not visible (need status=live)");
 
   const live = isPublished(row.status) && Boolean(row.audio_url);
   console.log("published?", live, "status=", row.status);
 
-  // Home / charts eligibility: published + not demo
-  const { data: ranked, error: rankErr } = await userClient
-    .from("tracks")
-    .select("id,title,status,audio_url")
-    .eq("id", trackId)
+  // Record a play (Phase 1 song plays)
+  const play = await userClient
+    .from("plays")
+    .insert({ track_id: trackId, listener_id: userId })
+    .select("id")
     .maybeSingle();
-  if (rankErr) throw new Error(rankErr.message);
-  const onFeed = ranked && isPublished(ranked.status) && ranked.audio_url;
+  console.log("play", play.error?.message || play.data?.id);
+
+  const onFeed = live;
   console.log("home/charts eligible?", Boolean(onFeed));
 
   if (!live || !onFeed) {
@@ -276,17 +298,26 @@ async function main() {
     process.exit(2);
   }
 
+  if (play.error) {
+    console.error("FAIL: play insert", play.error.message);
+    process.exit(3);
+  }
+
   console.log(
     JSON.stringify(
       {
         ok: true,
+        phase: 1,
         email,
         password,
         userId,
         trackId,
         title,
+        status: row.status,
         audioUrl,
-        note: "Open / and /charts — track should appear (Senegal → Dakar board).",
+        playId: play.data?.id ?? null,
+        note: "Open / and /charts — live track should appear.",
+        sql: "Paste supabase/migrations/20260810_phase1_track_live_status.sql for writer splits + status aliases.",
       },
       null,
       2,
