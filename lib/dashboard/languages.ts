@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CULTURAL_GENRES } from "@/lib/cultural-options";
+import { CULTURAL_LANGUAGES } from "@/lib/cultural-options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
 import { loadLikeCountMap } from "@/lib/dashboard/likes";
@@ -11,24 +11,24 @@ import {
   type TrackRow,
 } from "@/lib/tracks";
 
-export type GenreHub = {
+export type LanguageHub = {
   slug: string;
   name: string;
   track_count: number;
   for_you: boolean;
 };
 
-export type GenreTrack = TrackRow & {
+export type LanguageTrack = TrackRow & {
   artist_name: string | null;
   like_count: number;
 };
 
-function normalizeGenreName(raw: string) {
+function normalizeLanguageName(raw: string) {
   return raw.trim().replace(/\s+/g, " ");
 }
 
-export function genreToSlug(name: string) {
-  return normalizeGenreName(name)
+export function languageToSlug(name: string) {
+  return normalizeLanguageName(name)
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -37,28 +37,29 @@ export function genreToSlug(name: string) {
     .slice(0, 64);
 }
 
-export function genresMatch(a: string, b: string) {
-  return genreToSlug(a) === genreToSlug(b);
+export function languagesMatch(a: string, b: string) {
+  return languageToSlug(a) === languageToSlug(b);
 }
 
 /**
- * Resolve ?genre= from slug or display name to a canonical label.
+ * Resolve ?language= from slug or display name to a canonical label.
+ * Returns null when empty / unusable.
  */
-export function resolveGenreParam(
+export function resolveLanguageParam(
   raw: string | null | undefined,
 ): string | null {
   if (!raw) return null;
   const t = raw.trim();
   if (!t) return null;
-  const slug = genreToSlug(t);
+  const slug = languageToSlug(t);
   if (!slug) return null;
 
-  // Prefer catalog spelling when it matches a known cultural genre
-  for (const name of CULTURAL_GENRES) {
-    if (genreToSlug(name) === slug) return name;
+  // Prefer catalog spelling when it matches a known cultural language
+  for (const name of CULTURAL_LANGUAGES) {
+    if (languageToSlug(name) === slug) return name;
   }
 
-  // Title-case from slug when input was a slug.
+  // Free-text / hub name: title-case-ish from slug words
   if (t.includes("-") || t === slug) {
     return slug
       .split("-")
@@ -66,34 +67,41 @@ export function resolveGenreParam(
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ");
   }
-  return normalizeGenreName(t);
+  return normalizeLanguageName(t);
 }
 
-export function trackMatchesGenre(
-  trackGenre: string | null | undefined,
+export function trackMatchesLanguage(
+  trackLanguage: string | null | undefined,
   filter: string | null | undefined,
 ) {
   if (!filter) return true;
-  if (!trackGenre) return false;
-  return genresMatch(trackGenre, filter);
+  if (!trackLanguage) return false;
+  return languagesMatch(trackLanguage, filter);
 }
 
 /**
- * Genre hubs from published catalog tracks.
+ * Language hubs from published catalog tracks.
  */
-export async function loadGenreHubs(
+export async function loadLanguageHubs(
   supabase: SupabaseClient,
   taste?: ListenerTaste | null,
-): Promise<{ hubs: GenreHub[]; error: string | null }> {
+): Promise<{ hubs: LanguageHub[]; error: string | null }> {
   try {
     const admin = createAdminClient();
     const db = admin ?? supabase;
 
     const { data, error } = await withLiveCatalogTracks(
-      db.from("tracks").select("id, title, genre, status"),
+      db.from("tracks").select("id, title, language, status"),
     )
       .order("created_at", { ascending: false })
       .limit(400);
+
+    if (error && /language|column .* does not exist/i.test(error.message)) {
+      return {
+        hubs: [],
+        error: "Run 20260809_tracks_language.sql to unlock language hubs.",
+      };
+    }
 
     if (error) {
       return { hubs: [], error: error.message };
@@ -105,9 +113,10 @@ export async function loadGenreHubs(
 
     const counts = new Map<string, { name: string; count: number }>();
     for (const t of rows) {
-      const name = typeof t.genre === "string" ? normalizeGenreName(t.genre) : "";
+      const name =
+        typeof t.language === "string" ? normalizeLanguageName(t.language) : "";
       if (!name) continue;
-      const slug = genreToSlug(name);
+      const slug = languageToSlug(name);
       if (!slug) continue;
       const prev = counts.get(slug);
       if (prev) {
@@ -118,10 +127,10 @@ export async function loadGenreHubs(
     }
 
     const tasteSlugs = new Set(
-      (taste?.genres ?? []).map((g) => genreToSlug(g)).filter(Boolean),
+      (taste?.languages ?? []).map((l) => languageToSlug(l)).filter(Boolean),
     );
 
-    const hubs: GenreHub[] = [...counts.entries()]
+    const hubs: LanguageHub[] = [...counts.entries()]
       .map(([slug, v]) => ({
         slug,
         name: v.name,
@@ -139,24 +148,24 @@ export async function loadGenreHubs(
   } catch (e) {
     return {
       hubs: [],
-      error: e instanceof Error ? e.message : "Failed to load genres",
+      error: e instanceof Error ? e.message : "Failed to load languages",
     };
   }
 }
 
-export async function loadGenreTracks(
+export async function loadLanguageTracks(
   supabase: SupabaseClient,
   slug: string,
   limit = 40,
 ): Promise<{
-  genreName: string | null;
-  tracks: GenreTrack[];
+  languageName: string | null;
+  tracks: LanguageTrack[];
   error: string | null;
   notFound: boolean;
 }> {
-  const cleanSlug = genreToSlug(slug);
+  const cleanSlug = languageToSlug(slug);
   if (!cleanSlug) {
-    return { genreName: null, tracks: [], error: null, notFound: true };
+    return { languageName: null, tracks: [], error: null, notFound: true };
   }
 
   try {
@@ -167,15 +176,24 @@ export async function loadGenreTracks(
       db
         .from("tracks")
         .select(
-          "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
+          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at",
         ),
     )
       .order("created_at", { ascending: false })
       .limit(300);
 
+    if (error && /language|column .* does not exist/i.test(error.message)) {
+      return {
+        languageName: null,
+        tracks: [],
+        error: "Run 20260809_tracks_language.sql to unlock language hubs.",
+        notFound: false,
+      };
+    }
+
     if (error) {
       return {
-        genreName: null,
+        languageName: null,
         tracks: [],
         error: error.message,
         notFound: false,
@@ -184,21 +202,21 @@ export async function loadGenreTracks(
 
     const matched = ((data ?? []) as TrackRow[]).filter((t) => {
       if (!isPublishedTrack(t) || isDemoTrack(t)) return false;
-      const g = typeof t.genre === "string" ? t.genre : "";
-      return genresMatch(g, cleanSlug);
+      const lang = typeof t.language === "string" ? t.language : "";
+      return languagesMatch(lang, cleanSlug);
     });
 
     if (matched.length === 0) {
       return {
-        genreName: null,
+        languageName: null,
         tracks: [],
         error: null,
         notFound: true,
       };
     }
 
-    const genreName =
-      normalizeGenreName(matched[0].genre || cleanSlug) || cleanSlug;
+    const languageName =
+      normalizeLanguageName(matched[0].language || cleanSlug) || cleanSlug;
 
     const sliced = matched.slice(0, limit);
     const artistIds = [
@@ -210,7 +228,7 @@ export async function loadGenreTracks(
       sliced.map((t) => t.id),
     );
 
-    const tracks: GenreTrack[] = sliced.map((t) => ({
+    const tracks: LanguageTrack[] = sliced.map((t) => ({
       ...t,
       artist_name: t.artist_id
         ? (nameById.get(t.artist_id) ?? null)
@@ -218,12 +236,12 @@ export async function loadGenreTracks(
       like_count: likes.get(t.id) ?? 0,
     }));
 
-    return { genreName, tracks, error: null, notFound: false };
+    return { languageName, tracks, error: null, notFound: false };
   } catch (e) {
     return {
-      genreName: null,
+      languageName: null,
       tracks: [],
-      error: e instanceof Error ? e.message : "Failed to load genre",
+      error: e instanceof Error ? e.message : "Failed to load language",
       notFound: false,
     };
   }

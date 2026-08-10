@@ -17,6 +17,7 @@ import { PlayerLikeButton } from "@/components/player-like-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
 import { PRIVATE_ARTIST_LABEL } from "@/lib/dashboard/privacy";
+import { publishCreditsRemaining } from "@/lib/credits-live";
 import { trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 const PLAYER_PREFS_KEY = "rect-player-prefs";
@@ -135,6 +136,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [queueOpen, setQueueOpen] = useState(false);
   const [savingQueue, setSavingQueue] = useState(false);
   const recordedFor = useRef<string | null>(null);
+  const trackRef = useRef<TrackRow | null>(null);
+  const durationPersistedFor = useRef<string | null>(null);
   const queueRef = useRef<TrackRow[]>([]);
   const queueIndexRef = useRef(0);
   const repeatRef = useRef(false);
@@ -184,13 +187,41 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, [repeat, syncQueueFlags]);
 
   useEffect(() => {
+    trackRef.current = track;
+  }, [track]);
+
+  useEffect(() => {
     const audio = new Audio();
     audio.preload = "metadata";
     audio.volume = 1;
     audioRef.current = audio;
 
     const onTime = () => setCurrentTime(audio.currentTime || 0);
-    const onMeta = () => setDuration(audio.duration || 0);
+    const onMeta = () => {
+      const secs = audio.duration || 0;
+      setDuration(secs);
+      const current = trackRef.current;
+      if (!current?.id || !Number.isFinite(secs) || secs < 1) return;
+      const existing = Number(current.duration_secs);
+      if (Number.isFinite(existing) && existing > 0) return;
+      if (durationPersistedFor.current === current.id) return;
+      durationPersistedFor.current = current.id;
+      const rounded = Math.round(secs);
+      void fetch(`/api/tracks/${current.id}/duration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ duration_secs: rounded }),
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          setTrack((t) =>
+            t && t.id === current.id ? { ...t, duration_secs: rounded } : t,
+          );
+        })
+        .catch(() => {
+          /* best-effort catalog fill */
+        });
+    };
     const onPlay = () => setPlaying(true);
     const onPause = () => setPlaying(false);
 
@@ -229,6 +260,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           recordedFor.current = null;
           commitQueue([], 0);
           setQueueOpen(false);
+          publishCreditsRemaining(0);
           const data = (await res.json().catch(() => null)) as {
             error?: string;
           } | null;
@@ -241,9 +273,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             audio.pause();
             setPlaying(false);
           }
+          return;
+        }
+
+        if (res.ok) {
+          const data = (await res.json().catch(() => null)) as {
+            credits_remaining?: number | null;
+          } | null;
+          if (
+            typeof data?.credits_remaining === "number" &&
+            Number.isFinite(data.credits_remaining)
+          ) {
+            publishCreditsRemaining(data.credits_remaining);
+          }
+        } else {
+          // Allow a later signed-in session to record this listen.
+          recordedFor.current = null;
+          if (res.status === 401) {
+            setCreditNotice("Sign in to save plays and climb the charts.");
+          }
         }
       } catch {
-        /* play logging is best-effort */
+        recordedFor.current = null;
       }
     },
     [commitQueue],
@@ -255,6 +306,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (!audio || !next.audio_url) return;
       setTrack(next);
       recordedFor.current = null;
+      durationPersistedFor.current = null;
       setCreditNotice(null);
       syncQueueFlags();
       audio.src = next.audio_url;
@@ -857,6 +909,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   compact
                   dropUp
                   loginNext={`/songs/${track.id}`}
+                  trackId={track.id}
+                  trackTitle={trackTitle(track)}
                 />
               </>
             ) : null}
@@ -867,7 +921,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               dropUp
               loginNext={`/songs/${track.id}`}
             />
-            <ShareTrackButton track={track} compact />
+            <ShareTrackButton track={track} compact dropUp />
           </div>
         </div>
       ) : null}

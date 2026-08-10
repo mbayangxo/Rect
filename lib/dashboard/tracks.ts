@@ -1,12 +1,28 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
+import {
+  artistMatchesPlaces,
+  DAKAR_CHART_PLACES,
+  placeOverlapScore,
+} from "@/lib/dashboard/charts";
+import { trackMatchesGenre } from "@/lib/dashboard/genres";
+import { trackMatchesLanguage } from "@/lib/dashboard/languages";
 import { loadLikeCountMap } from "@/lib/dashboard/likes";
 import {
   genreOverlapScore,
+  languageOverlapScore,
+  normalizeTasteList,
   type ListenerTaste,
 } from "@/lib/dashboard/taste";
-import { isDemoTrack, isPublishedTrack, trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
+import {
+  isDemoTrack,
+  isPublishedTrack,
+  trackArtist,
+  trackTitle,
+  withLiveCatalogTracks,
+  type TrackRow,
+} from "@/lib/tracks";
 
 export type RankedTrack = TrackRow & {
   play_count: number;
@@ -30,41 +46,135 @@ export type TracksLoadResult =
       source: null;
     };
 
+export type RankedTracksOptions = {
+  /** Only include tracks whose artist countries match any of these places. */
+  placeKeys?: readonly string[];
+  /** Default plays; newest sorts by created_at then plays. */
+  sort?: "plays" | "newest";
+  /** Hard filter to tracks.language (slug or display name). */
+  language?: string | null;
+  /** Hard filter to tracks.genre (slug or display name). */
+  genre?: string | null;
+  /** Hard filter to artist countries (slug or display name). */
+  place?: string | null;
+};
+
 const TRACK_SELECT =
+  "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at";
+const TRACK_SELECT_LEAN =
   "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at";
+
+async function loadArtistCountriesMap(
+  db: SupabaseClient,
+  artistIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (artistIds.length === 0) return map;
+
+  const { data, error } = await db
+    .from("users")
+    .select("id, countries")
+    .in("id", artistIds);
+
+  if (error || !data) return map;
+
+  for (const row of data) {
+    map.set(row.id as string, normalizeTasteList(row.countries));
+  }
+  return map;
+}
 
 /**
  * Rank tracks by play volume (counts from public.plays).
  * Prefer service-role reader so RLS on plays does not zero-out charts.
- * Optional taste boosts genre matches above raw play count for "For You".
+ * Optional taste boosts genre + place matches for "For You".
+ * Optional placeKeys scopes boards (Dakar / Alkebulan).
  */
 export async function loadRankedTracks(
   supabase: SupabaseClient,
   limit: number,
   taste?: ListenerTaste | null,
+  options?: RankedTracksOptions,
 ): Promise<TracksLoadResult> {
   try {
     const admin = createAdminClient();
     const db = admin ?? supabase;
+    const placeKeys = options?.placeKeys ?? [];
+    const sort = options?.sort ?? "plays";
+    const languageFilter = options?.language?.trim() || null;
+    const genreFilter = options?.genre?.trim() || null;
+    const placeFilter = options?.place?.trim() || null;
 
-    const { data, error } = await db
-      .from("tracks")
-      .select(TRACK_SELECT)
+    const { data, error } = await withLiveCatalogTracks(
+      db.from("tracks").select(TRACK_SELECT),
+    )
       .order("created_at", { ascending: false })
       .limit(200);
 
-    if (error) {
+    let trackRows = data;
+    let trackError = error;
+    if (
+      error &&
+      /language|column .* does not exist/i.test(error.message)
+    ) {
+      const lean = await withLiveCatalogTracks(
+        db.from("tracks").select(TRACK_SELECT_LEAN),
+      )
+        .order("created_at", { ascending: false })
+        .limit(200);
+      trackRows = lean.data as typeof trackRows;
+      trackError = lean.error;
+    }
+
+    if (trackError) {
       return {
         ok: false,
         tracks: [],
         empty: true,
-        error: error.message,
+        error: trackError.message,
         source: null,
       };
     }
 
-    const rows = ((data ?? []) as TrackRow[])
-      .filter((t) => isPublishedTrack(t) && !isDemoTrack(t));
+    let rows = ((trackRows ?? []) as TrackRow[]).filter(
+      (t) => isPublishedTrack(t) && !isDemoTrack(t),
+    );
+
+    const artistIds = [
+      ...new Set(rows.map((r) => r.artist_id).filter(Boolean) as string[]),
+    ];
+    const countriesByArtist = await loadArtistCountriesMap(db, artistIds);
+
+    if (placeKeys.length > 0) {
+      rows = rows.filter((t) => {
+        if (!t.artist_id) return false;
+        return artistMatchesPlaces(
+          countriesByArtist.get(t.artist_id) ?? [],
+          placeKeys,
+        );
+      });
+    }
+
+    if (placeFilter) {
+      rows = rows.filter((t) => {
+        if (!t.artist_id) return false;
+        return artistMatchesPlaces(
+          countriesByArtist.get(t.artist_id) ?? [],
+          [placeFilter],
+        );
+      });
+    }
+
+    if (languageFilter) {
+      rows = rows.filter((t) =>
+        trackMatchesLanguage(t.language, languageFilter),
+      );
+    }
+
+    if (genreFilter) {
+      rows = rows.filter((t) => trackMatchesGenre(t.genre, genreFilter));
+    }
+
     if (rows.length === 0) {
       return {
         ok: true,
@@ -75,9 +185,6 @@ export async function loadRankedTracks(
       };
     }
 
-    const artistIds = [
-      ...new Set(rows.map((r) => r.artist_id).filter(Boolean) as string[]),
-    ];
     const nameById = new Map<string, string>();
     if (artistIds.length > 0) {
       const map = await loadArtistCreditMap(db, artistIds);
@@ -95,10 +202,7 @@ export async function loadRankedTracks(
 
     if (!viewRes.error && viewRes.data) {
       for (const row of viewRes.data) {
-        counts.set(
-          row.track_id as string,
-          Number(row.play_count) || 0,
-        );
+        counts.set(row.track_id as string, Number(row.play_count) || 0);
       }
     } else {
       const { data: playRows, error: playError } = await db
@@ -147,6 +251,8 @@ export async function loadRankedTracks(
     }
 
     const preferredGenres = taste?.genres ?? [];
+    const preferredPlaces = taste?.countries ?? [];
+    const preferredLanguages = taste?.languages ?? [];
     const likeCounts = await loadLikeCountMap(db, ids);
 
     const ranked: RankedTrack[] = rows
@@ -160,10 +266,28 @@ export async function loadRankedTracks(
       }))
       .filter((t) => !isDemoTrack(t))
       .sort((a, b) => {
+        if (sort === "newest") {
+          const byDate = (b.created_at || "").localeCompare(a.created_at || "");
+          if (byDate !== 0) return byDate;
+          return b.play_count - a.play_count;
+        }
+
+        const placeA = placeOverlapScore(
+          a.artist_id ? (countriesByArtist.get(a.artist_id) ?? []) : [],
+          preferredPlaces,
+        );
+        const placeB = placeOverlapScore(
+          b.artist_id ? (countriesByArtist.get(b.artist_id) ?? []) : [],
+          preferredPlaces,
+        );
         const tasteA = genreOverlapScore([a.genre], preferredGenres);
         const tasteB = genreOverlapScore([b.genre], preferredGenres);
+        const langA = languageOverlapScore([a.language], preferredLanguages);
+        const langB = languageOverlapScore([b.language], preferredLanguages);
         return (
+          placeB - placeA ||
           tasteB - tasteA ||
+          langB - langA ||
           b.play_count - a.play_count ||
           b.like_count - a.like_count ||
           (b.created_at || "").localeCompare(a.created_at || "")
@@ -197,9 +321,11 @@ export async function loadFeaturedTracks(
   return loadRankedTracks(supabase, 6, taste);
 }
 
-/** CONNECTION 3 — Dakar chart preview (top 7 by play_count, no taste boost). */
+/** CONNECTION 3 — Dakar chart (Senegal / Dakar artists by play_count). */
 export async function loadDakarChart(supabase: SupabaseClient) {
-  return loadRankedTracks(supabase, 7, null);
+  return loadRankedTracks(supabase, 7, null, {
+    placeKeys: DAKAR_CHART_PLACES,
+  });
 }
 
 export function formatPlayCount(n: number) {

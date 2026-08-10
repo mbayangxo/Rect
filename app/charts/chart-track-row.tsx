@@ -1,26 +1,34 @@
 "use client";
 
+import Link from "next/link";
 import { AddToPlaylist } from "@/components/add-to-playlist";
 import { usePlayer } from "@/components/player-provider";
 import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
 import {
   formatPlayCount,
   trackArtist,
   trackTitle,
   type RankedTrack,
 } from "@/lib/dashboard/tracks";
+import { formatTrackDuration } from "@/lib/tracks";
 
 export function ChartTrackRow({
   track,
   rank,
+  initialLiked = false,
+  likesReady = false,
 }: {
   track: RankedTrack;
   rank: number;
+  initialLiked?: boolean;
+  likesReady?: boolean;
 }) {
   const player = usePlayer();
   const canPlay = Boolean(track.audio_url);
+  const artistHref = track.artist_id ? `/artists/${track.artist_id}` : null;
 
   return (
     <li className="flex items-center gap-3 border-b border-white/[0.04] py-3 last:border-0">
@@ -43,27 +51,61 @@ export function ChartTrackRow({
         onClick={() => {
           if (track.audio_url) player.play(track);
         }}
-        className="flex min-w-0 flex-1 items-center gap-3 text-left transition hover:opacity-90 disabled:opacity-40"
+        className="shrink-0 transition hover:opacity-90 disabled:opacity-40"
+        aria-label={`Play ${trackTitle(track)}`}
       >
         <TrackCover track={track} size="sm" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">
-            {trackTitle(track)}
-          </span>
+      </button>
+      <span className="min-w-0 flex-1">
+        <Link
+          href={`/songs/${track.id}`}
+          className="block truncate text-sm font-medium hover:text-[#1DB954]"
+        >
+          {trackTitle(track)}
+        </Link>
+        {artistHref ? (
+          <Link
+            href={artistHref}
+            className="block truncate text-xs text-white/40 hover:text-white/70"
+          >
+            {trackArtist(track)}
+            {track.genre ? ` · ${track.genre}` : ""}
+            {formatTrackDuration(track.duration_secs)
+              ? ` · ${formatTrackDuration(track.duration_secs)}`
+              : ""}
+          </Link>
+        ) : (
           <span className="block truncate text-xs text-white/40">
             {trackArtist(track)}
             {track.genre ? ` · ${track.genre}` : ""}
+            {formatTrackDuration(track.duration_secs)
+              ? ` · ${formatTrackDuration(track.duration_secs)}`
+              : ""}
           </span>
-        </span>
-        {canPlay ? (
-          <span className="text-xs text-[#1DB954]" aria-hidden>
-            ▶
-          </span>
-        ) : null}
-      </button>
+        )}
+      </span>
+      {canPlay ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (track.audio_url) player.play(track);
+          }}
+          className="text-xs text-[#1DB954] hover:opacity-80"
+          aria-label={`Play ${trackTitle(track)}`}
+        >
+          ▶
+        </button>
+      ) : null}
       <AddToPlaylist trackId={track.id} compact loginNext="/charts" />
+      <TrackLikeButton
+        trackId={track.id}
+        initialLiked={initialLiked}
+        likesReady={likesReady}
+        loginNext="/charts"
+        compact
+      />
       <QueueTrackButton track={track} compact />
-            <ShareTrackButton track={track} compact />
+      <ShareTrackButton track={track} compact />
       <span className="shrink-0 text-right text-xs tabular-nums text-white/35">
         <span className="block">{formatPlayCount(track.play_count)} plays</span>
         {(track.like_count ?? 0) > 0 ? (

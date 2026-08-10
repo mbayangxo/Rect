@@ -1,14 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
+import { artistMatchesPlaces } from "@/lib/dashboard/charts";
 import { loadLikeCountMap } from "@/lib/dashboard/likes";
 import {
   genreOverlapScore,
+  languageOverlapScore,
+  normalizeTasteList,
   type ListenerTaste,
 } from "@/lib/dashboard/taste";
+import { trackMatchesGenre } from "@/lib/dashboard/genres";
+import { trackMatchesLanguage } from "@/lib/dashboard/languages";
 import {
   isDemoTrack,
   isPublishedTrack,
+  withLiveCatalogTracks,
   type TrackRow,
 } from "@/lib/tracks";
 
@@ -22,43 +28,110 @@ export type NewReleasesResult = {
   error: string | null;
 };
 
+async function loadArtistCountriesMap(
+  db: SupabaseClient,
+  artistIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (artistIds.length === 0) return map;
+
+  const { data, error } = await db
+    .from("users")
+    .select("id, countries")
+    .in("id", artistIds);
+
+  if (error || !data) return map;
+  for (const row of data) {
+    map.set(row.id as string, normalizeTasteList(row.countries));
+  }
+  return map;
+}
+
 /**
  * Newest published tracks — First Light / New releases shelf.
- * Optional taste gently boosts matching genres without hiding others.
+ * Optional taste gently boosts matching genres/languages without hiding others.
  */
 export async function loadNewReleases(
   supabase: SupabaseClient,
   limit = 30,
   taste?: ListenerTaste | null,
+  language?: string | null,
+  genre?: string | null,
+  place?: string | null,
 ): Promise<NewReleasesResult> {
   try {
     const admin = createAdminClient();
     const db = admin ?? supabase;
+    const languageFilter = language?.trim() || null;
+    const genreFilter = genre?.trim() || null;
+    const placeFilter = place?.trim() || null;
 
-    const { data, error } = await db
-      .from("tracks")
-      .select(
-        "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-      )
+    const { data, error } = await withLiveCatalogTracks(
+      db
+        .from("tracks")
+        .select(
+          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at",
+        ),
+    )
       .order("created_at", { ascending: false })
       .limit(Math.max(limit * 3, 80));
 
-    if (error) {
-      return { tracks: [], error: error.message };
+    let trackData = data;
+    let trackError = error;
+    if (
+      error &&
+      /language|column .* does not exist/i.test(error.message)
+    ) {
+      const lean = await withLiveCatalogTracks(
+        db
+          .from("tracks")
+          .select(
+            "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
+          ),
+      )
+        .order("created_at", { ascending: false })
+        .limit(Math.max(limit * 3, 80));
+      trackData = lean.data as typeof trackData;
+      trackError = lean.error;
     }
 
-    const rows = ((data ?? []) as TrackRow[]).filter(
-      (t) => isPublishedTrack(t) && !isDemoTrack(t),
+    if (trackError) {
+      return { tracks: [], error: trackError.message };
+    }
+
+    let rows = ((trackData ?? []) as TrackRow[]).filter(
+      (t) =>
+        isPublishedTrack(t) &&
+        !isDemoTrack(t) &&
+        trackMatchesLanguage(t.language, languageFilter) &&
+        trackMatchesGenre(t.genre, genreFilter),
     );
 
+    if (placeFilter) {
+      const artistIds = [
+        ...new Set(rows.map((t) => t.artist_id).filter(Boolean) as string[]),
+      ];
+      const countriesByArtist = await loadArtistCountriesMap(db, artistIds);
+      rows = rows.filter((t) => {
+        if (!t.artist_id) return false;
+        return artistMatchesPlaces(
+          countriesByArtist.get(t.artist_id) ?? [],
+          [placeFilter],
+        );
+      });
+    }
+
     const preferred = taste?.genres ?? [];
+    const preferredLangs = taste?.languages ?? [];
     const sorted = [...rows].sort((a, b) => {
       const tasteA = genreOverlapScore([a.genre], preferred);
       const tasteB = genreOverlapScore([b.genre], preferred);
+      const langA = languageOverlapScore([a.language], preferredLangs);
+      const langB = languageOverlapScore([b.language], preferredLangs);
       return (
-        // Recency first, then light taste boost among same-day peers
         (b.created_at || "").localeCompare(a.created_at || "") ||
-        tasteB - tasteA
+        tasteB - tasteA ||
+        langB - langA
       );
     });
 

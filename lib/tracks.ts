@@ -52,6 +52,21 @@ export function trackStatusForWrite(
   return TRACK_STATUS_LIVE;
 }
 
+/**
+ * Push live-catalog filters into a tracks query BEFORE .limit().
+ * Prevents pending drafts from crowding out real uploads.
+ */
+export function withLiveCatalogTracks<
+  Q extends {
+    in: (column: string, values: readonly string[]) => Q;
+    not: (column: string, operator: string, value: null) => Q;
+  },
+>(query: Q): Q {
+  return query
+    .in("status", [TRACK_STATUS_LIVE, "published"])
+    .not("audio_url", "is", null);
+}
+
 export function trackTitle(t: TrackRow) {
   const raw = t.title?.trim() || "Untitled";
   return raw.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim() || "Untitled";
