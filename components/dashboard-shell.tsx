@@ -308,7 +308,7 @@ export function DashboardShell({
           <span>›</span>
         </Link>
         <Link href="/radio" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>RECT Radio</span>
+          <span>Wave</span>
           <span>›</span>
         </Link>
         <Link href="/genres" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
@@ -403,7 +403,7 @@ export function DashboardShell({
           Journal <span className="dash-hub-arr">↗</span>
         </Link>
         <Link href="/radio" className="dash-hub-exit">
-          Radio <span className="dash-hub-arr">↗</span>
+          Wave <span className="dash-hub-arr">↗</span>
         </Link>
         <Link href="/genres" className="dash-hub-exit">
           Genres <span className="dash-hub-arr">↗</span>

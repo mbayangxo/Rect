@@ -38,7 +38,7 @@ const BROWSE = [
   { href: "/places", label: "Places", tone: "from-[#1a2410] to-[#060908]" },
   { href: "/genres", label: "Genres", tone: "from-[#142b0f] to-[#060908]" },
   { href: "/languages", label: "Languages", tone: "from-[#0f1a2b] to-[#06080a]" },
-  { href: "/radio", label: "Radio", tone: "from-[#0a2e18] to-[#060908]" },
+  { href: "/radio", label: "Wave", tone: "from-[#0a2e18] to-[#060908]" },
   { href: "/following", label: "Following", tone: "from-[#1a2b0f] to-[#060908]" },
   { href: "/inbox", label: "Inbox", tone: "from-[#0f1a14] to-[#060908]" },
   { href: "/playlists", label: "Playlists", tone: "from-[#1a1f0f] to-[#060908]" },

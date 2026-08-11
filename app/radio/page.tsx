@@ -15,6 +15,7 @@ import {
   resolvePlaceParam,
 } from "@/lib/dashboard/places";
 import { loadRadioStations } from "@/lib/dashboard/radio";
+import { loadPlayCreditBalance } from "@/lib/dashboard/credits";
 import { loadLikedAmongTrackIds } from "@/lib/dashboard/likes";
 import {
   hasTasteSignal,
@@ -26,7 +27,12 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  searchParams: Promise<{ language?: string; genre?: string; place?: string }>;
+  searchParams: Promise<{
+    language?: string;
+    genre?: string;
+    place?: string;
+    station?: string;
+  }>;
 };
 
 export default async function RadioPage({ searchParams }: Props) {
@@ -45,6 +51,10 @@ export default async function RadioPage({ searchParams }: Props) {
     typeof params.place === "string" ? params.place : null,
   );
   const placeSlug = placeFilter ? placeToSlug(placeFilter) : null;
+  const stationParam =
+    typeof params.station === "string" && params.station.trim()
+      ? params.station.trim()
+      : null;
 
   const supabase = await createClient();
   const {
@@ -60,18 +70,22 @@ export default async function RadioPage({ searchParams }: Props) {
     );
   }
 
-  const [result, langHubs, genreHubs, placeHubs] = await Promise.all([
-    loadRadioStations(
-      supabase,
-      taste,
-      languageFilter,
-      genreFilter,
-      placeFilter,
-    ),
-    loadLanguageHubs(supabase, taste),
-    loadGenreHubs(supabase, taste),
-    loadPlaceHubs(supabase, taste),
-  ]);
+  const [result, langHubs, genreHubs, placeHubs, creditsRes] =
+    await Promise.all([
+      loadRadioStations(
+        supabase,
+        taste,
+        languageFilter,
+        genreFilter,
+        placeFilter,
+      ),
+      loadLanguageHubs(supabase, taste),
+      loadGenreHubs(supabase, taste),
+      loadPlaceHubs(supabase, taste),
+      user
+        ? loadPlayCreditBalance(supabase)
+        : Promise.resolve({ credits: 0, missingTable: true }),
+    ]);
 
   const radioTrackIds = [
     ...new Set(result.stations.flatMap((s) => s.tracks.map((t) => t.id))),
@@ -110,6 +124,9 @@ export default async function RadioPage({ searchParams }: Props) {
       }))}
       likedTracks={likedTracks}
       likesReady={Boolean(user) && !likedAmong.missingTable}
+      initialStationId={stationParam}
+      creditBalance={creditsRes.credits}
+      creditsReady={Boolean(user) && !creditsRes.missingTable}
     />
   );
 }
