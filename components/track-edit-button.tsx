@@ -17,6 +17,8 @@ type Props = {
   genre: string | null;
   language?: string | null;
   hasCover?: boolean;
+  /** Live catalog tracks must keep genre + language. */
+  isLive?: boolean;
 };
 
 export function TrackEditButton({
@@ -25,6 +27,7 @@ export function TrackEditButton({
   genre,
   language = null,
   hasCover = false,
+  isLive = false,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -61,6 +64,11 @@ export function TrackEditButton({
     try {
       const normalizedGenre = normalizeTrackGenre(nextGenre);
       const normalizedLanguage = normalizeTrackLanguage(nextLanguage);
+      if (isLive && (!normalizedGenre || !normalizedLanguage)) {
+        setError("Live tracks need genre and language.");
+        setPending(false);
+        return;
+      }
       const titleChanged = nextTitle.trim() !== title.trim();
       const genreChanged =
         (normalizedGenre || null) !== (normalizeTrackGenre(genre) || null);
@@ -74,8 +82,8 @@ export function TrackEditButton({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: nextTitle.trim(),
-            genre: normalizedGenre,
-            language: normalizedLanguage,
+            genre: normalizedGenre || null,
+            language: normalizedLanguage || null,
           }),
         });
         const data = (await res.json()) as { error?: string };
@@ -168,7 +176,7 @@ export function TrackEditButton({
           </label>
           <fieldset className="mt-3">
             <legend className="text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
-              Genre
+              Genre{isLive ? " (required)" : ""}
             </legend>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {CULTURAL_GENRES.map((g) => {
@@ -177,7 +185,14 @@ export function TrackEditButton({
                   <button
                     key={g}
                     type="button"
-                    onClick={() => setNextGenre(on ? "" : g)}
+                    onClick={() => {
+                      if (on) {
+                        if (isLive) return;
+                        setNextGenre("");
+                        return;
+                      }
+                      setNextGenre(g);
+                    }}
                     className={`rounded-full border px-2 py-1 text-[0.65rem] transition ${
                       on
                         ? "border-[#1DB954] bg-[#1DB954]/15 text-[#1DB954]"
@@ -198,7 +213,7 @@ export function TrackEditButton({
           </fieldset>
           <fieldset className="mt-3">
             <legend className="text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
-              Language
+              Language{isLive ? " (required)" : ""}
             </legend>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {CULTURAL_LANGUAGES.map((l) => {
@@ -207,7 +222,14 @@ export function TrackEditButton({
                   <button
                     key={l}
                     type="button"
-                    onClick={() => setNextLanguage(on ? "" : l)}
+                    onClick={() => {
+                      if (on) {
+                        if (isLive) return;
+                        setNextLanguage("");
+                        return;
+                      }
+                      setNextLanguage(l);
+                    }}
                     className={`rounded-full border px-2 py-1 text-[0.65rem] transition ${
                       on
                         ? "border-[#1DB954] bg-[#1DB954]/15 text-[#1DB954]"
@@ -223,6 +245,11 @@ export function TrackEditButton({
             {legacyLanguage ? (
               <p className="mt-1.5 text-[0.55rem] text-white/35">
                 Current: {legacyLanguage} — pick a catalog chip to update.
+              </p>
+            ) : null}
+            {isLive ? (
+              <p className="mt-1.5 text-[0.55rem] text-white/35">
+                Unpublish to clear genre or language.
               </p>
             ) : null}
           </fieldset>
@@ -263,7 +290,11 @@ export function TrackEditButton({
           ) : null}
           <button
             type="submit"
-            disabled={pending || !nextTitle.trim()}
+            disabled={
+              pending ||
+              !nextTitle.trim() ||
+              (isLive && (!nextGenre.trim() || !nextLanguage.trim()))
+            }
             className="mt-3 w-full rounded-full bg-[#1DB954] py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
           >
             {pending ? "Saving…" : "Save"}

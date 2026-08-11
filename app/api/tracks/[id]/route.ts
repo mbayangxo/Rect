@@ -5,7 +5,7 @@ import {
   normalizeTrackLanguage,
 } from "@/lib/cultural-options";
 import { createClient } from "@/lib/supabase/server";
-import { TRACKS_BUCKET } from "@/lib/tracks";
+import { isPublishedTrack, TRACKS_BUCKET } from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
@@ -120,7 +120,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const { data: existing, error: findError } = await supabase
     .from("tracks")
-    .select("id, artist_id")
+    .select("id, artist_id, status, genre, language")
     .eq("id", trackId)
     .maybeSingle();
 
@@ -134,12 +134,46 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Not your track." }, { status: 403 });
   }
 
+  if (isPublishedTrack(existing)) {
+    const nextGenre =
+      patch.genre !== undefined
+        ? normalizeTrackGenre(
+            typeof patch.genre === "string" ? patch.genre : "",
+          )
+        : normalizeTrackGenre(
+            typeof existing.genre === "string" ? existing.genre : "",
+          );
+    const nextLanguage =
+      patch.language !== undefined
+        ? normalizeTrackLanguage(
+            typeof patch.language === "string" ? patch.language : "",
+          )
+        : normalizeTrackLanguage(
+            typeof existing.language === "string" ? existing.language : "",
+          );
+
+    if (!nextGenre || !nextLanguage) {
+      return NextResponse.json(
+        {
+          error:
+            "Live tracks need genre and language — unpublish to clear them.",
+          code: "live_metadata",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Persist normalized values when the client sent empties or aliases.
+    if (patch.genre !== undefined) patch.genre = nextGenre;
+    if (patch.language !== undefined) patch.language = nextLanguage;
+  }
+
   const { data, error } = await supabase
     .from("tracks")
     .update(patch)
     .eq("id", trackId)
     .eq("artist_id", user.id)
-    .select("id, title, genre, status, artist_id")
+    .select("id, title, genre, language, status, artist_id")
     .maybeSingle();
 
   if (error) {

@@ -477,6 +477,7 @@ export function StudioClient({
                             genre={t.genre}
                             language={t.language}
                             hasCover={Boolean(t.cover_art_url)}
+                            isLive={live}
                           />
                           <TrackPublishToggle
                             trackId={t.id}
