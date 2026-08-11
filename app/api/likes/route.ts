@@ -1,8 +1,51 @@
 import { NextResponse } from "next/server";
-import { toggleTrackLike } from "@/lib/dashboard/likes";
+import {
+  clearAllLikes,
+  isTrackLiked,
+  toggleTrackLike,
+} from "@/lib/dashboard/likes";
+import { notifyTrackLike } from "@/lib/dashboard/notifications";
 import { createClient } from "@/lib/supabase/server";
 
 type Body = { track_id?: string };
+
+export async function GET(request: Request) {
+  const trackId = new URL(request.url).searchParams.get("track_id")?.trim();
+  if (!trackId) {
+    return NextResponse.json(
+      { error: "track_id is required" },
+      { status: 400 },
+    );
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({
+      liked: false,
+      authenticated: false,
+      track_id: trackId,
+    });
+  }
+
+  const result = await isTrackLiked(supabase, user.id, trackId);
+  if (!result.ok) {
+    const status = result.code === "missing_table" ? 503 : 500;
+    return NextResponse.json(
+      { error: result.error, code: result.code },
+      { status },
+    );
+  }
+
+  return NextResponse.json({
+    liked: result.liked,
+    authenticated: true,
+    track_id: trackId,
+  });
+}
 
 export async function POST(request: Request) {
   let body: Body;
@@ -54,9 +97,39 @@ export async function POST(request: Request) {
     );
   }
 
+  if (result.liked) {
+    await notifyTrackLike(supabase, trackId);
+  }
+
   return NextResponse.json({
     ok: true,
     liked: result.liked,
     track_id: result.track_id,
   });
+}
+
+/** Clear all likes for the signed-in user. */
+export async function DELETE() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json(
+      { error: "Sign in required", authenticated: false },
+      { status: 401 },
+    );
+  }
+
+  const result = await clearAllLikes(supabase, user.id);
+  if (!result.ok) {
+    const status = result.code === "missing_table" ? 503 : 500;
+    return NextResponse.json(
+      { error: result.error, code: result.code },
+      { status },
+    );
+  }
+
+  return NextResponse.json({ ok: true, deleted: result.deleted });
 }

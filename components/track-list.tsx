@@ -1,10 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { AddToPlaylist } from "@/components/add-to-playlist";
 import { usePlayer } from "@/components/player-provider";
-import { trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
+import { QueueTrackButton } from "@/components/queue-track-button";
+import { ShareTrackButton } from "@/components/share-track-button";
+import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
+import { formatTrackDuration, trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
-export function TrackList({ tracks }: { tracks: TrackRow[] }) {
+export function TrackList({
+  tracks,
+  likedTracks = {},
+  likesReady = false,
+  loginNext = "/dashboard",
+}: {
+  tracks: TrackRow[];
+  likedTracks?: Record<string, boolean>;
+  likesReady?: boolean;
+  loginNext?: string;
+}) {
   const { track: current, playing, play, toggle } = usePlayer();
 
   return (
@@ -22,6 +37,7 @@ export function TrackList({ tracks }: { tracks: TrackRow[] }) {
             <span className="w-6 shrink-0 text-center text-xs tabular-nums text-white/35">
               {i + 1}
             </span>
+            <TrackCover track={t} size="sm" />
             <div className="min-w-0 flex-1">
               <Link
                 href={`/songs/${t.id}`}
@@ -34,6 +50,21 @@ export function TrackList({ tracks }: { tracks: TrackRow[] }) {
                 {t.genre ? ` · ${t.genre}` : ""}
               </p>
             </div>
+            {formatTrackDuration(t.duration_secs) ? (
+              <span className="shrink-0 text-xs tabular-nums text-white/35">
+                {formatTrackDuration(t.duration_secs)}
+              </span>
+            ) : null}
+            <AddToPlaylist trackId={t.id} compact loginNext={`/songs/${t.id}`} />
+            <TrackLikeButton
+              trackId={t.id}
+              initialLiked={Boolean(likedTracks[t.id])}
+              likesReady={likesReady}
+              loginNext={loginNext}
+              compact
+            />
+            <QueueTrackButton track={t} compact />
+            <ShareTrackButton track={t} compact />
             <button
               type="button"
               disabled={!canPlay}

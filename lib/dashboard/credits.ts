@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 export type CreditBalance = {
   credits: number;
@@ -82,8 +81,11 @@ export async function purchasePlayPack(
 
   if (error) {
     if (isMissingRelation(error.message)) {
-      // App-level fallback when RPC not migrated yet
-      return purchasePlayPackFallback(supabase, idNum);
+      return {
+        ok: false,
+        error: "Run play credits SQL in Supabase (purchase_play_pack).",
+        code: "missing_table",
+      };
     }
     if (/not_authenticated/i.test(error.message)) {
       return { ok: false, error: "Sign in required", code: "not_authenticated" };
@@ -105,103 +107,15 @@ export async function purchasePlayPack(
   };
 }
 
-async function purchasePlayPackFallback(
-  supabase: SupabaseClient,
-  packId: number,
-): Promise<PurchaseResult> {
-  const admin = createAdminClient();
-  const db = admin ?? supabase;
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { ok: false, error: "Sign in required", code: "not_authenticated" };
-  }
-
-  const { data: pack, error: packError } = await db
-    .from("play_packs")
-    .select("id, code, name, play_credits, play_count, price_xof, active")
-    .eq("id", packId)
-    .maybeSingle();
-
-  if (packError) {
-    if (isMissingRelation(packError.message)) {
-      return {
-        ok: false,
-        error: "Run play credits SQL in Supabase first",
-        code: "missing_table",
-      };
-    }
-    return { ok: false, error: packError.message, code: "failed" };
-  }
-  if (!pack || pack.active === false) {
-    return { ok: false, error: "Pack not found", code: "pack_not_found" };
-  }
-
-  const credits =
-    Number(pack.play_credits) || Number(pack.play_count) || 0;
-  if (credits <= 0) {
-    return { ok: false, error: "Pack has no credits", code: "failed" };
-  }
-
-  const { data: purchase, error: purchaseError } = await db
-    .from("play_pack_purchases")
-    .insert({
-      user_id: user.id,
-      pack_id: packId,
-      credits_granted: credits,
-      price_xof: pack.price_xof ?? null,
-      status: "confirmed",
-      payment_method: "stub",
-    })
-    .select("id")
-    .maybeSingle();
-
-  if (purchaseError) {
-    if (isMissingRelation(purchaseError.message)) {
-      return {
-        ok: false,
-        error: "Run play credits SQL in Supabase first",
-        code: "missing_table",
-      };
-    }
-    return { ok: false, error: purchaseError.message, code: "failed" };
-  }
-
-  const { data: existing } = await db
-    .from("user_play_balances")
-    .select("credits")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const next = (Number(existing?.credits) || 0) + credits;
-  const { error: balError } = await db.from("user_play_balances").upsert({
-    user_id: user.id,
-    credits: next,
-    updated_at: new Date().toISOString(),
-  });
-
-  if (balError) {
-    return { ok: false, error: balError.message, code: "failed" };
-  }
-
-  return {
-    ok: true,
-    purchase_id: purchase?.id != null ? Number(purchase.id) : null,
-    credits_granted: credits,
-    balance: next,
-    pack_code: typeof pack.code === "string" ? pack.code : null,
-    pack_name: typeof pack.name === "string" ? pack.name : null,
-  };
-}
-
 export type ConsumeResult =
   | { ok: true; balance: number; skipped: false }
-  | { ok: true; balance: null; skipped: true; reason: "missing_table" }
-  | { ok: false; error: string; code: "insufficient" | "failed" };
+  | {
+      ok: false;
+      error: string;
+      code: "insufficient" | "failed" | "missing_table";
+    };
 
-/** Decrement one credit. Soft-skips if ledger tables not migrated yet. */
+/** Decrement one credit. Hard-fails if ledger RPCs are not migrated. */
 export async function consumePlayCredit(
   supabase: SupabaseClient,
 ): Promise<ConsumeResult> {
@@ -209,7 +123,11 @@ export async function consumePlayCredit(
 
   if (error) {
     if (isMissingRelation(error.message)) {
-      return { ok: true, balance: null, skipped: true, reason: "missing_table" };
+      return {
+        ok: false,
+        error: "Run play credits SQL in Supabase (consume_play_credit).",
+        code: "missing_table",
+      };
     }
     return { ok: false, error: error.message, code: "failed" };
   }

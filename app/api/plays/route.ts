@@ -3,8 +3,8 @@ import {
   consumePlayCredit,
   loadPlayCreditBalance,
 } from "@/lib/dashboard/credits";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyTrackListen } from "@/lib/dashboard/notifications";
+import { createRouteClient } from "@/lib/supabase/route";
 
 type Body = { track_id?: string };
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "track_id is required" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = await createRouteClient(request);
   const {
     data: { user },
     error: userError,
@@ -59,38 +59,41 @@ export async function POST(request: Request) {
         { status: 402 },
       );
     }
-    return NextResponse.json({ error: consumed.error }, { status: 500 });
+    return NextResponse.json(
+      { error: consumed.error, code: consumed.code },
+      { status: consumed.code === "missing_table" ? 503 : 500 },
+    );
   }
 
   const row = { track_id: trackId, listener_id: user.id };
 
-  let { data, error } = await supabase
+  const { data, error } = await supabase
     .from("plays")
     .insert(row)
     .select("id")
     .maybeSingle();
 
-  // Fallback with service role if RLS not applied yet
   if (error) {
-    const admin = createAdminClient();
-    if (admin) {
-      const adminInsert = await admin
-        .from("plays")
-        .insert(row)
-        .select("id")
-        .maybeSingle();
-      data = adminInsert.data;
-      error = adminInsert.error;
-    }
+    const missing = /relation .* does not exist|Could not find the table|PGRST205|policy/i.test(
+      error.message,
+    );
+    return NextResponse.json(
+      {
+        error: missing
+          ? `Plays insert failed (check plays RLS migration): ${error.message}`
+          : error.message,
+        code: missing ? "plays_insert_failed" : "plays_error",
+      },
+      { status: 500 },
+    );
   }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  const playId = data?.id != null ? String(data.id) : null;
+  await notifyTrackListen(supabase, trackId, playId);
 
   return NextResponse.json({
     ok: true,
-    play_id: data?.id ?? null,
-    credits_remaining: consumed.skipped ? null : consumed.balance,
+    play_id: playId,
+    credits_remaining: consumed.balance,
   });
 }

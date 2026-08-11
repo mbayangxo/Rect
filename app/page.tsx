@@ -2,88 +2,114 @@ import Link from "next/link";
 import { RectLogo } from "@/components/rect-logo";
 import { SignOutButton } from "@/components/sign-out-button";
 import { TrackList } from "@/components/track-list";
+import { searchCatalog, type SearchPlaylist } from "@/lib/dashboard/search";
+import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
 import { createClient } from "@/lib/supabase/server";
-import { isDemoTrack, type TrackRow } from "@/lib/tracks";
+import type { TrackRow } from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
-async function loadTracksWithArtists(): Promise<{
-  tracks: TrackRow[];
-  error: string | null;
-}> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("tracks")
-    .select(
-      "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(40);
-
-  if (error) {
-    return { tracks: [], error: error.message };
-  }
-
-  const rows = (data ?? []) as TrackRow[];
-  const artistIds = [
-    ...new Set(rows.map((r) => r.artist_id).filter(Boolean) as string[]),
-  ];
-
-  const nameById = new Map<string, string>();
-  if (artistIds.length > 0) {
-    const { data: artists } = await supabase
-      .from("users")
-      .select("id, display_name")
-      .in("id", artistIds);
-    for (const a of artists ?? []) {
-      if (a.display_name) nameById.set(a.id, a.display_name);
-    }
-  }
-
-  const tracks = rows
-    .map((r) => ({
-      ...r,
-      artist_name: r.artist_id
-        ? (nameById.get(r.artist_id) ?? null)
-        : null,
-    }))
-    .filter((t) => !isDemoTrack(t))
-    .slice(0, 20);
-
-  return { tracks, error: null };
-}
-
 function FeaturedPanel({
   tracks,
+  playlists,
   error,
-  empty,
 }: {
   tracks: TrackRow[];
+  playlists: SearchPlaylist[];
   error: string | null;
-  empty: boolean;
 }) {
-  return (
-    <section className="w-full">
-      <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
-        Featured
-      </h2>
+  const hasTracks = tracks.length > 0;
+  const hasMixes = playlists.length > 0;
 
-      {error ? (
-        <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
-          Could not load songs. {error}
-        </p>
-      ) : empty ? (
-        <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-10 text-center">
-          <p className="text-sm text-white/55">Coming soon</p>
-          <p className="mt-1 text-xs text-white/35">
-            Real releases will land here.
+  return (
+    <section className="w-full space-y-8">
+      <div>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+          Featured
+        </h2>
+
+        {error ? (
+          <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
+            Could not load songs. {error}
           </p>
+        ) : hasTracks ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2 md:p-3">
+            <TrackList tracks={tracks} />
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-10 text-center">
+            <p className="text-sm text-white/55">No published tracks yet</p>
+            <p className="mt-1 text-xs text-white/35">
+              When artists release on RECT, the first listens land here.
+            </p>
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Link
+                href="/search"
+                className="rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white/70 hover:border-[#1DB954]/50 hover:text-white"
+              >
+                Browse Search
+              </Link>
+              <Link
+                href="/auth/signup"
+                className="rounded-full bg-[#1DB954] px-4 py-2 text-xs font-semibold text-black hover:bg-[#17a349]"
+              >
+                Join free
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {hasMixes ? (
+        <div>
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+              Public mixes
+            </h2>
+            <Link
+              href="/search"
+              className="text-xs text-[#1DB954] hover:underline"
+            >
+              Find more →
+            </Link>
+          </div>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {playlists.slice(0, 6).map((p) => (
+              <li key={p.id}>
+                <Link
+                  href={`/playlists/${p.id}`}
+                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-[#1DB954]/40"
+                >
+                  <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+                    {p.cover_art_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={p.cover_art_url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-white/25">
+                        ♫
+                      </span>
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {p.name}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-white/40">
+                      {p.track_count}{" "}
+                      {p.track_count === 1 ? "track" : "tracks"}
+                      {p.owner_name ? ` · ${p.owner_name}` : ""}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
-      ) : (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2 md:p-3">
-          <TrackList tracks={tracks} />
-        </div>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -116,8 +142,16 @@ export default async function HomePage() {
     user?.email ||
     null;
 
-  const { tracks, error } = await loadTracksWithArtists();
-  const empty = !error && tracks.length === 0;
+  const [featured, catalog] = await Promise.all([
+    loadFeaturedTracks(supabase),
+    searchCatalog(supabase, ""),
+  ]);
+
+  const tracks = (featured.ok ? featured.tracks : [])
+    .filter((t) => Boolean(t.audio_url))
+    .slice(0, 8);
+  const playlists = catalog.playlists.slice(0, 6);
+  const error = featured.ok ? null : featured.error;
 
   return (
     <div className="relative min-h-full overflow-x-hidden bg-[#040d06] text-[#f8f8f8]">
@@ -143,6 +177,12 @@ export default async function HomePage() {
                   className="hidden text-white/70 transition hover:text-white sm:inline"
                 >
                   Charts
+                </Link>
+                <Link
+                  href="/search"
+                  className="hidden text-white/70 transition hover:text-white sm:inline"
+                >
+                  Search
                 </Link>
                 <Link
                   href="/dashboard"
@@ -204,14 +244,14 @@ export default async function HomePage() {
               </div>
             ) : profile?.role === "artist" ? (
               <Link
-                href="/artist"
+                href="/studio"
                 className="mt-8 block rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
               >
                 Artist library
               </Link>
             ) : null}
           </section>
-          <FeaturedPanel tracks={tracks} error={error} empty={empty} />
+          <FeaturedPanel tracks={tracks} playlists={playlists} error={error} />
         </div>
 
         <div className="hidden md:grid md:grid-cols-2 md:items-start md:gap-14 lg:gap-20">
@@ -248,7 +288,7 @@ export default async function HomePage() {
               </div>
             ) : profile?.role === "artist" ? (
               <Link
-                href="/artist"
+                href="/studio"
                 className="mt-10 inline-block rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
               >
                 Artist library
@@ -256,7 +296,7 @@ export default async function HomePage() {
             ) : null}
           </section>
 
-          <FeaturedPanel tracks={tracks} error={error} empty={empty} />
+          <FeaturedPanel tracks={tracks} playlists={playlists} error={error} />
         </div>
       </div>
     </div>

@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { placeOverlapScore } from "@/lib/dashboard/charts";
+import { isProfilePublic } from "@/lib/dashboard/privacy";
 import {
   genreOverlapScore,
+  normalizeTasteList,
   type ListenerTaste,
 } from "@/lib/dashboard/taste";
 
@@ -10,6 +13,8 @@ export type ArtistPortal = {
   display_name: string;
   genre: string | null;
   genres: string[];
+  countries: string[];
+  avatar_url: string | null;
   created_at: string | null;
   account_type: string | null;
 };
@@ -31,26 +36,34 @@ export type ArtistsLoadResult =
 function mapArtists(
   data: Record<string, unknown>[] | null,
 ): ArtistPortal[] {
-  return (data ?? []).map((row) => {
-    const genres = Array.isArray(row.genres)
-      ? row.genres.filter((g): g is string => typeof g === "string")
-      : [];
-    return {
-      id: row.id as string,
-      display_name:
-        (typeof row.display_name === "string" && row.display_name.trim()) ||
-        "Artist",
-      genre: genres[0] ?? null,
-      genres,
-      created_at: (row.created_at as string | null) ?? null,
-      account_type: (row.account_type as string | null) ?? null,
-    };
-  });
+  return (data ?? [])
+    .filter((row) => isProfilePublic(row as { privacy_public_profile?: boolean }))
+    .map((row) => {
+      const genres = Array.isArray(row.genres)
+        ? row.genres.filter((g): g is string => typeof g === "string")
+        : [];
+      return {
+        id: row.id as string,
+        display_name:
+          (typeof row.display_name === "string" && row.display_name.trim()) ||
+          "Artist",
+        genre: genres[0] ?? null,
+        genres,
+        countries: normalizeTasteList(row.countries),
+        avatar_url:
+          typeof row.avatar_url === "string" && row.avatar_url.trim()
+            ? row.avatar_url.trim()
+            : null,
+        created_at: (row.created_at as string | null) ?? null,
+        account_type: (row.account_type as string | null) ?? null,
+      };
+    });
 }
 
 /**
  * CONNECTION 4 — artist portals.
- * Prefer artists whose genres overlap listener taste; fill with newest.
+ * Prefer artists whose places + genres overlap listener taste; fill with newest.
+ * Hides users with privacy_public_profile = false.
  */
 export async function loadArtistPortals(
   supabase: SupabaseClient,
@@ -59,37 +72,115 @@ export async function loadArtistPortals(
   try {
     const admin = createAdminClient();
     const db = admin ?? supabase;
-    const pool = 16;
+    const pool = 24;
 
-    let { data, error } = await db
+    let data: Record<string, unknown>[] | null = null;
+    let error: { message: string } | null = null;
+
+    const select =
+      "id, display_name, genres, countries, avatar_url, account_type, role, created_at, privacy_public_profile";
+
+    const primary = await db
       .from("users")
-      .select("id, display_name, genres, account_type, role, created_at")
+      .select(select)
       .eq("account_type", "artist")
       .order("created_at", { ascending: false })
       .limit(pool);
 
+    if (
+      primary.error &&
+      /privacy_public_profile|avatar_url|countries|column .* does not exist/i.test(
+        primary.error.message,
+      )
+    ) {
+      const leanSelect = /avatar_url/i.test(primary.error.message)
+        ? "id, display_name, genres, countries, account_type, role, created_at, privacy_public_profile"
+        : "id, display_name, genres, countries, account_type, role, created_at";
+      const lean = await db
+        .from("users")
+        .select(leanSelect)
+        .eq("account_type", "artist")
+        .order("created_at", { ascending: false })
+        .limit(pool);
+      if (
+        lean.error &&
+        /countries|column .* does not exist/i.test(lean.error.message)
+      ) {
+        const bare = await db
+          .from("users")
+          .select("id, display_name, genres, account_type, role, created_at")
+          .eq("account_type", "artist")
+          .order("created_at", { ascending: false })
+          .limit(pool);
+        data = (bare.data ?? null) as Record<string, unknown>[] | null;
+        error = bare.error;
+      } else {
+        data = (lean.data ?? null) as Record<string, unknown>[] | null;
+        error = lean.error;
+      }
+    } else {
+      data = (primary.data ?? null) as Record<string, unknown>[] | null;
+      error = primary.error;
+    }
+
     if ((!data || data.length === 0) && !error) {
       const fallback = await db
         .from("users")
-        .select("id, display_name, genres, account_type, role, created_at")
+        .select(select)
         .eq("role", "artist")
         .order("created_at", { ascending: false })
         .limit(pool);
-      data = fallback.data;
-      error = fallback.error;
+      if (
+        fallback.error &&
+        /privacy_public_profile|avatar_url|countries|column .* does not exist/i.test(
+          fallback.error.message,
+        )
+      ) {
+        const lean = await db
+          .from("users")
+          .select(
+            "id, display_name, genres, countries, account_type, role, created_at",
+          )
+          .eq("role", "artist")
+          .order("created_at", { ascending: false })
+          .limit(pool);
+        if (
+          lean.error &&
+          /countries|column .* does not exist/i.test(lean.error.message)
+        ) {
+          const bare = await db
+            .from("users")
+            .select("id, display_name, genres, account_type, role, created_at")
+            .eq("role", "artist")
+            .order("created_at", { ascending: false })
+            .limit(pool);
+          data = (bare.data ?? null) as Record<string, unknown>[] | null;
+          error = bare.error;
+        } else {
+          data = (lean.data ?? null) as Record<string, unknown>[] | null;
+          error = lean.error;
+        }
+      } else {
+        data = (fallback.data ?? null) as Record<string, unknown>[] | null;
+        error = fallback.error;
+      }
     }
 
     if (error) {
       return { ok: false, artists: [], empty: true, error: error.message };
     }
 
-    const preferred = taste?.genres ?? [];
-    const artists = mapArtists(data as Record<string, unknown>[] | null)
+    const preferredGenres = taste?.genres ?? [];
+    const preferredPlaces = taste?.countries ?? [];
+    const artists = mapArtists(data)
       .sort((a, b) => {
-        const scoreA = genreOverlapScore(a.genres, preferred);
-        const scoreB = genreOverlapScore(b.genres, preferred);
+        const placeA = placeOverlapScore(a.countries, preferredPlaces);
+        const placeB = placeOverlapScore(b.countries, preferredPlaces);
+        const genreA = genreOverlapScore(a.genres, preferredGenres);
+        const genreB = genreOverlapScore(b.genres, preferredGenres);
         return (
-          scoreB - scoreA ||
+          placeB - placeA ||
+          genreB - genreA ||
           (b.created_at || "").localeCompare(a.created_at || "")
         );
       })

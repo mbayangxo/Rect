@@ -46,7 +46,7 @@ export default function ArtistSignupPage() {
         setError("Account created — confirm email if required, then log in.");
         return;
       }
-      router.push("/artist");
+      router.push("/studio");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
@@ -139,7 +139,7 @@ export default function ArtistSignupPage() {
         <p className="text-center text-sm text-white/45">
           Already an artist?{" "}
           <Link
-            href="/auth/login?next=/artist"
+            href="/auth/login?next=/studio"
             className="text-[#1DB954] hover:underline"
           >
             Log in

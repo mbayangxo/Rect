@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CulturalOnboarding } from "@/components/cultural-onboarding";
 import { RectLogo } from "@/components/rect-logo";
+import { TasteHubLinks } from "@/components/taste-hub-links";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,11 @@ export default async function PreferencesPage() {
     ],
   };
 
+  const hasTaste =
+    initial.genres.length > 0 ||
+    initial.countries.length > 0 ||
+    initial.languages.length > 0;
+
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
       <header className="border-b border-white/10">
@@ -75,6 +81,31 @@ export default async function PreferencesPage() {
           </nav>
         </div>
       </header>
+
+      {hasTaste ? (
+        <div className="mx-auto w-full max-w-lg border-b border-white/10 px-5 py-8 sm:px-8">
+          <TasteHubLinks
+            genres={initial.genres}
+            countries={initial.countries}
+            languages={initial.languages}
+          />
+          <div className="mt-5 flex flex-wrap gap-4 text-sm">
+            <Link href="/genres" className="text-white/45 hover:text-[#1DB954]">
+              All genres
+            </Link>
+            <Link href="/places" className="text-white/45 hover:text-[#1DB954]">
+              All places
+            </Link>
+            <Link
+              href="/languages"
+              className="text-white/45 hover:text-[#1DB954]"
+            >
+              All languages
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       <CulturalOnboarding mode="edit" initial={initial} />
     </main>
   );
