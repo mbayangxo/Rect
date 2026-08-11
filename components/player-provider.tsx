@@ -18,9 +18,12 @@ import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
 import { PRIVATE_ARTIST_LABEL } from "@/lib/dashboard/privacy";
 import { publishCreditsRemaining } from "@/lib/credits-live";
+import { createClient } from "@/lib/supabase/client";
 import { trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 const PLAYER_PREFS_KEY = "rect-player-prefs";
+/** Guests get a short sample; full streams require sign-in (credits). */
+const GUEST_PREVIEW_SECS = 30;
 
 type PlayerPrefs = {
   volume: number;
@@ -125,6 +128,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [creditNotice, setCreditNotice] = useState<string | null>(null);
+  const [loginNext, setLoginNext] = useState("/dashboard");
   const nextRef = useRef<() => void>(() => undefined);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
@@ -137,6 +141,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [queueOpen, setQueueOpen] = useState(false);
   const [savingQueue, setSavingQueue] = useState(false);
   const recordedFor = useRef<string | null>(null);
+  const guestPreviewRef = useRef(false);
+  const startGenRef = useRef(0);
   const trackRef = useRef<TrackRow | null>(null);
   const durationPersistedFor = useRef<string | null>(null);
   const queueRef = useRef<TrackRow[]>([]);
@@ -197,7 +203,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audio.volume = 1;
     audioRef.current = audio;
 
-    const onTime = () => setCurrentTime(audio.currentTime || 0);
+    const onTime = () => {
+      const t = audio.currentTime || 0;
+      if (guestPreviewRef.current && t >= GUEST_PREVIEW_SECS) {
+        audio.pause();
+        audio.currentTime = GUEST_PREVIEW_SECS;
+        setCurrentTime(GUEST_PREVIEW_SECS);
+        setPlaying(false);
+        setCreditNotice("Preview ended — sign in to keep listening.");
+        return;
+      }
+      setCurrentTime(t);
+    };
     const onMeta = () => {
       const secs = audio.duration || 0;
       setDuration(secs);
@@ -306,7 +323,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             code?: string;
           } | null;
           if (res.status === 401) {
-            setCreditNotice("Sign in to save plays and climb the charts.");
+            guestPreviewRef.current = true;
+            const current = trackRef.current;
+            if (current?.id) {
+              setLoginNext(`/songs/${current.id}`);
+            }
+            setCreditNotice(
+              "Preview only — sign in to keep listening and climb the charts.",
+            );
+            const audio = audioRef.current;
+            if (audio && audio.currentTime >= GUEST_PREVIEW_SECS) {
+              audio.pause();
+              audio.currentTime = GUEST_PREVIEW_SECS;
+              setCurrentTime(GUEST_PREVIEW_SECS);
+              setPlaying(false);
+              setCreditNotice("Preview ended — sign in to keep listening.");
+            }
           } else if (res.status === 402) {
             // handled above
           } else {
@@ -327,28 +359,57 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const startTrack = useCallback(
     (next: TrackRow) => {
       const audio = audioRef.current;
-      if (!audio || !next.audio_url) return;
+      const src = next.audio_url;
+      if (!audio || !src) return;
+
+      const gen = ++startGenRef.current;
+      audio.pause();
+      setPlaying(false);
       setTrack(next);
       recordedFor.current = null;
       durationPersistedFor.current = null;
+      guestPreviewRef.current = false;
+      setLoginNext(`/songs/${next.id}`);
       setCreditNotice(null);
       syncQueueFlags();
-      audio.src = next.audio_url;
-      void audio
-        .play()
-        .then(() => {
-          void recordPlay(next.id);
-        })
-        .catch(() => {
+
+      void (async () => {
+        let isGuest = true;
+        try {
+          const supabase = createClient();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          isGuest = !user;
+        } catch {
+          isGuest = true;
+        }
+
+        if (gen !== startGenRef.current) return;
+
+        guestPreviewRef.current = isGuest;
+        if (isGuest) {
+          setCreditNotice(
+            "30-second preview — sign in to keep listening and save plays.",
+          );
+        }
+
+        audio.src = src;
+        try {
+          await audio.play();
+          if (!isGuest) {
+            void recordPlay(next.id);
+          }
+        } catch {
           setPlaying(false);
           setCreditNotice(
             "Couldn't play this track. The file may be missing or unsupported.",
           );
-          const q = queueRef.current;
-          if (q.length > 1) {
+          if (queueRef.current.length > 1) {
             window.setTimeout(() => nextRef.current(), 500);
           }
-        });
+        }
+      })();
     },
     [recordPlay, syncQueueFlags],
   );
@@ -363,6 +424,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setQueueOpen(false);
 
       if (track?.id === next.id) {
+        if (
+          guestPreviewRef.current &&
+          audio.currentTime >= GUEST_PREVIEW_SECS - 0.05
+        ) {
+          setLoginNext(`/songs/${next.id}`);
+          setCreditNotice("Preview ended — sign in to keep listening.");
+          return;
+        }
         void audio.play().catch(() => setPlaying(false));
         return;
       }
@@ -630,6 +699,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const audio = audioRef.current;
     if (!audio || !track?.audio_url) return;
     if (audio.paused) {
+      if (
+        guestPreviewRef.current &&
+        audio.currentTime >= GUEST_PREVIEW_SECS - 0.05
+      ) {
+        setLoginNext(`/songs/${track.id}`);
+        setCreditNotice("Preview ended — sign in to keep listening.");
+        return;
+      }
       void audio.play().catch(() => setPlaying(false));
     } else {
       audio.pause();
@@ -647,8 +724,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const seek = useCallback((t: number) => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.currentTime = t;
-    setCurrentTime(t);
+    let next = t;
+    if (guestPreviewRef.current && next > GUEST_PREVIEW_SECS) {
+      next = GUEST_PREVIEW_SECS;
+      setCreditNotice("Preview only — sign in for the full track.");
+    }
+    audio.currentTime = next;
+    setCurrentTime(next);
   }, []);
 
   const setVolumeLevel = useCallback((v: number) => {
@@ -707,7 +789,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             ) : null}
             {/sign in/i.test(creditNotice) ? (
               <a
-                href="/auth/login?next=/dashboard"
+                href={`/auth/login?next=${encodeURIComponent(loginNext)}`}
                 className="font-semibold underline"
               >
                 Sign in
