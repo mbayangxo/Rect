@@ -469,7 +469,13 @@ export function StudioClient({
                           {t.play_count === 1 ? "" : "s"} earned
                           {t.genre ? ` · ${t.genre}` : ""}
                           {!live ? " · Draft" : " · Live"}
+                          {!t.audio_url ? " · Missing audio" : ""}
                         </p>
+                        {!t.audio_url ? (
+                          <p className="mt-1 text-[0.65rem] text-[#F5A623]">
+                            Playback will fail — use Edit → Replace audio.
+                          </p>
+                        ) : null}
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <TrackEditButton
                             trackId={t.id}
