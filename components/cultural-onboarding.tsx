@@ -3,56 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import {
+  CULTURAL_GENRES,
+  CULTURAL_LANGUAGES,
+  CULTURAL_PLACES,
+  toggleCulturalItem,
+} from "@/lib/cultural-options";
 import "./cultural-onboarding.css";
 
-const COUNTRIES = [
-  "Senegal",
-  "Nigeria",
-  "Ghana",
-  "Ivory Coast",
-  "Mali",
-  "Guinea",
-  "Cameroon",
-  "Congo",
-  "South Africa",
-  "Kenya",
-  "Morocco",
-  "Egypt",
-  "USA",
-  "France",
-  "UK",
-  "Canada",
-] as const;
-
-const GENRES = [
-  "Afrobeats",
-  "Amapiano",
-  "Mbalax",
-  "Highlife",
-  "Afrohouse",
-  "Coupé-Décalé",
-  "Soukous",
-  "Afro-R&B",
-  "Drill",
-  "Gospel",
-  "Traditional",
-  "Hip-Hop",
-] as const;
-
-const LANGUAGES = [
-  "Wolof",
-  "Yoruba",
-  "Igbo",
-  "Hausa",
-  "French",
-  "English",
-  "Swahili",
-  "Arabic",
-  "Portuguese",
-  "Zulu",
-  "Akan",
-  "Lingala",
-] as const;
+const COUNTRIES = CULTURAL_PLACES;
+const GENRES = CULTURAL_GENRES;
+const LANGUAGES = CULTURAL_LANGUAGES;
 
 const TIMES = [
   {
@@ -82,9 +43,7 @@ const TIMES = [
 ] as const;
 
 function toggleItem(list: string[], value: string): string[] {
-  return list.includes(value)
-    ? list.filter((x) => x !== value)
-    : [...list, value];
+  return toggleCulturalItem(list, value);
 }
 
 export type TasteInitial = {

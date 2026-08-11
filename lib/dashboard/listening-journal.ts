@@ -98,6 +98,55 @@ export async function deleteListeningPlay(
   return { ok: true };
 }
 
+/**
+ * Remove a track from Continue listening by deleting all of the user's
+ * plays for that track (rail is deduped by track id).
+ */
+export async function dismissContinueTrack(
+  supabase: SupabaseClient,
+  userId: string,
+  trackId: string,
+): Promise<
+  | { ok: true; deleted: number }
+  | {
+      ok: false;
+      error: string;
+      code?: "missing_table" | "failed";
+    }
+> {
+  const id = trackId.trim();
+  if (!id) {
+    return { ok: false, error: "track_id required", code: "failed" };
+  }
+
+  const { data, error } = await supabase
+    .from("plays")
+    .delete()
+    .eq("listener_id", userId)
+    .eq("track_id", id)
+    .select("id");
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error: "Play history table missing",
+        code: "missing_table",
+      };
+    }
+    if (/permission|policy|RLS/i.test(error.message)) {
+      return {
+        ok: false,
+        error: "Run 20260808_plays_delete_own.sql in Supabase first",
+        code: "failed",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  return { ok: true, deleted: data?.length ?? 0 };
+}
+
 function isMissingRelation(message: string) {
   return /relation .* does not exist|Could not find the table|PGRST205|column .* does not exist/i.test(
     message,
@@ -253,6 +302,67 @@ export async function loadContinueListening(
   }
 
   return { entries, missingTable: false, error: null };
+}
+
+export type SharedActivityResult = {
+  sharing: boolean;
+  entries: JournalEntry[];
+  error: string | null;
+};
+
+/**
+ * Public shared listening strip — only when privacy_show_activity is on.
+ * Journal itself stays private; this is a deduped recent-tracks preview.
+ */
+export async function loadSharedListeningActivity(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 8,
+): Promise<SharedActivityResult> {
+  try {
+    const admin = createAdminClient();
+    const db = admin ?? supabase;
+
+    const { data: profile, error: profileError } = await db
+      .from("users")
+      .select("privacy_show_activity")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError) {
+      return { sharing: false, entries: [], error: profileError.message };
+    }
+
+    if (profile?.privacy_show_activity === false) {
+      return { sharing: false, entries: [], error: null };
+    }
+
+    const journal = await loadListeningJournal(db, userId, Math.max(limit * 4, 40));
+    if (journal.missingTable || journal.error) {
+      return {
+        sharing: true,
+        entries: [],
+        error: journal.error,
+      };
+    }
+
+    const seen = new Set<string>();
+    const entries: JournalEntry[] = [];
+    for (const e of journal.entries) {
+      if (!e.audio_url || seen.has(e.id)) continue;
+      seen.add(e.id);
+      entries.push(e);
+      if (entries.length >= limit) break;
+    }
+
+    return { sharing: true, entries, error: null };
+  } catch (e) {
+    return {
+      sharing: false,
+      entries: [],
+      error: e instanceof Error ? e.message : "Failed to load activity",
+    };
+  }
 }
 
 export function formatPlayedAt(iso: string | null) {

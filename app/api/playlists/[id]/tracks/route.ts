@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyPlaylistFollowersTrackAdd } from "@/lib/dashboard/notifications";
 import {
   addTrackToPlaylist,
   movePlaylistTrack,
@@ -74,6 +75,14 @@ export async function POST(request: Request, ctx: Ctx) {
       { error: result.error, code: result.code },
       { status },
     );
+  }
+
+  if (result.added) {
+    await supabase.rpc("notify_playlist_collab_add", {
+      p_playlist_id: playlistId,
+      p_track_id: trackId,
+    });
+    await notifyPlaylistFollowersTrackAdd(supabase, playlistId, trackId);
   }
 
   return NextResponse.json({

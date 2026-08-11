@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CULTURAL_PLACES } from "@/lib/cultural-options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
 import { loadLikeCountMap } from "@/lib/dashboard/likes";
@@ -44,6 +45,41 @@ export function placeToSlug(name: string) {
 
 export function placesMatch(a: string, b: string) {
   return placeToSlug(a) === placeToSlug(b);
+}
+
+/**
+ * Resolve ?place= from slug or display name to a canonical label.
+ * Returns null when empty / unusable.
+ */
+export function resolvePlaceParam(
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) return null;
+  const t = raw.trim();
+  if (!t) return null;
+  const slug = placeToSlug(t);
+  if (!slug) return null;
+
+  for (const name of CULTURAL_PLACES) {
+    if (placeToSlug(name) === slug) return name;
+  }
+
+  // Common aliases that appear on chart boards / onboarding free text
+  const ALIASES: Record<string, string> = {
+    "cote-d-ivoire": "Ivory Coast",
+    "côte-d-ivoire": "Ivory Coast",
+    dakar: "Dakar",
+  };
+  if (ALIASES[slug]) return ALIASES[slug];
+
+  if (t.includes("-") || t === slug) {
+    return slug
+      .split("-")
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }
+  return normalizePlaceName(t);
 }
 
 type ArtistPlaceRow = {

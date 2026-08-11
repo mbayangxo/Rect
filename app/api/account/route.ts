@@ -9,6 +9,10 @@ type AccountBody = {
   privacy_public_profile?: boolean;
   privacy_show_activity?: boolean;
   privacy_show_on_charts?: boolean;
+  privacy_show_likes?: boolean;
+  privacy_show_saves?: boolean;
+  privacy_show_followed_artists?: boolean;
+  privacy_show_followers?: boolean;
 };
 
 function cleanDisplayName(value: unknown): string | null {
@@ -59,6 +63,19 @@ export async function PATCH(request: Request) {
     if (typeof body.privacy_show_on_charts === "boolean") {
       privacyPatch.privacy_show_on_charts = body.privacy_show_on_charts;
     }
+    if (typeof body.privacy_show_likes === "boolean") {
+      privacyPatch.privacy_show_likes = body.privacy_show_likes;
+    }
+    if (typeof body.privacy_show_saves === "boolean") {
+      privacyPatch.privacy_show_saves = body.privacy_show_saves;
+    }
+    if (typeof body.privacy_show_followed_artists === "boolean") {
+      privacyPatch.privacy_show_followed_artists =
+        body.privacy_show_followed_artists;
+    }
+    if (typeof body.privacy_show_followers === "boolean") {
+      privacyPatch.privacy_show_followers = body.privacy_show_followers;
+    }
 
     if (!hasName && Object.keys(privacyPatch).length === 0) {
       return NextResponse.json(
@@ -75,18 +92,75 @@ export async function PATCH(request: Request) {
       patch.display_name = display_name;
     }
 
-    const { data, error } = await supabase
+    const selectCols =
+      "id, display_name, privacy_public_profile, privacy_show_activity, privacy_show_on_charts, privacy_show_likes, privacy_show_saves, privacy_show_followed_artists, privacy_show_followers";
+
+    let { data, error } = await supabase
       .from("users")
       .update(patch)
       .eq("id", user.id)
-      .select(
-        "id, display_name, privacy_public_profile, privacy_show_activity, privacy_show_on_charts",
-      )
+      .select(selectCols)
       .maybeSingle();
 
     const meta: Record<string, unknown> = { ...privacyPatch };
     if (hasName && display_name) meta.display_name = display_name;
     await supabase.auth.updateUser({ data: meta });
+
+    if (error) {
+      const missingOptIn =
+        /privacy_show_likes|privacy_show_saves|privacy_show_followed_artists|privacy_show_followers|column .* does not exist/i.test(
+          error.message,
+        );
+      if (missingOptIn) {
+        const dropped = { ...privacyPatch };
+        if (/privacy_show_likes/i.test(error.message)) {
+          delete dropped.privacy_show_likes;
+        }
+        if (/privacy_show_saves/i.test(error.message)) {
+          delete dropped.privacy_show_saves;
+        }
+        if (/privacy_show_followed_artists/i.test(error.message)) {
+          delete dropped.privacy_show_followed_artists;
+        }
+        if (/privacy_show_followers/i.test(error.message)) {
+          delete dropped.privacy_show_followers;
+        }
+        // Broad column-missing: drop all new opt-ins
+        if (/column .* does not exist/i.test(error.message)) {
+          delete dropped.privacy_show_likes;
+          delete dropped.privacy_show_saves;
+          delete dropped.privacy_show_followed_artists;
+          delete dropped.privacy_show_followers;
+        }
+        if (Object.keys(dropped).length === 0 && !hasName) {
+          return NextResponse.json(
+            {
+              error:
+                "Run privacy opt-in SQL in Supabase (likes / saves / followers).",
+              code: "missing_column",
+            },
+            { status: 503 },
+          );
+        }
+        const retryPatch: Record<string, unknown> = {
+          ...dropped,
+          updated_at: new Date().toISOString(),
+        };
+        if (hasName && display_name) retryPatch.display_name = display_name;
+        const retry = await supabase
+          .from("users")
+          .update(retryPatch)
+          .eq("id", user.id)
+          .select(
+            "id, display_name, privacy_public_profile, privacy_show_activity, privacy_show_on_charts, privacy_show_likes",
+          )
+          .maybeSingle();
+        if (!retry.error) {
+          data = retry.data as typeof data;
+          error = null;
+        }
+      }
+    }
 
     if (error) {
       return NextResponse.json({
@@ -103,6 +177,10 @@ export async function PATCH(request: Request) {
       privacy_public_profile?: boolean | null;
       privacy_show_activity?: boolean | null;
       privacy_show_on_charts?: boolean | null;
+      privacy_show_likes?: boolean | null;
+      privacy_show_saves?: boolean | null;
+      privacy_show_followed_artists?: boolean | null;
+      privacy_show_followers?: boolean | null;
     } | null;
 
     return NextResponse.json({
@@ -114,6 +192,12 @@ export async function PATCH(request: Request) {
             privacy_public_profile: Boolean(row.privacy_public_profile),
             privacy_show_activity: Boolean(row.privacy_show_activity),
             privacy_show_on_charts: Boolean(row.privacy_show_on_charts),
+            privacy_show_likes: Boolean(row.privacy_show_likes),
+            privacy_show_saves: Boolean(row.privacy_show_saves),
+            privacy_show_followed_artists: Boolean(
+              row.privacy_show_followed_artists,
+            ),
+            privacy_show_followers: Boolean(row.privacy_show_followers),
           }
         : privacyPatch,
     });

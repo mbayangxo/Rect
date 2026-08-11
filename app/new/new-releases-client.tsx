@@ -2,27 +2,53 @@
 
 import Link from "next/link";
 import { AddToPlaylist } from "@/components/add-to-playlist";
+import { GenreFilterChips } from "@/components/genre-filter-chips";
+import { LanguageFilterChips } from "@/components/language-filter-chips";
+import { PlaceFilterChips } from "@/components/place-filter-chips";
 import { usePlayer } from "@/components/player-provider";
 import { RectLogo } from "@/components/rect-logo";
 import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
 import {
   formatReleasedAt,
   type NewReleaseTrack,
 } from "@/lib/dashboard/new-releases";
-import { trackArtist, trackTitle } from "@/lib/tracks";
+import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
 type Props = {
   tracks: NewReleaseTrack[];
   loadError: string | null;
   personalized: boolean;
+  languageSlug?: string | null;
+  languageLabel?: string | null;
+  languageChips?: { slug: string; name: string }[];
+  genreSlug?: string | null;
+  genreLabel?: string | null;
+  genreChips?: { slug: string; name: string }[];
+  placeSlug?: string | null;
+  placeLabel?: string | null;
+  placeChips?: { slug: string; name: string }[];
+  likedTracks?: Record<string, boolean>;
+  likesReady?: boolean;
 };
 
 export function NewReleasesClient({
   tracks,
   loadError,
   personalized,
+  languageSlug = null,
+  languageLabel = null,
+  languageChips = [],
+  genreSlug = null,
+  genreLabel = null,
+  genreChips = [],
+  placeSlug = null,
+  placeLabel = null,
+  placeChips = [],
+  likedTracks = {},
+  likesReady = false,
 }: Props) {
   const player = usePlayer();
   const playable = tracks.filter((t) => t.audio_url);
@@ -64,6 +90,43 @@ export function NewReleasesClient({
               ? "Newest published drops, with your taste genres nudged up."
               : "Newest published tracks on RECT SOUND."}
           </p>
+          <div className="mt-4 space-y-2">
+            <PlaceFilterChips
+              activeSlug={placeSlug}
+              basePath="/new"
+              keepParams={{
+                genre: genreSlug || undefined,
+                language: languageSlug || undefined,
+              }}
+              places={placeChips}
+            />
+            <GenreFilterChips
+              activeSlug={genreSlug}
+              basePath="/new"
+              keepParams={{
+                language: languageSlug || undefined,
+                place: placeSlug || undefined,
+              }}
+              genres={genreChips}
+            />
+            <LanguageFilterChips
+              activeSlug={languageSlug}
+              basePath="/new"
+              keepParams={{
+                genre: genreSlug || undefined,
+                place: placeSlug || undefined,
+              }}
+              languages={languageChips}
+            />
+          </div>
+          {placeLabel || genreLabel || languageLabel ? (
+            <p className="mt-2 text-xs text-white/40">
+              Showing
+              {placeLabel ? ` ${placeLabel}` : ""}
+              {genreLabel ? ` · ${genreLabel}` : ""}
+              {languageLabel ? ` · ${languageLabel}` : ""} releases.
+            </p>
+          ) : null}
           {playable.length > 0 ? (
             <button
               type="button"
@@ -83,7 +146,11 @@ export function NewReleasesClient({
 
         {tracks.length === 0 && !loadError ? (
           <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
-            <p className="text-base font-medium">Nothing new yet</p>
+            <p className="text-base font-medium">
+              {placeLabel || genreLabel || languageLabel
+                ? `No ${[placeLabel, genreLabel, languageLabel].filter(Boolean).join(" · ")} releases yet`
+                : "Nothing new yet"}
+            </p>
             <p className="mt-2 text-sm text-white/40">
               Published uploads will show here first.
             </p>
@@ -121,6 +188,9 @@ export function NewReleasesClient({
                       {t.like_count > 0
                         ? ` · ${t.like_count} likes`
                         : ""}
+                      {formatTrackDuration(t.duration_secs)
+                        ? ` · ${formatTrackDuration(t.duration_secs)}`
+                        : ""}
                     </p>
                   </div>
                 </button>
@@ -131,8 +201,15 @@ export function NewReleasesClient({
                   Open
                 </Link>
                 <AddToPlaylist trackId={t.id} compact loginNext="/new" />
+                <TrackLikeButton
+                  trackId={t.id}
+                  initialLiked={Boolean(likedTracks[t.id])}
+                  likesReady={likesReady}
+                  loginNext="/new"
+                  compact
+                />
                 <QueueTrackButton track={t} compact />
-            <ShareTrackButton track={t} compact />
+                <ShareTrackButton track={t} compact />
               </li>
             ))}
           </ul>

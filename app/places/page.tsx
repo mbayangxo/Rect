@@ -2,6 +2,7 @@ import { PlacesClient } from "@/app/places/places-client";
 import { loadPlaceHubs } from "@/lib/dashboard/places";
 import {
   hasTasteSignal,
+  loadListenerTaste,
   tasteFromProfile,
 } from "@/lib/dashboard/taste";
 import { createClient } from "@/lib/supabase/server";
@@ -16,12 +17,11 @@ export default async function PlacesPage() {
 
   let taste = tasteFromProfile(null);
   if (user) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("countries, genres")
-      .eq("id", user.id)
-      .maybeSingle();
-    taste = tasteFromProfile(profile);
+    taste = await loadListenerTaste(
+      supabase,
+      user.id,
+      user.user_metadata as Record<string, unknown>,
+    );
   }
 
   const result = await loadPlaceHubs(supabase, taste);

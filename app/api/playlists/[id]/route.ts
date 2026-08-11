@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { notifyFriendMixPublished } from "@/lib/dashboard/notifications";
 import {
   deletePlaylist,
   renamePlaylist,
   setPlaylistDescription,
+  setPlaylistPinned,
   setPlaylistPublic,
 } from "@/lib/dashboard/playlists";
 import { createClient } from "@/lib/supabase/server";
@@ -32,12 +34,14 @@ export async function PATCH(request: Request, ctx: Ctx) {
     name?: string;
     is_public?: boolean;
     description?: string | null;
+    pinned?: boolean;
   };
   try {
     body = (await request.json()) as {
       name?: string;
       is_public?: boolean;
       description?: string | null;
+      pinned?: boolean;
     };
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -46,10 +50,11 @@ export async function PATCH(request: Request, ctx: Ctx) {
   const hasName = typeof body.name === "string";
   const hasPublic = typeof body.is_public === "boolean";
   const hasDescription = "description" in body;
+  const hasPinned = typeof body.pinned === "boolean";
 
-  if (!hasName && !hasPublic && !hasDescription) {
+  if (!hasName && !hasPublic && !hasDescription && !hasPinned) {
     return NextResponse.json(
-      { error: "name, is_public, or description required" },
+      { error: "name, is_public, description, or pinned required" },
       { status: 400 },
     );
   }
@@ -58,7 +63,10 @@ export async function PATCH(request: Request, ctx: Ctx) {
     ok: true;
     name?: string;
     is_public?: boolean;
+    became_public?: boolean;
+    notified?: number;
     description?: string | null;
+    pinned_at?: string | null;
   } = { ok: true };
 
   if (hasName) {
@@ -131,6 +139,33 @@ export async function PATCH(request: Request, ctx: Ctx) {
       );
     }
     out.is_public = result.is_public;
+    out.became_public = result.became_public;
+    if (result.became_public) {
+      const notify = await notifyFriendMixPublished(supabase, playlistId);
+      out.notified = notify.notified;
+    }
+  }
+
+  if (hasPinned) {
+    const result = await setPlaylistPinned(
+      supabase,
+      user.id,
+      playlistId,
+      body.pinned!,
+    );
+    if (!result.ok) {
+      const status =
+        result.code === "missing_table"
+          ? 503
+          : result.code === "not_found"
+            ? 404
+            : 500;
+      return NextResponse.json(
+        { error: result.error, code: result.code },
+        { status },
+      );
+    }
+    out.pinned_at = result.pinned_at;
   }
 
   return NextResponse.json(out);

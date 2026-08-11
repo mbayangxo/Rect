@@ -2,11 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import {
+  CULTURAL_GENRES,
+  CULTURAL_LANGUAGES,
+  matchCulturalGenre,
+  matchCulturalLanguage,
+  normalizeTrackGenre,
+  normalizeTrackLanguage,
+} from "@/lib/cultural-options";
 
 type Props = {
   trackId: string;
   title: string;
   genre: string | null;
+  language?: string | null;
   hasCover?: boolean;
 };
 
@@ -14,12 +23,18 @@ export function TrackEditButton({
   trackId,
   title,
   genre,
+  language = null,
   hasCover = false,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [nextTitle, setNextTitle] = useState(title);
-  const [nextGenre, setNextGenre] = useState(genre ?? "");
+  const [nextGenre, setNextGenre] = useState(
+    matchCulturalGenre(genre) ?? genre ?? "",
+  );
+  const [nextLanguage, setNextLanguage] = useState(
+    matchCulturalLanguage(language) ?? language ?? "",
+  );
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [removeCover, setRemoveCover] = useState(false);
   const [pending, setPending] = useState(false);
@@ -28,7 +43,8 @@ export function TrackEditButton({
 
   function openEditor() {
     setNextTitle(title);
-    setNextGenre(genre ?? "");
+    setNextGenre(matchCulturalGenre(genre) ?? genre ?? "");
+    setNextLanguage(matchCulturalLanguage(language) ?? language ?? "");
     setCoverFile(null);
     setRemoveCover(false);
     setError(null);
@@ -43,16 +59,23 @@ export function TrackEditButton({
     setError(null);
     setSaved(false);
     try {
+      const normalizedGenre = normalizeTrackGenre(nextGenre);
+      const normalizedLanguage = normalizeTrackLanguage(nextLanguage);
       const titleChanged = nextTitle.trim() !== title.trim();
-      const genreChanged = (nextGenre.trim() || null) !== (genre ?? null);
+      const genreChanged =
+        (normalizedGenre || null) !== (normalizeTrackGenre(genre) || null);
+      const languageChanged =
+        (normalizedLanguage || null) !==
+        (normalizeTrackLanguage(language) || null);
 
-      if (titleChanged || genreChanged) {
+      if (titleChanged || genreChanged || languageChanged) {
         const res = await fetch(`/api/tracks/${trackId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: nextTitle.trim(),
-            genre: nextGenre.trim() || null,
+            genre: normalizedGenre,
+            language: normalizedLanguage,
           }),
         });
         const data = (await res.json()) as { error?: string };
@@ -85,7 +108,13 @@ export function TrackEditButton({
         }
       }
 
-      if (!titleChanged && !genreChanged && !coverFile && !removeCover) {
+      if (
+        !titleChanged &&
+        !genreChanged &&
+        !languageChanged &&
+        !coverFile &&
+        !removeCover
+      ) {
         setOpen(false);
         return;
       }
@@ -101,6 +130,11 @@ export function TrackEditButton({
       setPending(false);
     }
   }
+
+  const legacyGenre =
+    nextGenre && !matchCulturalGenre(nextGenre) ? nextGenre : null;
+  const legacyLanguage =
+    nextLanguage && !matchCulturalLanguage(nextLanguage) ? nextLanguage : null;
 
   return (
     <div className="shrink-0 text-right">
@@ -119,8 +153,8 @@ export function TrackEditButton({
 
       {open ? (
         <form
-          onSubmit={onSave}
-          className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-white/15 bg-[#071208] p-3 text-left shadow-xl"
+          onSubmit={(e) => void onSave(e)}
+          className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-white/15 bg-[#071208] p-3 text-left shadow-xl"
         >
           <label className="block text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
             Title
@@ -132,16 +166,66 @@ export function TrackEditButton({
               className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#1DB954]/50"
             />
           </label>
-          <label className="mt-3 block text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
-            Genre
-            <input
-              value={nextGenre}
-              onChange={(e) => setNextGenre(e.target.value)}
-              maxLength={60}
-              placeholder="Optional"
-              className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-white/25 focus:border-[#1DB954]/50"
-            />
-          </label>
+          <fieldset className="mt-3">
+            <legend className="text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
+              Genre
+            </legend>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {CULTURAL_GENRES.map((g) => {
+                const on = nextGenre === g;
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setNextGenre(on ? "" : g)}
+                    className={`rounded-full border px-2 py-1 text-[0.65rem] transition ${
+                      on
+                        ? "border-[#1DB954] bg-[#1DB954]/15 text-[#1DB954]"
+                        : "border-white/15 text-white/50 hover:border-white/30"
+                    }`}
+                    aria-pressed={on}
+                  >
+                    {g}
+                  </button>
+                );
+              })}
+            </div>
+            {legacyGenre ? (
+              <p className="mt-1.5 text-[0.55rem] text-white/35">
+                Current: {legacyGenre} — pick a catalog chip to update.
+              </p>
+            ) : null}
+          </fieldset>
+          <fieldset className="mt-3">
+            <legend className="text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
+              Language
+            </legend>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {CULTURAL_LANGUAGES.map((l) => {
+                const on = nextLanguage === l;
+                return (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setNextLanguage(on ? "" : l)}
+                    className={`rounded-full border px-2 py-1 text-[0.65rem] transition ${
+                      on
+                        ? "border-[#1DB954] bg-[#1DB954]/15 text-[#1DB954]"
+                        : "border-white/15 text-white/50 hover:border-white/30"
+                    }`}
+                    aria-pressed={on}
+                  >
+                    {l}
+                  </button>
+                );
+              })}
+            </div>
+            {legacyLanguage ? (
+              <p className="mt-1.5 text-[0.55rem] text-white/35">
+                Current: {legacyLanguage} — pick a catalog chip to update.
+              </p>
+            ) : null}
+          </fieldset>
           <label className="mt-3 block text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
             Cover
             <input

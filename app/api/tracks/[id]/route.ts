@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  normalizeTrackGenre,
+  normalizeTrackLanguage,
+} from "@/lib/cultural-options";
 import { createClient } from "@/lib/supabase/server";
 import { TRACKS_BUCKET } from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
-type PatchBody = { title?: string; genre?: string | null };
+type PatchBody = {
+  title?: string;
+  genre?: string | null;
+  language?: string | null;
+  duration_secs?: number | null;
+};
 
 function storagePathFromPublicUrl(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -68,22 +77,43 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.genre === null) {
       patch.genre = null;
     } else if (typeof body.genre === "string") {
-      const genre = body.genre.trim();
-      if (genre.length > 60) {
-        return NextResponse.json(
-          { error: "Genre must be under 60 characters." },
-          { status: 400 },
-        );
-      }
-      patch.genre = genre || null;
+      patch.genre = normalizeTrackGenre(body.genre);
     } else {
       return NextResponse.json({ error: "Invalid genre." }, { status: 400 });
     }
   }
 
+  if (body.language !== undefined) {
+    if (body.language === null) {
+      patch.language = null;
+    } else if (typeof body.language === "string") {
+      patch.language = normalizeTrackLanguage(body.language);
+    } else {
+      return NextResponse.json({ error: "Invalid language." }, { status: 400 });
+    }
+  }
+
+  if (body.duration_secs !== undefined) {
+    if (body.duration_secs === null) {
+      patch.duration_secs = null;
+    } else if (
+      typeof body.duration_secs === "number" &&
+      Number.isFinite(body.duration_secs) &&
+      body.duration_secs > 0 &&
+      body.duration_secs <= 7200
+    ) {
+      patch.duration_secs = Math.round(body.duration_secs);
+    } else {
+      return NextResponse.json(
+        { error: "duration_secs must be 1–7200." },
+        { status: 400 },
+      );
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(
-      { error: "Provide title and/or genre." },
+      { error: "Provide title, genre, language, and/or duration_secs." },
       { status: 400 },
     );
   }

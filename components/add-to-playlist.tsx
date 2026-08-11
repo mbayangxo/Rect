@@ -146,7 +146,12 @@ export function AddToPlaylist({
                 onClick={() => addTo(p.id)}
                 className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-white/[0.06] disabled:opacity-50"
               >
-                <span className="truncate">{p.name}</span>
+                <span className="truncate">
+                  {p.name}
+                  {p.role === "collaborator" ? (
+                    <span className="text-white/35"> · collab</span>
+                  ) : null}
+                </span>
                 <span className="shrink-0 text-xs text-white/35">
                   {pendingId === p.id ? "…" : "Add"}
                 </span>

@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         ? 401
         : result.code === "missing_table"
           ? 503
-          : result.code === "cannot_follow_self"
+          : result.code === "cannot_follow_self" || result.code === "blocked"
             ? 400
             : 500;
     return NextResponse.json(

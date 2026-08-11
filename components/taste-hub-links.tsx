@@ -1,16 +1,19 @@
 import Link from "next/link";
 import { genreToSlug } from "@/lib/dashboard/genres";
+import { languageToSlug } from "@/lib/dashboard/languages";
 import { placeToSlug } from "@/lib/dashboard/places";
 
 type Props = {
   genres?: string[];
   countries?: string[];
+  languages?: string[];
   className?: string;
 };
 
 export function TasteHubLinks({
   genres = [],
   countries = [],
+  languages = [],
   className = "",
 }: Props) {
   const genreLinks = genres
@@ -27,7 +30,20 @@ export function TasteHubLinks({
     })
     .filter(Boolean) as { name: string; href: string }[];
 
-  if (genreLinks.length === 0 && placeLinks.length === 0) return null;
+  const languageLinks = languages
+    .map((name) => {
+      const slug = languageToSlug(name);
+      return slug ? { name, href: `/languages/${slug}` } : null;
+    })
+    .filter(Boolean) as { name: string; href: string }[];
+
+  if (
+    genreLinks.length === 0 &&
+    placeLinks.length === 0 &&
+    languageLinks.length === 0
+  ) {
+    return null;
+  }
 
   return (
     <section className={className}>
@@ -35,7 +51,7 @@ export function TasteHubLinks({
         Explore your taste
       </p>
       <p className="mt-2 text-sm text-white/45">
-        Jump into genre and place hubs matched to what you picked.
+        Jump into hubs matched to what you picked.
       </p>
       {genreLinks.length > 0 ? (
         <div className="mt-4 flex flex-wrap gap-2">
@@ -51,7 +67,9 @@ export function TasteHubLinks({
         </div>
       ) : null}
       {placeLinks.length > 0 ? (
-        <div className={`${genreLinks.length > 0 ? "mt-3" : "mt-4"} flex flex-wrap gap-2`}>
+        <div
+          className={`${genreLinks.length > 0 ? "mt-3" : "mt-4"} flex flex-wrap gap-2`}
+        >
           {placeLinks.map((p) => (
             <Link
               key={p.href}
@@ -59,6 +77,23 @@ export function TasteHubLinks({
               className="rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-sm text-white/80 hover:border-[#1DB954]/40 hover:text-[#1DB954]"
             >
               {p.name} →
+            </Link>
+          ))}
+        </div>
+      ) : null}
+      {languageLinks.length > 0 ? (
+        <div
+          className={`${
+            genreLinks.length > 0 || placeLinks.length > 0 ? "mt-3" : "mt-4"
+          } flex flex-wrap gap-2`}
+        >
+          {languageLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="rounded-full border border-white/15 bg-white/[0.04] px-3.5 py-1.5 text-sm text-white/80 hover:border-[#1DB954]/40 hover:text-[#1DB954]"
+            >
+              {l.name} →
             </Link>
           ))}
         </div>

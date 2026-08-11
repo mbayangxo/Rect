@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { loadCollaborativePlaylists } from "@/lib/dashboard/playlist-collaborators";
 import {
   createPlaylist,
   createPlaylistFromTrackIds,
@@ -19,8 +20,12 @@ export async function GET() {
     );
   }
 
-  const result = await loadUserPlaylists(supabase, user.id);
-  if (result.missingTable) {
+  const [owned, collab] = await Promise.all([
+    loadUserPlaylists(supabase, user.id),
+    loadCollaborativePlaylists(supabase, user.id),
+  ]);
+
+  if (owned.missingTable) {
     return NextResponse.json(
       {
         error: "Run playlists SQL in Supabase first",
@@ -30,11 +35,21 @@ export async function GET() {
       { status: 503 },
     );
   }
-  if (result.error) {
-    return NextResponse.json({ error: result.error }, { status: 500 });
+  if (owned.error) {
+    return NextResponse.json({ error: owned.error }, { status: 500 });
   }
 
-  return NextResponse.json({ playlists: result.playlists });
+  const ownedIds = new Set(owned.playlists.map((p) => p.id));
+  const collabOnly = collab.missingTable
+    ? []
+    : collab.playlists.filter((p) => !ownedIds.has(p.id));
+
+  return NextResponse.json({
+    playlists: [
+      ...owned.playlists.map((p) => ({ ...p, role: "owner" as const })),
+      ...collabOnly,
+    ],
+  });
 }
 
 export async function POST(request: Request) {

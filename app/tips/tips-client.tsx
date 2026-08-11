@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { InboxTrackPlay } from "@/components/inbox-track-play";
 import { RectLogo } from "@/components/rect-logo";
 import type { MyTip } from "@/lib/dashboard/tips";
+import type { TrackRow } from "@/lib/tracks";
 
 type Props = {
   tips: MyTip[];
   totalXof: number;
   loadError: string | null;
   missingTable: boolean;
+  tipTracks?: Record<string, TrackRow>;
 };
 
 export function TipsClient({
@@ -16,6 +19,7 @@ export function TipsClient({
   totalXof,
   loadError,
   missingTable,
+  tipTracks = {},
 }: Props) {
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
@@ -107,7 +111,34 @@ export function TipsClient({
                       : "—"}
                     {" · "}
                     {t.payment_method}
+                    {t.track_id ? (
+                      <>
+                        {" · "}
+                        <Link
+                          href={`/songs/${t.track_id}`}
+                          className="hover:text-[#1DB954]"
+                        >
+                          {t.track_title || "Track"}
+                        </Link>
+                      </>
+                    ) : null}
                   </p>
+                  {t.message ? (
+                    <p className="mt-1 truncate text-xs text-white/55">
+                      “{t.message}”
+                    </p>
+                  ) : null}
+                  {t.thanks_message ? (
+                    <p className="mt-1 truncate text-xs text-[#1DB954]/90">
+                      Thanks: “{t.thanks_message}”
+                    </p>
+                  ) : null}
+                  {t.track_id && tipTracks[t.track_id] ? (
+                    <InboxTrackPlay
+                      track={tipTracks[t.track_id]}
+                      className="mt-1.5 rounded-full border border-white/20 px-3 py-1 text-xs text-white/70 hover:bg-white/10"
+                    />
+                  ) : null}
                 </div>
                 <span className="shrink-0 text-sm font-semibold text-[#1DB954]">
                   {t.amount_xof.toLocaleString()} XOF

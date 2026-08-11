@@ -4,6 +4,7 @@ import {
   isTrackLiked,
   toggleTrackLike,
 } from "@/lib/dashboard/likes";
+import { notifyTrackLike } from "@/lib/dashboard/notifications";
 import { createClient } from "@/lib/supabase/server";
 
 type Body = { track_id?: string };
@@ -94,6 +95,10 @@ export async function POST(request: Request) {
       { error: result.error, code: result.code },
       { status },
     );
+  }
+
+  if (result.liked) {
+    await notifyTrackLike(supabase, trackId);
   }
 
   return NextResponse.json({

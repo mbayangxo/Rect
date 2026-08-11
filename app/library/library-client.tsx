@@ -10,18 +10,21 @@ import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
 import type { LikedTrack } from "@/lib/dashboard/likes";
-import { trackArtist, trackTitle } from "@/lib/tracks";
+import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
 type Props = {
   initialTracks: LikedTrack[];
   loadError: string | null;
   missingTable: boolean;
+  /** True when privacy_show_likes is off (default). */
+  likesHidden?: boolean;
 };
 
 export function LibraryClient({
   initialTracks,
   loadError,
   missingTable,
+  likesHidden = true,
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -165,6 +168,29 @@ export function LibraryClient({
             <p className="mt-2 text-sm text-white/45">
               Tracks you heart on RECT SOUND — saved in your account.
             </p>
+            {likesHidden ? (
+              <p className="mt-4 max-w-xl rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
+                Your likes stay off your public page.{" "}
+                <Link
+                  href="/profile"
+                  className="text-[#1DB954] hover:underline"
+                >
+                  Turn on Liked songs
+                </Link>{" "}
+                in Profile if you want friends to see them.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-white/40">
+                Shared on your public page. Change anytime in{" "}
+                <Link
+                  href="/profile"
+                  className="text-[#1DB954] hover:underline"
+                >
+                  Privacy settings
+                </Link>
+                .
+              </p>
+            )}
           </div>
           {!missingTable && tracks.length > 0 ? (
             <button
@@ -288,6 +314,11 @@ export function LibraryClient({
                         {t.genre ? ` · ${t.genre}` : ""}
                       </span>
                     </button>
+                    {formatTrackDuration(t.duration_secs) ? (
+                      <span className="shrink-0 text-xs tabular-nums text-white/35">
+                        {formatTrackDuration(t.duration_secs)}
+                      </span>
+                    ) : null}
                     <AddToPlaylist
                       trackId={t.id}
                       compact

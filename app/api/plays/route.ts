@@ -3,6 +3,7 @@ import {
   consumePlayCredit,
   loadPlayCreditBalance,
 } from "@/lib/dashboard/credits";
+import { notifyTrackListen } from "@/lib/dashboard/notifications";
 import { createRouteClient } from "@/lib/supabase/route";
 
 type Body = { track_id?: string };
@@ -87,9 +88,12 @@ export async function POST(request: Request) {
     );
   }
 
+  const playId = data?.id != null ? String(data.id) : null;
+  await notifyTrackListen(supabase, trackId, playId);
+
   return NextResponse.json({
     ok: true,
-    play_id: data?.id != null ? String(data.id) : null,
+    play_id: playId,
     credits_remaining: consumed.balance,
   });
 }

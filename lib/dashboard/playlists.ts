@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { isDemoTrack, isPublishedTrack, type TrackRow } from "@/lib/tracks";
 
 function isMissingRelation(message: string) {
@@ -23,16 +24,41 @@ export type PlaylistSummary = {
   updated_at: string | null;
   track_count: number;
   is_public: boolean;
+  pinned_at: string | null;
+  /** Present when listed as a collaborative mix. */
+  role?: "owner" | "collaborator";
 };
+
+function sortPlaylistsPinnedFirst(list: PlaylistSummary[]): PlaylistSummary[] {
+  return [...list].sort((a, b) => {
+    const ap = a.pinned_at || "";
+    const bp = b.pinned_at || "";
+    if (ap && !bp) return -1;
+    if (!ap && bp) return 1;
+    if (ap && bp && ap !== bp) return bp.localeCompare(ap);
+    return (b.updated_at || "").localeCompare(a.updated_at || "");
+  });
+}
 
 export type PlaylistTrack = TrackRow & {
   position: number;
   added_at: string | null;
+  added_by: string | null;
+  added_by_name: string | null;
+  /** Viewer may remove this row (owner any, collab own adds). */
+  can_remove: boolean;
 };
 
 export type PlaylistDetail = PlaylistSummary & {
   tracks: PlaylistTrack[];
+  owner_id: string | null;
   is_owner: boolean;
+  /** Accepted collaborator (not owner). */
+  is_collaborator: boolean;
+  /** Owner or accepted collaborator — can add tracks. */
+  can_edit: boolean;
+  /** Pending invite for the viewer. */
+  collab_pending: boolean;
 };
 
 export type PlaylistsLoadResult = {
@@ -48,17 +74,106 @@ export type PlaylistDetailResult = {
   notFound: boolean;
 };
 
+/** First track (by position) per playlist — for inbox Play previews. */
+export async function loadFirstTracksForPlaylists(
+  supabase: SupabaseClient,
+  playlistIds: string[],
+): Promise<{ byPlaylistId: Record<string, TrackRow>; missingTable: boolean }> {
+  const unique = [...new Set(playlistIds.filter(Boolean))];
+  if (unique.length === 0) {
+    return { byPlaylistId: {}, missingTable: false };
+  }
+
+  try {
+    const { data: rows, error } = await supabase
+      .from("playlist_tracks")
+      .select("playlist_id, track_id, position")
+      .in("playlist_id", unique)
+      .order("position", { ascending: true });
+
+    if (error) {
+      if (isMissingRelation(error.message)) {
+        return { byPlaylistId: {}, missingTable: true };
+      }
+      return { byPlaylistId: {}, missingTable: false };
+    }
+
+    const firstTrackIdByPlaylist = new Map<string, string>();
+    for (const row of rows ?? []) {
+      const pid = row.playlist_id as string;
+      const tid = row.track_id as string;
+      if (!pid || !tid || firstTrackIdByPlaylist.has(pid)) continue;
+      firstTrackIdByPlaylist.set(pid, tid);
+    }
+
+    const trackIds = [...new Set(firstTrackIdByPlaylist.values())];
+    if (trackIds.length === 0) {
+      return { byPlaylistId: {}, missingTable: false };
+    }
+
+    const { data: tracks, error: tracksErr } = await supabase
+      .from("tracks")
+      .select(
+        "id, title, artist_id, genre, status, audio_url, cover_art_url, play_count, duration_secs",
+      )
+      .in("id", trackIds);
+
+    if (tracksErr) {
+      if (isMissingRelation(tracksErr.message)) {
+        return { byPlaylistId: {}, missingTable: true };
+      }
+      return { byPlaylistId: {}, missingTable: false };
+    }
+
+    const trackById = new Map<string, TrackRow>();
+    for (const t of (tracks ?? []) as TrackRow[]) {
+      if (!t?.id || isDemoTrack(t)) continue;
+      trackById.set(t.id, t);
+    }
+
+    const byPlaylistId: Record<string, TrackRow> = {};
+    for (const [pid, tid] of firstTrackIdByPlaylist) {
+      const track = trackById.get(tid);
+      if (track) byPlaylistId[pid] = track;
+    }
+    return { byPlaylistId, missingTable: false };
+  } catch {
+    return { byPlaylistId: {}, missingTable: false };
+  }
+}
+
 export async function loadUserPlaylists(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<PlaylistsLoadResult> {
   try {
-    const { data, error } = await supabase
+    const fullSelect =
+      "id, name, description, cover_art_url, created_at, updated_at, is_public, pinned_at";
+    const primary = await supabase
       .from("playlists")
-      .select("id, name, description, cover_art_url, created_at, updated_at, is_public")
+      .select(fullSelect)
       .eq("user_id", userId)
       .order("updated_at", { ascending: false })
       .limit(50);
+
+    let data = primary.data as Record<string, unknown>[] | null;
+    let error = primary.error;
+
+    if (
+      error &&
+      /pinned_at|column .* does not exist/i.test(error.message)
+    ) {
+      const retry = await supabase
+        .from("playlists")
+        .select(
+          "id, name, description, cover_art_url, created_at, updated_at, is_public",
+        )
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .limit(50);
+      data = (retry.data ?? null) as Record<string, unknown>[] | null;
+      error = retry.error;
+    }
 
     if (error) {
       if (isMissingRelation(error.message)) {
@@ -91,16 +206,19 @@ export async function loadUserPlaylists(
             countById.set(pid, (countById.get(pid) ?? 0) + 1);
           }
           return {
-            playlists: rows.map((r) => ({
-              id: r.id as string,
-              name: (r.name as string)?.trim() || "Playlist",
-              description: null,
-              cover_art_url: null,
-              created_at: (r.created_at as string | null) ?? null,
-              updated_at: (r.updated_at as string | null) ?? null,
-              track_count: countById.get(r.id as string) ?? 0,
-              is_public: Boolean(r.is_public),
-            })),
+            playlists: sortPlaylistsPinnedFirst(
+              rows.map((r) => ({
+                id: r.id as string,
+                name: (r.name as string)?.trim() || "Playlist",
+                description: null,
+                cover_art_url: null,
+                created_at: (r.created_at as string | null) ?? null,
+                updated_at: (r.updated_at as string | null) ?? null,
+                track_count: countById.get(r.id as string) ?? 0,
+                is_public: Boolean(r.is_public),
+                pinned_at: null,
+              })),
+            ),
             missingTable: false,
             error: null,
           };
@@ -133,18 +251,21 @@ export async function loadUserPlaylists(
             countById.set(pid, (countById.get(pid) ?? 0) + 1);
           }
           return {
-            playlists: rows.map((r) => ({
-              id: r.id as string,
-              name: (r.name as string)?.trim() || "Playlist",
-              description: normalizeDescription(
-                (r as { description?: unknown }).description,
-              ),
-              cover_art_url: null,
-              created_at: (r.created_at as string | null) ?? null,
-              updated_at: (r.updated_at as string | null) ?? null,
-              track_count: countById.get(r.id as string) ?? 0,
-              is_public: Boolean(r.is_public),
-            })),
+            playlists: sortPlaylistsPinnedFirst(
+              rows.map((r) => ({
+                id: r.id as string,
+                name: (r.name as string)?.trim() || "Playlist",
+                description: normalizeDescription(
+                  (r as { description?: unknown }).description,
+                ),
+                cover_art_url: null,
+                created_at: (r.created_at as string | null) ?? null,
+                updated_at: (r.updated_at as string | null) ?? null,
+                track_count: countById.get(r.id as string) ?? 0,
+                is_public: Boolean(r.is_public),
+                pinned_at: null,
+              })),
+            ),
             missingTable: false,
             error: null,
           };
@@ -181,16 +302,19 @@ export async function loadUserPlaylists(
           countById.set(pid, (countById.get(pid) ?? 0) + 1);
         }
         return {
-          playlists: rows.map((r) => ({
-            id: r.id as string,
-            name: (r.name as string)?.trim() || "Playlist",
-            description: null,
-            cover_art_url: null,
-            created_at: (r.created_at as string | null) ?? null,
-            updated_at: (r.updated_at as string | null) ?? null,
-            track_count: countById.get(r.id as string) ?? 0,
-            is_public: false,
-          })),
+          playlists: sortPlaylistsPinnedFirst(
+            rows.map((r) => ({
+              id: r.id as string,
+              name: (r.name as string)?.trim() || "Playlist",
+              description: null,
+              cover_art_url: null,
+              created_at: (r.created_at as string | null) ?? null,
+              updated_at: (r.updated_at as string | null) ?? null,
+              track_count: countById.get(r.id as string) ?? 0,
+              is_public: false,
+              pinned_at: null,
+            })),
+          ),
           missingTable: false,
           error: null,
         };
@@ -216,15 +340,99 @@ export async function loadUserPlaylists(
       countById.set(pid, (countById.get(pid) ?? 0) + 1);
     }
 
+    const playlists: PlaylistSummary[] = sortPlaylistsPinnedFirst(
+      rows.map((r) => ({
+        id: r.id as string,
+        name: (r.name as string)?.trim() || "Playlist",
+        description: normalizeDescription(r.description),
+        cover_art_url:
+          typeof r.cover_art_url === "string" && r.cover_art_url.trim()
+            ? r.cover_art_url.trim()
+            : null,
+        created_at: (r.created_at as string | null) ?? null,
+        updated_at: (r.updated_at as string | null) ?? null,
+        track_count: countById.get(r.id as string) ?? 0,
+        is_public: Boolean(r.is_public),
+        pinned_at:
+          typeof (r as { pinned_at?: unknown }).pinned_at === "string"
+            ? ((r as { pinned_at: string }).pinned_at)
+            : null,
+      })),
+    );
+
+    return { playlists, missingTable: false, error: null };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Failed to load playlists";
+    return {
+      playlists: [],
+      missingTable: isMissingRelation(msg),
+      error: isMissingRelation(msg) ? null : msg,
+    };
+  }
+}
+
+/**
+ * Public mixes owned by a user — for artist portals / discovery.
+ * Relies on is_public RLS (or admin reader).
+ */
+export async function loadPublicPlaylistsByOwner(
+  supabase: SupabaseClient,
+  ownerId: string,
+  limit = 12,
+): Promise<PlaylistsLoadResult> {
+  try {
+    const admin = createAdminClient();
+    const db = admin ?? supabase;
+
+    const { data, error } = await db
+      .from("playlists")
+      .select(
+        "id, name, description, cover_art_url, created_at, updated_at, is_public",
+      )
+      .eq("user_id", ownerId)
+      .eq("is_public", true)
+      .order("updated_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      if (isMissingRelation(error.message)) {
+        return { playlists: [], missingTable: true, error: null };
+      }
+      if (/is_public|column .* does not exist/i.test(error.message)) {
+        return { playlists: [], missingTable: false, error: null };
+      }
+      return { playlists: [], missingTable: false, error: error.message };
+    }
+
+    const rows = data ?? [];
+    if (rows.length === 0) {
+      return { playlists: [], missingTable: false, error: null };
+    }
+
+    const ids = rows.map((r) => r.id as string);
+    const countById = new Map<string, number>();
+    const { data: trackRows } = await db
+      .from("playlist_tracks")
+      .select("playlist_id")
+      .in("playlist_id", ids);
+    for (const row of trackRows ?? []) {
+      const pid = row.playlist_id as string;
+      countById.set(pid, (countById.get(pid) ?? 0) + 1);
+    }
+
     const playlists: PlaylistSummary[] = rows.map((r) => ({
       id: r.id as string,
       name: (r.name as string)?.trim() || "Playlist",
       description: normalizeDescription(r.description),
-      cover_art_url: (typeof r.cover_art_url === "string" && r.cover_art_url.trim()) ? r.cover_art_url.trim() : null,
+      cover_art_url:
+        typeof r.cover_art_url === "string" && r.cover_art_url.trim()
+          ? r.cover_art_url.trim()
+          : null,
       created_at: (r.created_at as string | null) ?? null,
       updated_at: (r.updated_at as string | null) ?? null,
       track_count: countById.get(r.id as string) ?? 0,
-      is_public: Boolean(r.is_public),
+      is_public: true,
+      pinned_at: null,
     }));
 
     return { playlists, missingTable: false, error: null };
@@ -381,7 +589,22 @@ export async function loadPlaylistDetail(
 
     const isOwner = Boolean(userId && pl.user_id === userId);
     const isPublic = Boolean(pl.is_public);
-    if (!isOwner && !isPublic) {
+
+    let isCollaborator = false;
+    let collabPending = false;
+    if (userId && !isOwner) {
+      const { data: collabRow } = await supabase
+        .from("playlist_collaborators")
+        .select("status")
+        .eq("playlist_id", playlistId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      const status = collabRow?.status as string | undefined;
+      isCollaborator = status === "accepted";
+      collabPending = status === "pending";
+    }
+
+    if (!isOwner && !isPublic && !isCollaborator && !collabPending) {
       return {
         playlist: null,
         missingTable: false,
@@ -390,23 +613,48 @@ export async function loadPlaylistDetail(
       };
     }
 
-    const { data: links, error: linkError } = await supabase
-      .from("playlist_tracks")
-      .select("track_id, position, added_at")
-      .eq("playlist_id", playlistId)
-      .order("position", { ascending: true })
-      .order("added_at", { ascending: true });
+    const canEdit = isOwner || isCollaborator;
 
-    if (linkError) {
-      return {
-        playlist: null,
-        missingTable: false,
-        error: linkError.message,
-        notFound: false,
-      };
+    let linkRows: Record<string, unknown>[] = [];
+    {
+      const first = await supabase
+        .from("playlist_tracks")
+        .select("track_id, position, added_at, added_by")
+        .eq("playlist_id", playlistId)
+        .order("position", { ascending: true })
+        .order("added_at", { ascending: true });
+
+      if (first.error) {
+        const missingAddedBy =
+          /added_by/i.test(first.error.message) &&
+          /column .* does not exist/i.test(first.error.message);
+        if (!missingAddedBy) {
+          return {
+            playlist: null,
+            missingTable: false,
+            error: first.error.message,
+            notFound: false,
+          };
+        }
+        const retry = await supabase
+          .from("playlist_tracks")
+          .select("track_id, position, added_at")
+          .eq("playlist_id", playlistId)
+          .order("position", { ascending: true })
+          .order("added_at", { ascending: true });
+        if (retry.error) {
+          return {
+            playlist: null,
+            missingTable: false,
+            error: retry.error.message,
+            notFound: false,
+          };
+        }
+        linkRows = (retry.data ?? []) as Record<string, unknown>[];
+      } else {
+        linkRows = (first.data ?? []) as Record<string, unknown>[];
+      }
     }
-
-    const linkRows = links ?? [];
     const trackIds = linkRows.map((r) => r.track_id as string).filter(Boolean);
 
     let tracks: PlaylistTrack[] = [];
@@ -429,7 +677,7 @@ export async function loadPlaylistDetail(
 
       const rows = ((trackRows ?? []) as TrackRow[]).filter((t) => {
         if (isDemoTrack(t)) return false;
-        return isOwner || isPublishedTrack(t);
+        return isOwner || isCollaborator || isPublishedTrack(t);
       });
       const nameById = await loadArtistCreditMap(
         supabase,
@@ -453,6 +701,8 @@ export async function loadPlaylistDetail(
           {
             position: Number(r.position) || 0,
             added_at: (r.added_at as string | null) ?? null,
+            added_by:
+              typeof r.added_by === "string" ? (r.added_by as string) : null,
           },
         ]),
       );
@@ -462,14 +712,42 @@ export async function loadPlaylistDetail(
         const t = byId.get(id);
         const meta = linkMeta.get(id);
         if (t && meta) {
+          const addedBy = meta.added_by;
           tracks.push({
             ...t,
             position: meta.position,
             added_at: meta.added_at,
+            added_by: addedBy,
+            added_by_name: null,
+            can_remove:
+              isOwner ||
+              (isCollaborator && Boolean(userId) && addedBy === userId),
           });
         }
       }
+
+      const adderIds = [
+        ...new Set(
+          tracks
+            .map((t) => t.added_by)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      if (adderIds.length > 0) {
+        const adderNames = await loadArtistCreditMap(supabase, adderIds);
+        tracks = tracks.map((t) => ({
+          ...t,
+          added_by_name: t.added_by
+            ? (adderNames.get(t.added_by) ?? "Listener")
+            : null,
+        }));
+      }
     }
+
+    const ownerId =
+      typeof pl.user_id === "string" && pl.user_id.trim()
+        ? pl.user_id.trim()
+        : null;
 
     return {
       playlist: {
@@ -481,7 +759,13 @@ export async function loadPlaylistDetail(
         updated_at: (pl.updated_at as string | null) ?? null,
         track_count: tracks.length,
         is_public: isPublic,
+        pinned_at:
+          typeof pl.pinned_at === "string" ? pl.pinned_at : null,
+        owner_id: ownerId,
         is_owner: isOwner,
+        is_collaborator: isCollaborator,
+        can_edit: canEdit,
+        collab_pending: collabPending,
         tracks,
       },
       missingTable: false,
@@ -619,6 +903,9 @@ async function loadPlaylistDetailLegacy(
           ...t,
           position: meta.position,
           added_at: meta.added_at,
+          added_by: userId,
+          added_by_name: null,
+          can_remove: true,
         });
       }
     }
@@ -634,7 +921,12 @@ async function loadPlaylistDetailLegacy(
       updated_at: (pl.updated_at as string | null) ?? null,
       track_count: tracks.length,
       is_public: false,
+      pinned_at: null,
+      owner_id: userId,
       is_owner: true,
+      is_collaborator: false,
+      can_edit: true,
+      collab_pending: false,
       tracks,
     },
     missingTable: false,
@@ -695,6 +987,7 @@ export async function createPlaylist(
           updated_at: (retry.data.updated_at as string | null) ?? null,
           track_count: 0,
           is_public: false,
+          pinned_at: null,
         },
       };
     }
@@ -716,6 +1009,7 @@ export async function createPlaylist(
       updated_at: (data.updated_at as string | null) ?? null,
       track_count: 0,
       is_public: Boolean(data.is_public),
+      pinned_at: null,
     },
   };
 }
@@ -857,13 +1151,43 @@ export async function setPlaylistPublic(
   playlistId: string,
   isPublic: boolean,
 ): Promise<
-  | { ok: true; is_public: boolean }
+  | { ok: true; is_public: boolean; became_public: boolean }
   | {
       ok: false;
       error: string;
       code?: "missing_table" | "not_found" | "failed";
     }
 > {
+  const prev = await supabase
+    .from("playlists")
+    .select("id, is_public")
+    .eq("id", playlistId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (prev.error) {
+    if (isMissingRelation(prev.error.message)) {
+      return {
+        ok: false,
+        error: "Run playlists SQL in Supabase first",
+        code: "missing_table",
+      };
+    }
+    if (/is_public|column .* does not exist/i.test(prev.error.message)) {
+      return {
+        ok: false,
+        error: "Run 20260808_playlist_public.sql in Supabase first",
+        code: "failed",
+      };
+    }
+    return { ok: false, error: prev.error.message, code: "failed" };
+  }
+  if (!prev.data) {
+    return { ok: false, error: "Playlist not found", code: "not_found" };
+  }
+
+  const wasPublic = Boolean(prev.data.is_public);
+
   const { data, error } = await supabase
     .from("playlists")
     .update({
@@ -897,7 +1221,66 @@ export async function setPlaylistPublic(
     return { ok: false, error: "Playlist not found", code: "not_found" };
   }
 
-  return { ok: true, is_public: Boolean(data.is_public) };
+  const nowPublic = Boolean(data.is_public);
+  return {
+    ok: true,
+    is_public: nowPublic,
+    became_public: nowPublic && !wasPublic,
+  };
+}
+
+export async function setPlaylistPinned(
+  supabase: SupabaseClient,
+  userId: string,
+  playlistId: string,
+  pinned: boolean,
+): Promise<
+  | { ok: true; pinned_at: string | null }
+  | {
+      ok: false;
+      error: string;
+      code?: "missing_table" | "not_found" | "failed";
+    }
+> {
+  const pinnedAt = pinned ? new Date().toISOString() : null;
+  const { data, error } = await supabase
+    .from("playlists")
+    .update({
+      pinned_at: pinnedAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", playlistId)
+    .eq("user_id", userId)
+    .select("id, pinned_at")
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error: "Run playlists SQL in Supabase first",
+        code: "missing_table",
+      };
+    }
+    if (/pinned_at|column .* does not exist/i.test(error.message)) {
+      return {
+        ok: false,
+        error: "Run 20260808_playlist_pinned.sql in Supabase first",
+        code: "failed",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  if (!data) {
+    return { ok: false, error: "Playlist not found", code: "not_found" };
+  }
+
+  return {
+    ok: true,
+    pinned_at:
+      typeof data.pinned_at === "string" ? data.pinned_at : null,
+  };
 }
 
 export async function addTrackToPlaylist(
@@ -915,9 +1298,8 @@ export async function addTrackToPlaylist(
 > {
   const { data: pl, error: plError } = await supabase
     .from("playlists")
-    .select("id")
+    .select("id, user_id")
     .eq("id", playlistId)
-    .eq("user_id", userId)
     .maybeSingle();
 
   if (plError) {
@@ -934,6 +1316,23 @@ export async function addTrackToPlaylist(
     return { ok: false, error: "Playlist not found", code: "not_found" };
   }
 
+  const isOwner = pl.user_id === userId;
+  let canEdit = isOwner;
+  if (!canEdit) {
+    const { data: collab } = await supabase
+      .from("playlist_collaborators")
+      .select("status")
+      .eq("playlist_id", playlistId)
+      .eq("user_id", userId)
+      .eq("status", "accepted")
+      .maybeSingle();
+    canEdit = Boolean(collab);
+  }
+
+  if (!canEdit) {
+    return { ok: false, error: "Playlist not found", code: "not_found" };
+  }
+
   const { count } = await supabase
     .from("playlist_tracks")
     .select("track_id", { count: "exact", head: true })
@@ -945,27 +1344,46 @@ export async function addTrackToPlaylist(
     playlist_id: playlistId,
     track_id: trackId,
     position,
+    added_by: userId,
   });
 
   if (error) {
     if (/duplicate|unique/i.test(error.message)) {
       return { ok: true, added: false };
     }
-    if (isMissingRelation(error.message)) {
+    if (
+      /added_by/i.test(error.message) &&
+      /column .* does not exist/i.test(error.message)
+    ) {
+      const retry = await supabase.from("playlist_tracks").insert({
+        playlist_id: playlistId,
+        track_id: trackId,
+        position,
+      });
+      if (retry.error) {
+        if (/duplicate|unique/i.test(retry.error.message)) {
+          return { ok: true, added: false };
+        }
+        return { ok: false, error: retry.error.message, code: "failed" };
+      }
+    } else if (isMissingRelation(error.message)) {
       return {
         ok: false,
         error: "Run playlists SQL in Supabase first",
         code: "missing_table",
       };
+    } else {
+      return { ok: false, error: error.message, code: "failed" };
     }
-    return { ok: false, error: error.message, code: "failed" };
   }
 
-  await supabase
-    .from("playlists")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", playlistId)
-    .eq("user_id", userId);
+  if (isOwner) {
+    await supabase
+      .from("playlists")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", playlistId)
+      .eq("user_id", userId);
+  }
 
   return { ok: true, added: true };
 }
@@ -985,9 +1403,8 @@ export async function removeTrackFromPlaylist(
 > {
   const { data: pl, error: plError } = await supabase
     .from("playlists")
-    .select("id")
+    .select("id, user_id")
     .eq("id", playlistId)
-    .eq("user_id", userId)
     .maybeSingle();
 
   if (plError) {
@@ -1004,21 +1421,51 @@ export async function removeTrackFromPlaylist(
     return { ok: false, error: "Playlist not found", code: "not_found" };
   }
 
-  const { error } = await supabase
+  const isOwner = pl.user_id === userId;
+  if (!isOwner) {
+    const { data: row } = await supabase
+      .from("playlist_tracks")
+      .select("added_by")
+      .eq("playlist_id", playlistId)
+      .eq("track_id", trackId)
+      .maybeSingle();
+
+    const { data: collab } = await supabase
+      .from("playlist_collaborators")
+      .select("status")
+      .eq("playlist_id", playlistId)
+      .eq("user_id", userId)
+      .eq("status", "accepted")
+      .maybeSingle();
+
+    if (!collab || row?.added_by !== userId) {
+      return { ok: false, error: "Playlist not found", code: "not_found" };
+    }
+  }
+
+  let deleteQuery = supabase
     .from("playlist_tracks")
     .delete()
     .eq("playlist_id", playlistId)
     .eq("track_id", trackId);
 
+  if (!isOwner) {
+    deleteQuery = deleteQuery.eq("added_by", userId);
+  }
+
+  const { error } = await deleteQuery;
+
   if (error) {
     return { ok: false, error: error.message, code: "failed" };
   }
 
-  await supabase
-    .from("playlists")
-    .update({ updated_at: new Date().toISOString() })
-    .eq("id", playlistId)
-    .eq("user_id", userId);
+  if (isOwner) {
+    await supabase
+      .from("playlists")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", playlistId)
+      .eq("user_id", userId);
+  }
 
   return { ok: true };
 }
@@ -1282,6 +1729,29 @@ export async function duplicatePlaylist(
     );
     if (desc.ok) {
       playlist = { ...playlist, description: desc.description };
+    }
+  }
+
+  if (source.cover_art_url) {
+    const { data: coverRow, error: coverError } = await supabase
+      .from("playlists")
+      .update({
+        cover_art_url: source.cover_art_url,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", playlist.id)
+      .eq("user_id", userId)
+      .select("id, cover_art_url")
+      .maybeSingle();
+    if (
+      !coverError &&
+      coverRow &&
+      typeof coverRow.cover_art_url === "string"
+    ) {
+      playlist = {
+        ...playlist,
+        cover_art_url: coverRow.cover_art_url.trim() || null,
+      };
     }
   }
 

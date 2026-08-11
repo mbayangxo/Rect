@@ -3,6 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { PlayPack } from "@/lib/dashboard/play-packs";
+import {
+  publishCreditsRemaining,
+  subscribeCreditsRemaining,
+} from "@/lib/credits-live";
 
 type Props = {
   packs: PlayPack[];
@@ -27,6 +31,10 @@ export function PlayPacksPanel({
     setCredits(initialCredits);
   }, [initialCredits]);
 
+  useEffect(() => {
+    return subscribeCreditsRemaining(setCredits);
+  }, []);
+
   async function buy(pack: PlayPack) {
     setBuyingId(pack.id);
     setError(null);
@@ -47,7 +55,10 @@ export function PlayPacksPanel({
         setError(data.error || "Could not buy pack");
         return;
       }
-      if (typeof data.balance === "number") setCredits(data.balance);
+      if (typeof data.balance === "number") {
+        setCredits(data.balance);
+        publishCreditsRemaining(data.balance);
+      }
       setMessage(
         `Added ${data.credits_granted ?? 0} plays${
           data.pack_name ? ` from ${data.pack_name}` : ""

@@ -7,8 +7,9 @@ import { RectLogo } from "@/components/rect-logo";
 import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
 import type { PlaceArtist, PlaceTrack } from "@/lib/dashboard/places";
-import { trackArtist, trackTitle } from "@/lib/tracks";
+import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
 type Props = {
   slug: string;
@@ -16,6 +17,8 @@ type Props = {
   artists: PlaceArtist[];
   tracks: PlaceTrack[];
   loadError: string | null;
+  likedTracks?: Record<string, boolean>;
+  likesReady?: boolean;
 };
 
 export function PlaceDetailClient({
@@ -24,6 +27,8 @@ export function PlaceDetailClient({
   artists,
   tracks,
   loadError,
+  likedTracks = {},
+  likesReady = false,
 }: Props) {
   const player = usePlayer();
   const playable = tracks.filter((t) => t.audio_url);
@@ -133,6 +138,9 @@ export function PlaceDetailClient({
                         {t.like_count > 0
                           ? ` · ${t.like_count} likes`
                           : ""}
+                        {formatTrackDuration(t.duration_secs)
+                          ? ` · ${formatTrackDuration(t.duration_secs)}`
+                          : ""}
                       </p>
                     </div>
                   </button>
@@ -147,8 +155,15 @@ export function PlaceDetailClient({
                     compact
                     loginNext={`/places/${slug}`}
                   />
+                  <TrackLikeButton
+                    trackId={t.id}
+                    initialLiked={Boolean(likedTracks[t.id])}
+                    likesReady={likesReady}
+                    loginNext={`/places/${slug}`}
+                    compact
+                  />
                   <QueueTrackButton track={t} compact />
-            <ShareTrackButton track={t} compact />
+                  <ShareTrackButton track={t} compact />
                 </li>
               ))}
             </ul>

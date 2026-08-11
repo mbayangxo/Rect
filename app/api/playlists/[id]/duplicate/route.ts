@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { notifyPlaylistCopy } from "@/lib/dashboard/playlist-follows";
 import { duplicatePlaylist } from "@/lib/dashboard/playlists";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,6 +37,8 @@ export async function POST(_request: Request, ctx: Ctx) {
       { status },
     );
   }
+
+  await notifyPlaylistCopy(supabase, playlistId, result.playlist.id);
 
   return NextResponse.json({ ok: true, playlist: result.playlist });
 }

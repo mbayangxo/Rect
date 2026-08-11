@@ -9,17 +9,22 @@ import { RectLogo } from "@/components/rect-logo";
 import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
 import {
   formatPlayedAt,
   type JournalEntry,
 } from "@/lib/dashboard/listening-journal";
-import { trackArtist, trackTitle } from "@/lib/tracks";
+import { formatTrackDuration, trackArtist, trackTitle } from "@/lib/tracks";
 
 type Props = {
   entries: JournalEntry[];
   loadError: string | null;
   missingTable: boolean;
   activityPrivate: boolean;
+  sharedEntries?: JournalEntry[];
+  portalHref?: string;
+  likedTracks?: Record<string, boolean>;
+  likesReady?: boolean;
 };
 
 export function JournalClient({
@@ -27,6 +32,10 @@ export function JournalClient({
   loadError,
   missingTable,
   activityPrivate,
+  sharedEntries = [],
+  portalHref = "/profile",
+  likedTracks = {},
+  likesReady = false,
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -128,14 +137,37 @@ export function JournalClient({
               Listening journal
             </p>
             <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
-              Your private listening life
+              Your listening journal
             </h1>
             <p className="mt-2 max-w-xl text-sm text-white/45">
-              Plays you make on RECT SOUND, newest first.
-              {activityPrivate
-                ? " Only you can see this."
-                : " Shared activity isn’t public yet — this journal stays yours."}
+              Plays you make on RECT SOUND, newest first. This page is always
+              private to you.
             </p>
+            {activityPrivate ? (
+              <p className="mt-4 max-w-xl rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
+                Artists won’t see you on Recent listeners, and your portal won’t
+                show Listening now.{" "}
+                <Link
+                  href="/profile"
+                  className="text-[#1DB954] hover:underline"
+                >
+                  Turn on Listening activity
+                </Link>{" "}
+                in Profile if you want that sharing.
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-white/40">
+                Artists of tracks you play can see that you listened; your
+                portal may show Listening now. Change anytime in{" "}
+                <Link
+                  href="/profile"
+                  className="text-[#1DB954] hover:underline"
+                >
+                  Privacy settings
+                </Link>
+                .
+              </p>
+            )}
           </div>
           {!missingTable && entries.length > 0 ? (
             <button
@@ -155,6 +187,65 @@ export function JournalClient({
             </button>
           ) : null}
         </div>
+
+        {!activityPrivate && !missingTable ? (
+          <section className="rounded-2xl border border-[#1DB954]/20 bg-[#1DB954]/[0.06] px-4 py-4 sm:px-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-[#1DB954]/90">
+                On your portal
+              </h2>
+              <Link
+                href={portalHref}
+                className="text-xs text-white/45 hover:text-[#1DB954]"
+              >
+                Open portal →
+              </Link>
+            </div>
+            <p className="mt-1 text-xs text-white/40">
+              Soft preview of Listening now — what others see while sharing is
+              on.
+            </p>
+            {sharedEntries.length === 0 ? (
+              <p className="mt-3 text-sm text-white/45">
+                Play something and it’ll show here for visitors.
+              </p>
+            ) : (
+              <ul className="mt-3 overflow-hidden rounded-xl border border-white/[0.08] bg-[#040d06]/40">
+                {sharedEntries.map((e) => (
+                  <li
+                    key={`shared-${e.id}`}
+                    className="flex items-center gap-3 border-b border-white/[0.06] px-3 py-2.5 last:border-b-0"
+                  >
+                    <TrackCover track={e} size="sm" />
+                    <button
+                      type="button"
+                      disabled={!e.audio_url}
+                      onClick={() => {
+                        if (!e.audio_url) return;
+                        if (player.track?.id === e.id) player.toggle();
+                        else player.play(e);
+                      }}
+                      className="min-w-0 flex-1 text-left disabled:opacity-40"
+                    >
+                      <span className="block truncate text-sm font-medium">
+                        {trackTitle(e)}
+                      </span>
+                      <span className="block truncate text-xs text-white/40">
+                        {trackArtist(e)}
+                      </span>
+                    </button>
+                    <Link
+                      href={`/songs/${e.id}`}
+                      className="shrink-0 text-xs text-white/35 hover:text-[#1DB954]"
+                    >
+                      Open
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : null}
 
         {missingTable ? (
           <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
@@ -218,13 +309,25 @@ export function JournalClient({
                         {e.genre ? ` · ${e.genre}` : ""}
                       </span>
                     </button>
+                    {formatTrackDuration(e.duration_secs) ? (
+                      <span className="shrink-0 text-xs tabular-nums text-white/35">
+                        {formatTrackDuration(e.duration_secs)}
+                      </span>
+                    ) : null}
                     <AddToPlaylist
                       trackId={e.id}
                       compact
                       loginNext="/journal"
                     />
+                    <TrackLikeButton
+                      trackId={e.id}
+                      initialLiked={Boolean(likedTracks[e.id])}
+                      likesReady={likesReady}
+                      loginNext="/journal"
+                      compact
+                    />
                     <QueueTrackButton track={e} compact />
-            <ShareTrackButton track={e} compact />
+                    <ShareTrackButton track={e} compact />
                     <button
                       type="button"
                       disabled={removingId === e.play_id}

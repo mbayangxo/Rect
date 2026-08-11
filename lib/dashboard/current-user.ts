@@ -8,6 +8,7 @@ export type DashboardUserProfile = {
   account_type: string | null;
   countries: string[] | null;
   genres: string[] | null;
+  languages: string[] | null;
 };
 
 export type CurrentUserResult =
@@ -39,6 +40,8 @@ export type CurrentUserResult =
     };
 
 const PROFILE_SELECT =
+  "id, display_name, email, role, account_type, countries, genres, languages";
+const PROFILE_SELECT_LEAN =
   "id, display_name, email, role, account_type, countries, genres";
 
 /**
@@ -79,35 +82,60 @@ export async function getDashboardCurrentUser(
     };
   }
 
-  const query = {
-    table: "users" as const,
-    select: PROFILE_SELECT,
-    eq: { id: user.id },
-  };
-
   const { data: profile, error: profileError } = await supabase
     .from("users")
     .select(PROFILE_SELECT)
     .eq("id", user.id)
     .maybeSingle();
 
-  if (profileError) {
+  let row = profile as DashboardUserProfile | null;
+  let selectUsed = PROFILE_SELECT;
+  let finalProfileError = profileError;
+
+  if (
+    profileError &&
+    /languages|column .* does not exist/i.test(profileError.message)
+  ) {
+    const lean = await supabase
+      .from("users")
+      .select(PROFILE_SELECT_LEAN)
+      .eq("id", user.id)
+      .maybeSingle();
+    row = lean.data
+      ? ({ ...lean.data, languages: null } as DashboardUserProfile)
+      : null;
+    selectUsed = PROFILE_SELECT_LEAN;
+    finalProfileError = lean.error;
+  }
+
+  const query = {
+    table: "users" as const,
+    select: selectUsed,
+    eq: { id: user.id },
+  };
+
+  if (finalProfileError) {
     return {
       ok: false,
       reason: "profile_error",
-      error: profileError.message,
+      error: finalProfileError.message,
       user,
       profile: null,
       displayName: null,
       query,
-      profileError: profileError.message,
+      profileError: finalProfileError.message,
     };
   }
 
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   const metaName =
     typeof meta.display_name === "string" ? meta.display_name.trim() : "";
-  const row = profile as DashboardUserProfile | null;
+  const metaLanguages = Array.isArray(meta.languages)
+    ? (meta.languages.filter((x) => typeof x === "string") as string[])
+    : null;
+  if (row && !row.languages && metaLanguages) {
+    row = { ...row, languages: metaLanguages };
+  }
   const displayName =
     (row?.display_name && row.display_name.trim()) ||
     metaName ||

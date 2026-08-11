@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { notifyArtist } from "@/lib/dashboard/notifications";
-import { sendArtistTip, TIP_AMOUNTS_XOF } from "@/lib/dashboard/tips";
+import {
+  sendArtistTip,
+  TIP_AMOUNTS_XOF,
+  TIP_MESSAGE_MAX,
+} from "@/lib/dashboard/tips";
 import { createClient } from "@/lib/supabase/server";
 
-type Body = { artist_id?: string; amount_xof?: number };
+type Body = {
+  artist_id?: string;
+  amount_xof?: number;
+  message?: string;
+  track_id?: string;
+};
 
 export async function POST(request: Request) {
   let body: Body;
@@ -15,6 +24,10 @@ export async function POST(request: Request) {
 
   const artistId = body.artist_id?.trim();
   const amount = Number(body.amount_xof);
+  const message =
+    typeof body.message === "string" ? body.message.trim() : "";
+  const trackId =
+    typeof body.track_id === "string" ? body.track_id.trim() : "";
 
   if (!artistId) {
     return NextResponse.json(
@@ -25,6 +38,12 @@ export async function POST(request: Request) {
   if (!(TIP_AMOUNTS_XOF as readonly number[]).includes(amount)) {
     return NextResponse.json(
       { error: "Choose 100, 200, or 500 XOF", code: "invalid_amount" },
+      { status: 400 },
+    );
+  }
+  if (message.length > TIP_MESSAGE_MAX) {
+    return NextResponse.json(
+      { error: `Note must be ${TIP_MESSAGE_MAX} characters or fewer` },
       { status: 400 },
     );
   }
@@ -48,7 +67,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const result = await sendArtistTip(supabase, artistId, amount);
+  const result = await sendArtistTip(supabase, artistId, amount, {
+    message: message || null,
+    trackId: trackId || null,
+  });
   if (!result.ok) {
     const status =
       result.code === "not_authenticated"
@@ -69,6 +91,9 @@ export async function POST(request: Request) {
 
   await notifyArtist(supabase, artistId, "tip", {
     amount_xof: result.amount_xof,
+    body: result.message,
+    track_id: result.track_id,
+    tip_id: result.tip_id,
   });
 
   return NextResponse.json({
@@ -77,5 +102,7 @@ export async function POST(request: Request) {
     artist_id: result.artist_id,
     amount_xof: result.amount_xof,
     payment_method: result.payment_method,
+    message: result.message,
+    track_id: result.track_id,
   });
 }

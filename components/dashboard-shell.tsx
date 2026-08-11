@@ -1,16 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { ActivityThanksButton } from "@/components/activity-thanks-button";
+import { InboxPlaylistActions } from "@/components/inbox-playlist-actions";
+import { InboxTrackPlay } from "@/components/inbox-track-play";
 import { usePlayer } from "@/components/player-provider";
 import { PlayPacksPanel } from "@/components/play-packs-panel";
 import { SignOutButton } from "@/components/sign-out-button";
 import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
 import type { ArtistPortal } from "@/lib/dashboard/artists";
 import {
   formatPlayedAt,
   type JournalEntry,
 } from "@/lib/dashboard/listening-journal";
+import type {
+  FriendsLikeItem,
+  FriendsListenItem,
+  FriendsMixItem,
+} from "@/lib/dashboard/people-follows";
+import { personProfileHref } from "@/lib/dashboard/people";
 import type { PlayPack } from "@/lib/dashboard/play-packs";
 import { genreToSlug } from "@/lib/dashboard/genres";
 import { placeToSlug } from "@/lib/dashboard/places";
@@ -20,6 +31,7 @@ import {
   trackTitle,
   type RankedTrack,
 } from "@/lib/dashboard/tracks";
+import { formatTrackDuration, type TrackRow } from "@/lib/tracks";
 
 type Props = {
   displayName: string;
@@ -28,6 +40,7 @@ type Props = {
   artists: ArtistPortal[];
   artistsError: string | null;
   packs: PlayPack[];
+  packsError: string | null;
   packCountry: string;
   personalized: boolean;
   tasteGenres: string[];
@@ -37,8 +50,21 @@ type Props = {
   likedTrackIds: string[];
   likesReady: boolean;
   showArtistStudio?: boolean;
+  /** Unread release alerts for /inbox */
+  inboxUnread?: number;
+  /** Unread studio activity for /artist/inbox */
+  artistInboxUnread?: number;
   continueListening: JournalEntry[];
   continueError: string | null;
+  friendsListening?: FriendsListenItem[];
+  friendsError?: string | null;
+  friendsLikes?: FriendsLikeItem[];
+  friendsLikesError?: string | null;
+  friendsMixes?: FriendsMixItem[];
+  friendsMixesError?: string | null;
+  followingPlaylists?: Record<string, boolean>;
+  playlistFollowsReady?: boolean;
+  playlistPreviewTracks?: Record<string, TrackRow>;
 };
 
 function formatTime(secs: number) {
@@ -57,6 +83,7 @@ export function DashboardShell({
   artists,
   artistsError,
   packs,
+  packsError,
   packCountry,
   personalized,
   tasteGenres,
@@ -66,18 +93,68 @@ export function DashboardShell({
   likedTrackIds,
   likesReady,
   showArtistStudio = false,
+  inboxUnread = 0,
+  artistInboxUnread = 0,
   continueListening,
   continueError,
+  friendsListening = [],
+  friendsError = null,
+  friendsLikes = [],
+  friendsLikesError = null,
+  friendsMixes = [],
+  friendsMixesError = null,
+  followingPlaylists = {},
+  playlistFollowsReady = false,
+  playlistPreviewTracks = {},
 }: Props) {
+  const router = useRouter();
   const player = usePlayer();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [likedIds, setLikedIds] = useState(() => new Set(likedTrackIds));
   const [likePending, setLikePending] = useState(false);
   const [likeError, setLikeError] = useState<string | null>(null);
+  const [continueItems, setContinueItems] = useState(continueListening);
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
+  const [continueDismissError, setContinueDismissError] = useState<
+    string | null
+  >(null);
 
   useEffect(() => {
     setLikedIds(new Set(likedTrackIds));
   }, [likedTrackIds]);
+
+  useEffect(() => {
+    setContinueItems(continueListening);
+  }, [continueListening]);
+
+  async function dismissContinue(trackId: string) {
+    if (dismissingId) return;
+    setDismissingId(trackId);
+    setContinueDismissError(null);
+    const prev = continueItems;
+    setContinueItems((list) => list.filter((t) => t.id !== trackId));
+    try {
+      const res = await fetch("/api/plays/journal", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ track_id: trackId }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok || data.error) {
+        setContinueItems(prev);
+        setContinueDismissError(data.error || "Could not dismiss");
+        return;
+      }
+      router.refresh();
+    } catch (e) {
+      setContinueItems(prev);
+      setContinueDismissError(
+        e instanceof Error ? e.message : "Network error",
+      );
+    } finally {
+      setDismissingId(null);
+    }
+  }
 
   const active = useMemo(() => {
     if (player.track) {
@@ -195,7 +272,7 @@ export function DashboardShell({
           <span>›</span>
         </Link>
         <Link href="/inbox" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Inbox</span>
+          <span>Inbox{inboxUnread > 0 ? ` (${inboxUnread})` : ""}</span>
           <span>›</span>
         </Link>
         <Link href="/playlists" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
@@ -207,14 +284,22 @@ export function DashboardShell({
           <span>›</span>
         </Link>
         {showArtistStudio ? (
-          <Link href="/artist" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <Link href="/studio" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
             <span>Artist studio</span>
             <span>›</span>
           </Link>
-        ) : null}
+        ) : (
+          <Link href="/for-artists" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+            <span>Become an artist</span>
+            <span>›</span>
+          </Link>
+        )}
         {showArtistStudio ? (
           <Link href="/artist/inbox" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-            <span>Artist inbox</span>
+            <span>
+              Artist inbox
+              {artistInboxUnread > 0 ? ` (${artistInboxUnread})` : ""}
+            </span>
             <span>›</span>
           </Link>
         ) : null}
@@ -228,6 +313,10 @@ export function DashboardShell({
         </Link>
         <Link href="/genres" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
           <span>Genres</span>
+          <span>›</span>
+        </Link>
+        <Link href="/languages" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Languages</span>
           <span>›</span>
         </Link>
         <Link href="/new" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
@@ -284,7 +373,9 @@ export function DashboardShell({
           Following <span className="dash-hub-arr">↗</span>
         </Link>
         <Link href="/inbox" className="dash-hub-exit">
-          Inbox <span className="dash-hub-arr">↗</span>
+          Inbox
+          {inboxUnread > 0 ? ` (${inboxUnread})` : ""}{" "}
+          <span className="dash-hub-arr">↗</span>
         </Link>
         <Link href="/playlists" className="dash-hub-exit">
           Playlists <span className="dash-hub-arr">↗</span>
@@ -293,13 +384,19 @@ export function DashboardShell({
           Tips <span className="dash-hub-arr">↗</span>
         </Link>
         {showArtistStudio ? (
-          <Link href="/artist" className="dash-hub-exit">
+          <Link href="/studio" className="dash-hub-exit">
             Studio <span className="dash-hub-arr">↗</span>
           </Link>
-        ) : null}
+        ) : (
+          <Link href="/for-artists" className="dash-hub-exit">
+            For artists <span className="dash-hub-arr">↗</span>
+          </Link>
+        )}
         {showArtistStudio ? (
           <Link href="/artist/inbox" className="dash-hub-exit">
-            Inbox <span className="dash-hub-arr">↗</span>
+            Studio inbox
+            {artistInboxUnread > 0 ? ` (${artistInboxUnread})` : ""}{" "}
+            <span className="dash-hub-arr">↗</span>
           </Link>
         ) : null}
         <Link href="/journal" className="dash-hub-exit">
@@ -310,6 +407,9 @@ export function DashboardShell({
         </Link>
         <Link href="/genres" className="dash-hub-exit">
           Genres <span className="dash-hub-arr">↗</span>
+        </Link>
+        <Link href="/languages" className="dash-hub-exit">
+          Languages <span className="dash-hub-arr">↗</span>
         </Link>
         <Link href="/new" className="dash-hub-exit">
           New <span className="dash-hub-arr">↗</span>
@@ -493,7 +593,12 @@ export function DashboardShell({
                       >
                         <span>{i + 1}</span>
                         <span className="dash-feat-title">{trackTitle(t)}</span>
-                        <span className="dash-feat-artist">{trackArtist(t)}</span>
+                        <span className="dash-feat-artist">
+                          {trackArtist(t)}
+                          {formatTrackDuration(t.duration_secs)
+                            ? ` · ${formatTrackDuration(t.duration_secs)}`
+                            : ""}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -504,7 +609,7 @@ export function DashboardShell({
         </section>
 
         <div className="dash-side lg:col-span-5">
-        {(continueListening.length > 0 || continueError) && (
+        {(continueItems.length > 0 || continueError || continueDismissError) && (
           <>
             <div className="dash-sh px-0">
               <span className="dash-sh-t">Continue listening</span>
@@ -518,30 +623,270 @@ export function DashboardShell({
                 <p className="dash-empty-body">{continueError}</p>
               </div>
             ) : (
-              <ul className="mb-8 space-y-1 px-0">
-                {continueListening.map((t, i) => (
-                  <li key={`${t.id}-${t.play_id}`}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        player.playQueue(
-                          continueListening.filter((x) => x.audio_url),
-                          i,
-                        )
-                      }
-                      className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/[0.05]"
+              <>
+                {continueDismissError ? (
+                  <p className="mb-2 px-2 text-xs text-[#F5A623]" role="alert">
+                    {continueDismissError}
+                  </p>
+                ) : null}
+                <ul className="mb-8 space-y-1 px-0">
+                  {continueItems.map((t, i) => (
+                    <li
+                      key={`${t.id}-${t.play_id}`}
+                      className="flex items-center gap-1"
                     >
-                      <TrackCover track={t} size="sm" />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          player.playQueue(
+                            continueItems.filter((x) => x.audio_url),
+                            i,
+                          )
+                        }
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/[0.05]"
+                      >
+                        <TrackCover track={t} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-white">
+                            {trackTitle(t)}
+                          </p>
+                          <p className="truncate text-xs text-white/40">
+                            {trackArtist(t)} · {formatPlayedAt(t.played_at)}
+                            {formatTrackDuration(t.duration_secs)
+                              ? ` · ${formatTrackDuration(t.duration_secs)}`
+                              : ""}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs text-[#1DB954]">▶</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={dismissingId === t.id}
+                        onClick={() => void dismissContinue(t.id)}
+                        className="shrink-0 rounded-full px-2 py-2 text-sm text-white/35 hover:bg-white/10 hover:text-white disabled:opacity-40"
+                        aria-label={`Dismiss ${trackTitle(t)}`}
+                        title="Remove from Continue"
+                      >
+                        {dismissingId === t.id ? "…" : "×"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </>
+        )}
+
+        {(friendsListening.length > 0 || friendsError) && (
+          <>
+            <div className="dash-sh px-0">
+              <span className="dash-sh-t">Friends listening</span>
+              <Link href="/following" className="dash-sh-m">
+                Following →
+              </Link>
+            </div>
+            {friendsError ? (
+              <div className="dash-empty !mx-0 mb-6" role="alert">
+                <p className="dash-empty-title">Could not load friends</p>
+                <p className="dash-empty-body">{friendsError}</p>
+              </div>
+            ) : (
+              <ul className="mb-8 space-y-1 px-0">
+                {friendsListening.map((t, i) => (
+                  <li
+                    key={`${t.listener_id}-${t.play_id}`}
+                    className="rounded-xl px-2 py-1 hover:bg-white/[0.05]"
+                  >
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          player.playQueue(
+                            friendsListening.filter((x) => x.audio_url),
+                            i,
+                          )
+                        }
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-0 py-1 text-left"
+                      >
+                        <TrackCover track={t} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-white">
+                            {trackTitle(t)}
+                          </p>
+                          <p className="truncate text-xs text-white/40">
+                            {t.listener_name} · {formatPlayedAt(t.played_at)}
+                            {formatTrackDuration(t.duration_secs)
+                              ? ` · ${formatTrackDuration(t.duration_secs)}`
+                              : ""}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs text-[#1DB954]">▶</span>
+                      </button>
+                      <Link
+                        href={personProfileHref(t.listener_id)}
+                        className="shrink-0 rounded-full px-2 py-2 text-xs text-white/40 hover:bg-white/10 hover:text-[#1DB954]"
+                        title={t.listener_name}
+                      >
+                        →
+                      </Link>
+                      <TrackLikeButton
+                        trackId={t.id}
+                        initialLiked={likedIds.has(t.id)}
+                        likesReady={likesReady}
+                        loginNext="/dashboard"
+                        compact
+                      />
+                    </div>
+                    <ActivityThanksButton
+                      playId={t.play_id}
+                      initialThanks={t.thanks_message}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
+        {(friendsLikes.length > 0 || friendsLikesError) && (
+          <>
+            <div className="dash-sh px-0">
+              <span className="dash-sh-t">Friends liked</span>
+              <Link href="/following" className="dash-sh-m">
+                Following →
+              </Link>
+            </div>
+            {friendsLikesError ? (
+              <div className="dash-empty !mx-0 mb-6" role="alert">
+                <p className="dash-empty-title">Could not load likes</p>
+                <p className="dash-empty-body">{friendsLikesError}</p>
+              </div>
+            ) : (
+              <ul className="mb-8 space-y-1 px-0">
+                {friendsLikes.map((t, i) => (
+                  <li
+                    key={t.like_id}
+                    className="rounded-xl px-2 py-1 hover:bg-white/[0.05]"
+                  >
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          player.playQueue(
+                            friendsLikes.filter((x) => x.audio_url),
+                            i,
+                          )
+                        }
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-0 py-1 text-left"
+                      >
+                        <TrackCover track={t} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-white">
+                            {trackTitle(t)}
+                          </p>
+                          <p className="truncate text-xs text-white/40">
+                            {t.liker_name} · {formatPlayedAt(t.liked_at)}
+                            {formatTrackDuration(t.duration_secs)
+                              ? ` · ${formatTrackDuration(t.duration_secs)}`
+                              : ""}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs text-[#1DB954]">▶</span>
+                      </button>
+                      <Link
+                        href={personProfileHref(t.liker_id)}
+                        className="shrink-0 rounded-full px-2 py-2 text-xs text-white/40 hover:bg-white/10 hover:text-[#1DB954]"
+                        title={t.liker_name}
+                      >
+                        →
+                      </Link>
+                      <TrackLikeButton
+                        trackId={t.id}
+                        initialLiked={likedIds.has(t.id)}
+                        likesReady={likesReady}
+                        loginNext="/dashboard"
+                        compact
+                      />
+                    </div>
+                    <ActivityThanksButton
+                      likerId={t.liker_id}
+                      trackId={t.id}
+                      initialThanks={t.thanks_message}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+
+        {(friendsMixes.length > 0 || friendsMixesError) && (
+          <>
+            <div className="dash-sh px-0">
+              <span className="dash-sh-t">Friends mixes</span>
+              <Link href="/following" className="dash-sh-m">
+                Following →
+              </Link>
+            </div>
+            {friendsMixesError ? (
+              <div className="dash-empty !mx-0 mb-6" role="alert">
+                <p className="dash-empty-title">Could not load mixes</p>
+                <p className="dash-empty-body">{friendsMixesError}</p>
+              </div>
+            ) : (
+              <ul className="mb-8 space-y-1 px-0">
+                {friendsMixes.map((p) => (
+                  <li
+                    key={p.id}
+                    className="rounded-xl px-2 py-1 hover:bg-white/[0.05]"
+                  >
+                    <Link
+                      href={`/playlists/${p.id}`}
+                      className="flex items-center gap-3 rounded-xl px-0 py-1"
+                    >
+                      <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+                        {p.cover_art_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.cover_art_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-xs text-white/25">
+                            ♫
+                          </span>
+                        )}
+                      </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-white">
-                          {trackTitle(t)}
+                          {p.name}
                         </p>
                         <p className="truncate text-xs text-white/40">
-                          {trackArtist(t)} · {formatPlayedAt(t.played_at)}
+                          {p.owner_name}
+                          {p.updated_at
+                            ? ` · ${formatPlayedAt(p.updated_at)}`
+                            : ""}
                         </p>
                       </div>
-                      <span className="shrink-0 text-xs text-[#1DB954]">▶</span>
-                    </button>
+                      <span className="shrink-0 text-xs text-white/35">→</span>
+                    </Link>
+                    {playlistPreviewTracks[p.id] ? (
+                      <InboxTrackPlay
+                        track={playlistPreviewTracks[p.id]}
+                        className="mt-1.5 rounded-full border border-white/20 px-3 py-1 text-xs text-white/70 hover:bg-white/10"
+                      />
+                    ) : null}
+                    <InboxPlaylistActions
+                      playlistId={p.id}
+                      initialFollowing={Boolean(followingPlaylists[p.id])}
+                      followsReady={playlistFollowsReady}
+                      loginNext="/dashboard"
+                    />
+                    <ActivityThanksButton
+                      playlistId={p.id}
+                      initialThanks={p.thanks_message}
+                    />
                   </li>
                 ))}
               </ul>
@@ -575,26 +920,54 @@ export function DashboardShell({
                 href={`/artists/${a.id}`}
                 className="dash-portal-card"
               >
-                <div className={`dash-pc-art ${PORTAL_BG[i % PORTAL_BG.length]}`}>
+                <div
+                  className={`dash-pc-art ${PORTAL_BG[i % PORTAL_BG.length]}`}
+                  style={
+                    a.avatar_url
+                      ? {
+                          backgroundImage: `url(${a.avatar_url})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }
+                      : undefined
+                  }
+                >
                   <div className="dash-pc-shade" />
                   <div className="dash-pc-tag">OPEN</div>
                 </div>
                 <div className="dash-pc-name">{a.display_name}</div>
-                <div className="dash-pc-genre">{a.genre || "Artist"}</div>
+                <div className="dash-pc-genre">
+                  {[a.countries[0], a.genre].filter(Boolean).join(" · ") ||
+                    "Artist"}
+                </div>
               </Link>
             ))}
           </div>
         )}
 
-        {/* CONNECTION 5 — Play packs (hide entirely if empty) */}
-        {packs.length > 0 ? (
+        {/* CONNECTION 5 — Play packs */}
+        {packsError ? (
+          <div className="dash-sh px-0">
+            <span className="dash-sh-t">Play packs</span>
+            <p className="mt-2 text-xs text-[#F5A623]" role="alert">
+              {packsError}
+            </p>
+          </div>
+        ) : packs.length > 0 ? (
           <PlayPacksPanel
             packs={packs}
             country={packCountry}
             initialCredits={creditBalance}
             creditsReady={creditsReady}
           />
-        ) : null}
+        ) : (
+          <div className="dash-sh px-0">
+            <span className="dash-sh-t">Play packs · {packCountry}</span>
+            <p className="mt-2 text-xs text-white/40">
+              No packs seeded for this country yet.
+            </p>
+          </div>
+        )}
         </div>
         </div>
 

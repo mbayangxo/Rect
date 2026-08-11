@@ -60,7 +60,9 @@ export default async function PreferencesPage() {
   };
 
   const hasTaste =
-    initial.genres.length > 0 || initial.countries.length > 0;
+    initial.genres.length > 0 ||
+    initial.countries.length > 0 ||
+    initial.languages.length > 0;
 
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
@@ -85,6 +87,7 @@ export default async function PreferencesPage() {
           <TasteHubLinks
             genres={initial.genres}
             countries={initial.countries}
+            languages={initial.languages}
           />
           <div className="mt-5 flex flex-wrap gap-4 text-sm">
             <Link href="/genres" className="text-white/45 hover:text-[#1DB954]">
@@ -92,6 +95,12 @@ export default async function PreferencesPage() {
             </Link>
             <Link href="/places" className="text-white/45 hover:text-[#1DB954]">
               All places
+            </Link>
+            <Link
+              href="/languages"
+              className="text-white/45 hover:text-[#1DB954]"
+            >
+              All languages
             </Link>
           </div>
         </div>

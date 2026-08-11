@@ -3,9 +3,25 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { FollowPlaylistButton } from "@/components/follow-playlist-button";
+import { AskToCollabButton } from "@/components/ask-to-collab-button";
+import { AddToPlaylist } from "@/components/add-to-playlist";
+import { PeopleFollowButton } from "@/components/people-follow-button";
+import { PlaylistCollaboratorsPanel } from "@/components/playlist-collaborators-panel";
+import { PlaylistComments } from "@/components/playlist-comments";
 import { usePlayer } from "@/components/player-provider";
+import { QueueTrackButton } from "@/components/queue-track-button";
 import { RectLogo } from "@/components/rect-logo";
+import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
+import { personProfileHref } from "@/lib/dashboard/people";
+import type {
+  PlaylistCollabAsk,
+  PlaylistCollaborator,
+} from "@/lib/dashboard/playlist-collaborators";
+import type { PlaylistComment } from "@/lib/dashboard/playlist-comments";
+import type { PlaylistSaver } from "@/lib/dashboard/playlist-follows";
 import type { PlaylistDetail } from "@/lib/dashboard/playlists";
 import { trackArtist, trackTitle } from "@/lib/tracks";
 
@@ -13,12 +29,54 @@ type Props = {
   playlist: PlaylistDetail | null;
   loadError: string | null;
   missingTable: boolean;
+  initialFollowing?: boolean;
+  followerCount?: number;
+  followsReady?: boolean;
+  savers?: PlaylistSaver[];
+  saversError?: string | null;
+  saversMissingTable?: boolean;
+  friendsSavers?: PlaylistSaver[];
+  followingPeople?: Record<string, boolean>;
+  peopleFollowsReady?: boolean;
+  collaborators?: PlaylistCollaborator[];
+  collabReady?: boolean;
+  askPending?: boolean;
+  collabAsks?: PlaylistCollabAsk[];
+  comments?: PlaylistComment[];
+  commentsMissing?: boolean;
+  commentsError?: string | null;
+  commentsLikesReady?: boolean;
+  signedIn?: boolean;
+  currentUserId?: string | null;
+  likedTracks?: Record<string, boolean>;
+  likesReady?: boolean;
 };
 
 export function PlaylistDetailClient({
   playlist: initial,
   loadError,
   missingTable,
+  initialFollowing = false,
+  followerCount = 0,
+  followsReady = false,
+  savers = [],
+  saversError = null,
+  saversMissingTable = false,
+  friendsSavers = [],
+  followingPeople = {},
+  peopleFollowsReady = false,
+  collaborators = [],
+  collabReady = false,
+  askPending = false,
+  collabAsks = [],
+  comments = [],
+  commentsMissing = false,
+  commentsError = null,
+  commentsLikesReady = false,
+  signedIn = false,
+  currentUserId = null,
+  likedTracks = {},
+  likesReady = false,
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -35,6 +93,7 @@ export function PlaylistDetailClient({
     "idle" | "copied" | "error"
   >("idle");
   const [privacyPending, setPrivacyPending] = useState(false);
+  const [publishNote, setPublishNote] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -79,9 +138,14 @@ export function PlaylistDetailClient({
   }
 
   const isOwner = playlist.is_owner;
+  const canEdit = playlist.can_edit ?? isOwner;
+  const isCollaborator = playlist.is_collaborator ?? false;
+  const collabPending = playlist.collab_pending ?? false;
 
   async function removeTrack(trackId: string) {
-    if (!playlist || !playlist.is_owner) return;
+    if (!playlist) return;
+    const row = playlist.tracks.find((t) => t.id === trackId);
+    if (!row?.can_remove && !playlist.is_owner) return;
     setPendingId(trackId);
     setError(null);
     const prev = playlist;
@@ -235,6 +299,7 @@ export function PlaylistDetailClient({
     if (!playlist || !playlist.is_owner || privacyPending) return false;
     setPrivacyPending(true);
     setError(null);
+    setPublishNote(null);
     const prev = playlist.is_public;
     setPlaylist({ ...playlist, is_public: nextPublic });
     try {
@@ -246,6 +311,8 @@ export function PlaylistDetailClient({
       const data = (await res.json()) as {
         error?: string;
         is_public?: boolean;
+        became_public?: boolean;
+        notified?: number;
       };
       if (!res.ok || data.error) {
         setPlaylist({ ...playlist, is_public: prev });
@@ -256,6 +323,16 @@ export function PlaylistDetailClient({
         ...playlist,
         is_public: data.is_public ?? nextPublic,
       });
+      if (nextPublic && data.became_public) {
+        const n = Number(data.notified) || 0;
+        setPublishNote(
+          n === 0
+            ? "Public — no people-followers to notify yet"
+            : `Public — notified ${n} friend${n === 1 ? "" : "s"}`,
+        );
+      } else if (!nextPublic) {
+        setPublishNote("Back to private");
+      }
       router.refresh();
       return true;
     } catch (e) {
@@ -495,6 +572,11 @@ export function PlaylistDetailClient({
           <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
             Playlist
             {playlist.is_public ? " · Public" : isOwner ? " · Private" : ""}
+            {isCollaborator ? " · Collaborator" : ""}
+            {collabPending ? " · Invite" : ""}
+            {followerCount > 0
+              ? ` · ${followerCount} ${followerCount === 1 ? "save" : "saves"}`
+              : ""}
           </p>
           {editing && isOwner ? (
             <form
@@ -658,10 +740,18 @@ export function PlaylistDetailClient({
                 ? "Link copied"
                 : shareStatus === "error"
                   ? "Could not copy"
-                  : isOwner && !playlist.is_public
-                    ? "Share (make public)"
-                    : "Share"}
+                  : "Share"}
             </button>
+            {isOwner && !playlist.is_public ? (
+              <button
+                type="button"
+                disabled={privacyPending}
+                onClick={() => void setPublic(true)}
+                className="rounded-full bg-[#1DB954] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
+              >
+                {privacyPending ? "…" : "Publish for friends"}
+              </button>
+            ) : null}
             {isOwner && playlist.is_public ? (
               <button
                 type="button"
@@ -672,6 +762,27 @@ export function PlaylistDetailClient({
                 {privacyPending ? "…" : "Make private"}
               </button>
             ) : null}
+            {!isOwner && playlist.is_public ? (
+              <FollowPlaylistButton
+                playlistId={playlist.id}
+                initialFollowing={initialFollowing}
+                initialCount={followerCount}
+                followsReady={followsReady}
+                loginNext={`/playlists/${playlist.id}`}
+              />
+            ) : null}
+            {!isOwner &&
+            !isCollaborator &&
+            !collabPending &&
+            playlist.is_public ? (
+              <AskToCollabButton
+                playlistId={playlist.id}
+                collabReady={collabReady}
+                signedIn={signedIn}
+                loginNext={`/playlists/${playlist.id}`}
+                askPending={askPending}
+              />
+            ) : null}
             <button
               type="button"
               disabled={duplicating}
@@ -679,10 +790,10 @@ export function PlaylistDetailClient({
               className="rounded-full border border-white/20 px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10 disabled:opacity-50"
             >
               {duplicating
-                ? "Saving…"
+                ? "Copying…"
                 : isOwner
                   ? "Duplicate"
-                  : "Save to my playlists"}
+                  : "Make a copy"}
             </button>
             {isOwner ? (
               <button
@@ -711,15 +822,168 @@ export function PlaylistDetailClient({
           </p>
         ) : null}
 
+        {publishNote ? (
+          <p className="text-sm text-[#1DB954]">{publishNote}</p>
+        ) : null}
+
+        {isOwner || isCollaborator || collabPending ? (
+          <PlaylistCollaboratorsPanel
+            playlistId={playlist.id}
+            initialCollaborators={collaborators}
+            initialAsks={collabAsks}
+            collabReady={collabReady}
+            isOwner={isOwner}
+            isCollaborator={isCollaborator}
+            collabPending={collabPending}
+            followingPeople={followingPeople}
+            peopleFollowsReady={peopleFollowsReady}
+            currentUserId={currentUserId}
+          />
+        ) : null}
+
+        {friendsSavers.length > 0 ? (
+          <section className="mt-2">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+              Saved by friends
+            </h2>
+            <ul className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]">
+              {friendsSavers.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3 text-sm last:border-b-0"
+                >
+                  <Link
+                    href={personProfileHref(s.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 hover:text-[#1DB954]"
+                  >
+                    <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/[0.04]">
+                      {s.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={s.avatar_url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-full w-full items-center justify-center text-[0.65rem] font-semibold text-[#1DB954]/70">
+                          {(s.display_name.trim().slice(0, 2) || "LI").toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+                    <span className="truncate font-medium">{s.display_name}</span>
+                  </Link>
+                  {s.id !== currentUserId && peopleFollowsReady ? (
+                    <PeopleFollowButton
+                      personId={s.id}
+                      initialFollowing={Boolean(followingPeople[s.id])}
+                      initialCount={0}
+                      followsReady={peopleFollowsReady}
+                      showCount={false}
+                      compact
+                      idleLabel="Follow"
+                      className="shrink-0"
+                      loginNext={playlist ? `/playlists/${playlist.id}` : "/playlists"}
+                    />
+                  ) : null}
+                  <span className="shrink-0 text-xs text-white/35">
+                    {s.saved_at
+                      ? new Date(s.saved_at).toLocaleDateString()
+                      : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {isOwner ? (
+          <section className="mt-2">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+              Saved by
+            </h2>
+            {saversMissingTable ? (
+              <p className="text-xs text-white/35">
+                Run{" "}
+                <code className="text-[#1DB954]">
+                  20260809_playlist_follows.sql
+                </code>{" "}
+                (and{" "}
+                <code className="text-[#1DB954]">
+                  20260809_playlist_savers_roster.sql
+                </code>
+                ) to see who saved this mix.
+              </p>
+            ) : saversError ? (
+              <p className="text-sm text-[#1DB954]">{saversError}</p>
+            ) : savers.length === 0 ? (
+              <p className="text-sm text-white/40">
+                {followerCount > 0
+                  ? "Saves exist — run 20260809_playlist_savers_roster.sql if the list stays empty."
+                  : "No saves yet. Share a public link so fans can bookmark it."}
+              </p>
+            ) : (
+              <ul className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]">
+                {savers.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-3 text-sm last:border-b-0"
+                  >
+                    <Link
+                      href={personProfileHref(s.id)}
+                      className="flex min-w-0 flex-1 items-center gap-3 hover:text-[#1DB954]"
+                    >
+                      <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10 bg-white/[0.04]">
+                        {s.avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={s.avatar_url}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-[0.65rem] font-semibold text-[#1DB954]/70">
+                            {(s.display_name.trim().slice(0, 2) || "LI").toUpperCase()}
+                          </span>
+                        )}
+                      </span>
+                      <span className="truncate font-medium">{s.display_name}</span>
+                    </Link>
+                    {s.id !== currentUserId && peopleFollowsReady ? (
+                      <PeopleFollowButton
+                        personId={s.id}
+                        initialFollowing={Boolean(followingPeople[s.id])}
+                        initialCount={0}
+                        followsReady={peopleFollowsReady}
+                        showCount={false}
+                        compact
+                        idleLabel="Follow"
+                        className="shrink-0"
+                        loginNext={
+                          playlist ? `/playlists/${playlist.id}` : "/playlists"
+                        }
+                      />
+                    ) : null}
+                    <span className="shrink-0 text-xs text-white/35">
+                      {s.saved_at
+                        ? new Date(s.saved_at).toLocaleDateString()
+                        : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        ) : null}
+
         {playlist.tracks.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
             <p className="text-base font-medium">Empty playlist</p>
             <p className="mt-2 text-sm text-white/40">
-              {isOwner
+              {canEdit
                 ? "Open a song and tap Add to playlist."
                 : "This shared playlist has no published tracks yet."}
             </p>
-            {isOwner ? (
+            {canEdit ? (
               <Link
                 href="/search"
                 className="mt-6 inline-block text-sm text-[#1DB954] hover:underline"
@@ -738,56 +1002,94 @@ export function PlaylistDetailClient({
                 <span className="w-5 shrink-0 text-xs text-white/35">
                   {i + 1}
                 </span>
-                <button
-                  type="button"
-                  disabled={!t.audio_url}
-                  onClick={() => {
-                    if (!t.audio_url) return;
-                    const idx = playable.findIndex((x) => x.id === t.id);
-                    player.playQueue(playable, idx >= 0 ? idx : 0);
-                  }}
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-40"
-                >
-                  <TrackCover track={t} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {trackTitle(t)}
+                <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    disabled={!t.audio_url}
+                    onClick={() => {
+                      if (!t.audio_url) return;
+                      const idx = playable.findIndex((x) => x.id === t.id);
+                      player.playQueue(playable, idx >= 0 ? idx : 0);
+                    }}
+                    className="flex w-full min-w-0 items-center gap-3 text-left disabled:opacity-40"
+                  >
+                    <TrackCover track={t} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {trackTitle(t)}
+                      </p>
+                      <p className="truncate text-xs text-white/40">
+                        {trackArtist(t)}
+                      </p>
+                    </div>
+                  </button>
+                  {t.added_by &&
+                  t.added_by_name &&
+                  playlist.owner_id &&
+                  t.added_by !== playlist.owner_id ? (
+                    <p className="mt-0.5 pl-[3.25rem] text-[0.65rem] text-white/30">
+                      Added by{" "}
+                      <Link
+                        href={personProfileHref(t.added_by)}
+                        className="hover:text-[#1DB954]"
+                      >
+                        {t.added_by_name}
+                      </Link>
                     </p>
-                    <p className="truncate text-xs text-white/40">
-                      {trackArtist(t)}
-                    </p>
-                  </div>
-                </button>
-                {isOwner ? (
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <AddToPlaylist
+                    trackId={t.id}
+                    compact
+                    loginNext={`/playlists/${playlist.id}`}
+                  />
+                  <TrackLikeButton
+                    trackId={t.id}
+                    initialLiked={Boolean(likedTracks[t.id])}
+                    likesReady={likesReady}
+                    loginNext={`/playlists/${playlist.id}`}
+                    compact
+                  />
+                  <QueueTrackButton track={t} compact />
+                  <ShareTrackButton track={t} compact />
+                </div>
+                {isOwner || t.can_remove ? (
                   <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      disabled={reordering || i === 0}
-                      onClick={() => void moveTrack(t.id, "up")}
-                      className="rounded-full border border-white/20 px-2 py-1 text-xs text-white/55 hover:bg-white/10 disabled:opacity-30"
-                      aria-label="Move up"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      disabled={
-                        reordering || i === playlist.tracks.length - 1
-                      }
-                      onClick={() => void moveTrack(t.id, "down")}
-                      className="rounded-full border border-white/20 px-2 py-1 text-xs text-white/55 hover:bg-white/10 disabled:opacity-30"
-                      aria-label="Move down"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pendingId === t.id || reordering}
-                      onClick={() => removeTrack(t.id)}
-                      className="rounded-full border border-white/20 px-3 py-1 text-xs text-white/55 hover:bg-white/10 disabled:opacity-50"
-                    >
-                      Remove
-                    </button>
+                    {isOwner ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={reordering || i === 0}
+                          onClick={() => void moveTrack(t.id, "up")}
+                          className="rounded-full border border-white/20 px-2 py-1 text-xs text-white/55 hover:bg-white/10 disabled:opacity-30"
+                          aria-label="Move up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            reordering || i === playlist.tracks.length - 1
+                          }
+                          onClick={() => void moveTrack(t.id, "down")}
+                          className="rounded-full border border-white/20 px-2 py-1 text-xs text-white/55 hover:bg-white/10 disabled:opacity-30"
+                          aria-label="Move down"
+                        >
+                          ↓
+                        </button>
+                      </>
+                    ) : null}
+                    {t.can_remove || isOwner ? (
+                      <button
+                        type="button"
+                        disabled={pendingId === t.id || reordering}
+                        onClick={() => removeTrack(t.id)}
+                        className="rounded-full border border-white/20 px-3 py-1 text-xs text-white/55 hover:bg-white/10 disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    ) : null}
                   </div>
                 ) : (
                   <Link
@@ -801,6 +1103,19 @@ export function PlaylistDetailClient({
             ))}
           </ul>
         )}
+
+        <PlaylistComments
+          playlistId={playlist.id}
+          initialComments={comments}
+          missingTable={commentsMissing}
+          loadError={commentsError}
+          signedIn={signedIn}
+          currentUserId={currentUserId}
+          isOwner={isOwner}
+          loginNext={`/playlists/${playlist.id}`}
+          canComment={playlist.is_public || isOwner || isCollaborator}
+          likesReady={commentsLikesReady}
+        />
       </div>
     </main>
   );

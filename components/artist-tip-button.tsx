@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TIP_AMOUNTS_XOF } from "@/lib/dashboard/tips";
+import { TIP_AMOUNTS_XOF, TIP_MESSAGE_MAX } from "@/lib/dashboard/tips";
 
 type Props = {
   artistId: string;
@@ -12,6 +12,10 @@ type Props = {
   compact?: boolean;
   /** Open amount picker upward (player bar). */
   dropUp?: boolean;
+  /** Attribute tip to a track (song page / player). */
+  trackId?: string | null;
+  /** Display name for the track being tipped (tipper chrome). */
+  trackTitle?: string | null;
 };
 
 export function ArtistTipButton({
@@ -20,11 +24,19 @@ export function ArtistTipButton({
   loginNext,
   compact = false,
   dropUp = false,
+  trackId = null,
+  trackTitle = null,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
   const [pending, setPending] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const onTrack =
+    typeof trackTitle === "string" && trackTitle.trim()
+      ? trackTitle.trim()
+      : null;
 
   async function tip(amount: number) {
     if (!tipsReady || pending != null) return;
@@ -35,7 +47,12 @@ export function ArtistTipButton({
       const res = await fetch("/api/tips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ artist_id: artistId, amount_xof: amount }),
+        body: JSON.stringify({
+          artist_id: artistId,
+          amount_xof: amount,
+          message: note.trim() || undefined,
+          track_id: trackId || undefined,
+        }),
       });
       const data = (await res.json()) as {
         error?: string;
@@ -52,7 +69,12 @@ export function ArtistTipButton({
         setError(data.error || "Could not send tip");
         return;
       }
-      setMessage(`Tipped ${data.amount_xof ?? amount} XOF`);
+      setMessage(
+        onTrack
+          ? `Tipped ${data.amount_xof ?? amount} XOF on ${onTrack}`
+          : `Tipped ${data.amount_xof ?? amount} XOF`,
+      );
+      setNote("");
       setOpen(false);
       window.setTimeout(() => setMessage(null), 2500);
     } catch (e) {
@@ -62,17 +84,52 @@ export function ArtistTipButton({
     }
   }
 
+  const noteField = (
+    <label className="block">
+      <span className="sr-only">Optional note</span>
+      <textarea
+        value={note}
+        onChange={(e) => setNote(e.target.value.slice(0, TIP_MESSAGE_MAX))}
+        rows={compact ? 2 : 2}
+        maxLength={TIP_MESSAGE_MAX}
+        placeholder="Optional note"
+        disabled={pending != null}
+        className={
+          compact
+            ? "mb-2 w-full resize-none rounded-lg border border-white/15 bg-black/40 px-2 py-1.5 text-xs text-white placeholder:text-white/35 focus:border-[#1DB954]/50 focus:outline-none"
+            : "mb-2 w-full max-w-md resize-none rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/35 focus:border-[#1DB954]/50 focus:outline-none"
+        }
+      />
+    </label>
+  );
+
+  const trackLine =
+    onTrack && trackId ? (
+      <p
+        className={
+          compact
+            ? "mb-2 truncate text-[0.65rem] text-white/45"
+            : "mb-2 text-xs text-white/45"
+        }
+        title={onTrack}
+      >
+        On <span className="text-[#1DB954]/90">{onTrack}</span>
+      </p>
+    ) : null;
+
   const panel =
     open && tipsReady ? (
       <div
         className={
           compact
-            ? `absolute right-0 z-30 w-44 rounded-xl border border-white/15 bg-[#071208] p-3 shadow-xl ${
+            ? `absolute right-0 z-30 w-52 rounded-xl border border-white/15 bg-[#071208] p-3 shadow-xl ${
                 dropUp ? "bottom-full mb-2" : "mt-2"
               }`
-            : "mt-3 flex flex-wrap gap-2"
+            : "mt-3"
         }
       >
+        {trackLine}
+        {noteField}
         {compact ? (
           <div className="flex flex-col gap-1.5">
             {TIP_AMOUNTS_XOF.map((amt) => (
@@ -93,17 +150,19 @@ export function ArtistTipButton({
             ) : null}
           </div>
         ) : (
-          TIP_AMOUNTS_XOF.map((amt) => (
-            <button
-              key={amt}
-              type="button"
-              disabled={pending != null}
-              onClick={() => tip(amt)}
-              className="rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
-            >
-              {pending === amt ? "…" : `${amt} XOF`}
-            </button>
-          ))
+          <div className="flex flex-wrap gap-2">
+            {TIP_AMOUNTS_XOF.map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                disabled={pending != null}
+                onClick={() => tip(amt)}
+                className="rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
+              >
+                {pending === amt ? "…" : `${amt} XOF`}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     ) : null;
@@ -116,14 +175,20 @@ export function ArtistTipButton({
           onClick={() => setOpen((v) => !v)}
           disabled={!tipsReady}
           className="flex h-9 w-9 items-center justify-center rounded-full text-[0.55rem] font-semibold uppercase tracking-wide text-[#1DB954] hover:bg-[#1DB954]/15 disabled:opacity-40"
-          aria-label={open ? "Close tip" : "Tip artist"}
-          title="Tip artist"
+          aria-label={
+            open
+              ? "Close tip"
+              : onTrack
+                ? `Tip artist for ${onTrack}`
+                : "Tip artist"
+          }
+          title={onTrack ? `Tip for ${onTrack}` : "Tip artist"}
         >
           {open ? "×" : "Tip"}
         </button>
         {panel}
         {message && !open ? (
-          <span className="absolute bottom-full right-0 mb-1 whitespace-nowrap rounded bg-[#071208] px-2 py-1 text-[0.55rem] text-[#1DB954] shadow">
+          <span className="absolute bottom-full right-0 mb-1 max-w-[14rem] truncate whitespace-nowrap rounded bg-[#071208] px-2 py-1 text-[0.55rem] text-[#1DB954] shadow">
             {message}
           </span>
         ) : null}
@@ -139,7 +204,7 @@ export function ArtistTipButton({
         disabled={!tipsReady}
         className="rounded-full border border-[#1DB954]/40 px-4 py-2 text-sm font-medium text-[#1DB954] hover:bg-[#1DB954]/10 disabled:opacity-40"
       >
-        {open ? "Cancel tip" : "Tip artist"}
+        {open ? "Cancel tip" : onTrack ? "Tip this track" : "Tip artist"}
       </button>
 
       {!tipsReady ? (

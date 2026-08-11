@@ -3,13 +3,17 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { AddToPlaylist } from "@/components/add-to-playlist";
+import { GenreFilterChips } from "@/components/genre-filter-chips";
+import { LanguageFilterChips } from "@/components/language-filter-chips";
+import { PlaceFilterChips } from "@/components/place-filter-chips";
 import { usePlayer } from "@/components/player-provider";
 import { RectLogo } from "@/components/rect-logo";
 import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
 import type { RadioStation } from "@/lib/dashboard/radio";
-import { trackArtist, trackTitle } from "@/lib/tracks";
+import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
 const TONES = [
   "from-[#0F2B1A] to-[#060908]",
@@ -23,9 +27,35 @@ type Props = {
   stations: RadioStation[];
   loadError: string | null;
   personalized: boolean;
+  languageSlug?: string | null;
+  languageLabel?: string | null;
+  languageChips?: { slug: string; name: string }[];
+  genreSlug?: string | null;
+  genreLabel?: string | null;
+  genreChips?: { slug: string; name: string }[];
+  placeSlug?: string | null;
+  placeLabel?: string | null;
+  placeChips?: { slug: string; name: string }[];
+  likedTracks?: Record<string, boolean>;
+  likesReady?: boolean;
 };
 
-export function RadioClient({ stations, loadError, personalized }: Props) {
+export function RadioClient({
+  stations,
+  loadError,
+  personalized,
+  languageSlug = null,
+  languageLabel = null,
+  languageChips = [],
+  genreSlug = null,
+  genreLabel = null,
+  genreChips = [],
+  placeSlug = null,
+  placeLabel = null,
+  placeChips = [],
+  likedTracks = {},
+  likesReady = false,
+}: Props) {
   const player = usePlayer();
   const [activeId, setActiveId] = useState<string | null>(
     stations[0]?.id ?? null,
@@ -90,9 +120,46 @@ export function RadioClient({ stations, loadError, personalized }: Props) {
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
             {personalized
-              ? "Stations tuned to your taste genres, filled with published tracks."
-              : "Genre stations from published catalog tracks."}
+              ? "Stations tuned to your places, languages, listening times, and genres."
+              : "Place and genre stations from published catalog tracks."}
           </p>
+          <div className="mt-4 space-y-2">
+            <PlaceFilterChips
+              activeSlug={placeSlug}
+              basePath="/radio"
+              keepParams={{
+                genre: genreSlug || undefined,
+                language: languageSlug || undefined,
+              }}
+              places={placeChips}
+            />
+            <GenreFilterChips
+              activeSlug={genreSlug}
+              basePath="/radio"
+              keepParams={{
+                language: languageSlug || undefined,
+                place: placeSlug || undefined,
+              }}
+              genres={genreChips}
+            />
+            <LanguageFilterChips
+              activeSlug={languageSlug}
+              basePath="/radio"
+              keepParams={{
+                genre: genreSlug || undefined,
+                place: placeSlug || undefined,
+              }}
+              languages={languageChips}
+            />
+          </div>
+          {placeLabel || genreLabel || languageLabel ? (
+            <p className="mt-2 text-xs text-white/40">
+              Dial filtered
+              {placeLabel ? ` · ${placeLabel}` : ""}
+              {genreLabel ? ` · ${genreLabel}` : ""}
+              {languageLabel ? ` · ${languageLabel}` : ""}.
+            </p>
+          ) : null}
         </div>
 
         {loadError ? (
@@ -101,7 +168,11 @@ export function RadioClient({ stations, loadError, personalized }: Props) {
           </p>
         ) : stations.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
-            <p className="text-base font-medium">No stations yet</p>
+            <p className="text-base font-medium">
+              {placeLabel || genreLabel || languageLabel
+                ? `No stations for ${[placeLabel, genreLabel, languageLabel].filter(Boolean).join(" · ")}`
+                : "No stations yet"}
+            </p>
             <p className="mt-2 text-sm text-white/40">
               Publish tracks with genres to light up the dial.
             </p>
@@ -208,6 +279,9 @@ export function RadioClient({ stations, loadError, personalized }: Props) {
                           </span>
                           <span className="block truncate text-xs text-white/40">
                             {trackArtist(t)}
+                            {formatTrackDuration(t.duration_secs)
+                              ? ` · ${formatTrackDuration(t.duration_secs)}`
+                              : ""}
                           </span>
                         </button>
                         <AddToPlaylist
@@ -215,8 +289,15 @@ export function RadioClient({ stations, loadError, personalized }: Props) {
                           compact
                           loginNext="/radio"
                         />
+                        <TrackLikeButton
+                          trackId={t.id}
+                          initialLiked={Boolean(likedTracks[t.id])}
+                          likesReady={likesReady}
+                          loginNext="/radio"
+                          compact
+                        />
                         <QueueTrackButton track={t} compact />
-            <ShareTrackButton track={t} compact />
+                        <ShareTrackButton track={t} compact />
                         <span className="text-[#1DB954]">
                           {isPlaying && player.playing ? "❚❚" : "▶"}
                         </span>

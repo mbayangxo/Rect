@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProfileSettings } from "@/components/profile-settings";
 import { RectLogo } from "@/components/rect-logo";
+import { loadBlockedPeople } from "@/lib/dashboard/blocks";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -31,17 +32,24 @@ export default async function ProfilePage() {
   const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
   let profile: {
     display_name?: string | null;
+    role?: string | null;
+    account_type?: string | null;
     countries?: unknown;
     genres?: unknown;
+    avatar_url?: string | null;
     privacy_public_profile?: boolean | null;
     privacy_show_activity?: boolean | null;
     privacy_show_on_charts?: boolean | null;
+    privacy_show_likes?: boolean | null;
+    privacy_show_saves?: boolean | null;
+    privacy_show_followed_artists?: boolean | null;
+    privacy_show_followers?: boolean | null;
   } | null = null;
 
   const full = await supabase
     .from("users")
     .select(
-      "display_name, role, countries, genres, account_type, privacy_public_profile, privacy_show_activity, privacy_show_on_charts",
+      "display_name, role, countries, genres, account_type, avatar_url, privacy_public_profile, privacy_show_activity, privacy_show_on_charts, privacy_show_likes, privacy_show_saves, privacy_show_followed_artists, privacy_show_followers",
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -49,7 +57,9 @@ export default async function ProfilePage() {
   if (full.error) {
     const lean = await supabase
       .from("users")
-      .select("display_name, role, countries, genres, account_type")
+      .select(
+        "display_name, role, countries, genres, account_type, privacy_public_profile, privacy_show_activity, privacy_show_on_charts, privacy_show_likes",
+      )
       .eq("id", user.id)
       .maybeSingle();
     profile = lean.data;
@@ -89,7 +99,37 @@ export default async function ProfilePage() {
       profile?.privacy_show_on_charts ?? meta.privacy_show_on_charts,
       true,
     ),
+    privacy_show_likes: asBool(
+      profile?.privacy_show_likes ?? meta.privacy_show_likes,
+      false,
+    ),
+    privacy_show_saves: asBool(
+      profile?.privacy_show_saves ?? meta.privacy_show_saves,
+      false,
+    ),
+    privacy_show_followed_artists: asBool(
+      profile?.privacy_show_followed_artists ??
+        meta.privacy_show_followed_artists,
+      false,
+    ),
+    privacy_show_followers: asBool(
+      profile?.privacy_show_followers ?? meta.privacy_show_followers,
+      false,
+    ),
   };
+
+  const avatarUrl =
+    (typeof profile?.avatar_url === "string" && profile.avatar_url.trim()) ||
+    (typeof meta.avatar_url === "string" ? meta.avatar_url.trim() : "") ||
+    null;
+
+  const isArtist =
+    profile?.account_type === "artist" ||
+    profile?.role === "artist" ||
+    meta.account_type === "artist" ||
+    meta.role === "artist";
+
+  const blockedRes = await loadBlockedPeople(supabase, user.id);
 
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
@@ -114,6 +154,12 @@ export default async function ProfilePage() {
         genres={genres}
         countries={countries}
         privacy={privacy}
+        publicProfileHref={`/people/${user.id}`}
+        avatarUrl={avatarUrl}
+        isArtist={isArtist}
+        blockedPeople={blockedRes.people}
+        blocksReady={!blockedRes.missingTable}
+        blocksError={blockedRes.error}
       />
     </main>
   );

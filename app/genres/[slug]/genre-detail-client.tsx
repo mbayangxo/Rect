@@ -7,14 +7,17 @@ import { RectLogo } from "@/components/rect-logo";
 import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
+import { TrackLikeButton } from "@/components/track-like-button";
 import type { GenreTrack } from "@/lib/dashboard/genres";
-import { trackArtist, trackTitle } from "@/lib/tracks";
+import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
 type Props = {
   slug: string;
   genreName: string;
   tracks: GenreTrack[];
   loadError: string | null;
+  likedTracks?: Record<string, boolean>;
+  likesReady?: boolean;
 };
 
 export function GenreDetailClient({
@@ -22,6 +25,8 @@ export function GenreDetailClient({
   genreName,
   tracks,
   loadError,
+  likedTracks = {},
+  likesReady = false,
 }: Props) {
   const player = usePlayer();
   const playable = tracks.filter((t) => t.audio_url);
@@ -102,6 +107,9 @@ export function GenreDetailClient({
                     {t.like_count > 0
                       ? ` · ${t.like_count} likes`
                       : ""}
+                    {formatTrackDuration(t.duration_secs)
+                      ? ` · ${formatTrackDuration(t.duration_secs)}`
+                      : ""}
                   </p>
                 </div>
               </button>
@@ -116,8 +124,15 @@ export function GenreDetailClient({
                 compact
                 loginNext={`/genres/${slug}`}
               />
+              <TrackLikeButton
+                trackId={t.id}
+                initialLiked={Boolean(likedTracks[t.id])}
+                likesReady={likesReady}
+                loginNext={`/genres/${slug}`}
+                compact
+              />
               <QueueTrackButton track={t} compact />
-            <ShareTrackButton track={t} compact />
+              <ShareTrackButton track={t} compact />
             </li>
           ))}
         </ul>

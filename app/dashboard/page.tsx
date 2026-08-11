@@ -4,8 +4,16 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { loadArtistPortals } from "@/lib/dashboard/artists";
 import { loadPlayCreditBalance } from "@/lib/dashboard/credits";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
-import { loadLikedTrackIds } from "@/lib/dashboard/likes";
+import { loadLikedAmongTrackIds, loadLikedTrackIds } from "@/lib/dashboard/likes";
 import { loadContinueListening } from "@/lib/dashboard/listening-journal";
+import { loadArtistNotifications } from "@/lib/dashboard/notifications";
+import {
+  loadFriendsLikes,
+  loadFriendsListening,
+  loadFriendsMixes,
+} from "@/lib/dashboard/people-follows";
+import { loadFollowingAmongPlaylists } from "@/lib/dashboard/playlist-follows";
+import { loadFirstTracksForPlaylists } from "@/lib/dashboard/playlists";
 import { loadPlayPacks } from "@/lib/dashboard/play-packs";
 import {
   hasTasteSignal,
@@ -14,6 +22,7 @@ import {
 } from "@/lib/dashboard/taste";
 import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
 import { createClient } from "@/lib/supabase/server";
+import type { TrackRow } from "@/lib/tracks";
 import "./dashboard.css";
 
 export const dynamic = "force-dynamic";
@@ -73,6 +82,10 @@ export default async function DashboardPage() {
     creditsRes,
     likesRes,
     continueRes,
+    inboxRes,
+    friendsRes,
+    friendsLikesRes,
+    friendsMixesRes,
   ] = await Promise.all([
     loadFeaturedTracks(supabase, taste),
     loadArtistPortals(supabase, taste),
@@ -80,7 +93,117 @@ export default async function DashboardPage() {
     loadPlayCreditBalance(supabase),
     loadLikedTrackIds(supabase, current.user.id),
     loadContinueListening(supabase, current.user.id, 8),
+    loadArtistNotifications(supabase, current.user.id, 40),
+    loadFriendsListening(supabase, current.user.id, 8),
+    loadFriendsLikes(supabase, current.user.id, 8),
+    loadFriendsMixes(supabase, current.user.id, 6),
   ]);
+
+  const releaseUnread = inboxRes.notifications.filter(
+    (n) =>
+      (n.kind === "release" ||
+        n.kind === "people_follow" ||
+        n.kind === "playlist_follow" ||
+        n.kind === "playlist_copy" ||
+        n.kind === "friend_mix" ||
+        n.kind === "track_share" ||
+        n.kind === "playlist_share" ||
+        n.kind === "comment_reply" ||
+        n.kind === "tip_thanks" ||
+        n.kind === "share_thanks" ||
+        n.kind === "playlist_follow_thanks" ||
+        n.kind === "playlist_copy_thanks" ||
+        n.kind === "people_follow_thanks" ||
+        n.kind === "follow_thanks" ||
+        n.kind === "comment_like_thanks" ||
+        n.kind === "playlist_comment_like_thanks" ||
+        n.kind === "activity_thanks" ||
+        n.kind === "like_thanks" ||
+        n.kind === "mix_thanks" ||
+        n.kind === "playlist_collab_invite" ||
+        n.kind === "playlist_collab_request" ||
+        n.kind === "playlist_collab_accepted" ||
+        n.kind === "playlist_collab_add" ||
+        n.kind === "playlist_collab_declined" ||
+        n.kind === "playlist_collab_left" ||
+        n.kind === "playlist_collab_removed" ||
+        n.kind === "comment_like" ||
+        n.kind === "playlist_track_add" ||
+        n.kind === "playlist_comment" ||
+        n.kind === "playlist_comment_reply" ||
+        n.kind === "playlist_comment_like") &&
+      !n.read_at,
+  ).length;
+  const studioUnread = inboxRes.notifications.filter(
+    (n) =>
+      n.kind !== "release" &&
+      n.kind !== "people_follow" &&
+      n.kind !== "playlist_follow" &&
+      n.kind !== "playlist_copy" &&
+      n.kind !== "friend_mix" &&
+      n.kind !== "track_share" &&
+      n.kind !== "playlist_share" &&
+      n.kind !== "comment_reply" &&
+      n.kind !== "tip_thanks" &&
+      n.kind !== "share_thanks" &&
+      n.kind !== "playlist_follow_thanks" &&
+      n.kind !== "playlist_copy_thanks" &&
+      n.kind !== "people_follow_thanks" &&
+      n.kind !== "follow_thanks" &&
+      n.kind !== "comment_like_thanks" &&
+      n.kind !== "playlist_comment_like_thanks" &&
+      n.kind !== "activity_thanks" &&
+      n.kind !== "like_thanks" &&
+      n.kind !== "mix_thanks" &&
+      n.kind !== "playlist_collab_invite" &&
+      n.kind !== "playlist_collab_request" &&
+      n.kind !== "playlist_collab_accepted" &&
+      n.kind !== "playlist_collab_add" &&
+      n.kind !== "playlist_collab_declined" &&
+      n.kind !== "playlist_collab_left" &&
+      n.kind !== "playlist_collab_removed" &&
+      n.kind !== "comment_like" &&
+      n.kind !== "playlist_track_add" &&
+      n.kind !== "playlist_comment" &&
+      n.kind !== "playlist_comment_reply" &&
+      n.kind !== "playlist_comment_like" &&
+      !n.read_at,
+  ).length;
+
+  const friendTrackIds = [
+    ...new Set([
+      ...friendsRes.items.map((t) => t.id),
+      ...friendsLikesRes.items.map((t) => t.id),
+    ]),
+  ].filter(Boolean);
+  const friendMixIds = [
+    ...new Set(friendsMixesRes.items.map((p) => p.id).filter(Boolean)),
+  ];
+  const [friendLikedAmong, playlistAmong, mixPreviews] = await Promise.all([
+    friendTrackIds.length > 0
+      ? loadLikedAmongTrackIds(supabase, current.user.id, friendTrackIds)
+      : Promise.resolve({ likedIds: [] as string[], missingTable: false }),
+    friendMixIds.length > 0
+      ? loadFollowingAmongPlaylists(
+          supabase,
+          current.user.id,
+          friendMixIds,
+        )
+      : Promise.resolve({
+          followingIds: [] as string[],
+          missingTable: false,
+        }),
+    loadFirstTracksForPlaylists(supabase, friendMixIds),
+  ]);
+  const likedTrackIds = [
+    ...new Set([...likesRes.likedIds, ...friendLikedAmong.likedIds]),
+  ];
+  const followingPlaylists: Record<string, boolean> = {};
+  for (const id of playlistAmong.followingIds) {
+    followingPlaylists[id] = true;
+  }
+  const playlistPreviewTracks: Record<string, TrackRow> =
+    mixPreviews.byPlaylistId;
 
   return (
     <DashboardShell
@@ -90,6 +213,7 @@ export default async function DashboardPage() {
       artists={artistsRes.artists}
       artistsError={artistsRes.ok ? null : artistsRes.error}
       packs={packsRes.ok ? packsRes.packs : []}
+      packsError={packsRes.ok ? null : packsRes.error}
       packCountry={
         packsRes.ok && packsRes.packs[0]?.country
           ? packsRes.packs[0].country
@@ -100,11 +224,22 @@ export default async function DashboardPage() {
       tasteCountries={taste.countries.slice(0, 2)}
       creditBalance={creditsRes.credits}
       creditsReady={!creditsRes.missingTable}
-      likedTrackIds={likesRes.likedIds}
-      likesReady={!likesRes.missingTable}
+      likedTrackIds={likedTrackIds}
+      likesReady={!likesRes.missingTable && !friendLikedAmong.missingTable}
       showArtistStudio={showArtistStudio}
+      inboxUnread={releaseUnread}
+      artistInboxUnread={showArtistStudio ? studioUnread : 0}
       continueListening={continueRes.entries}
       continueError={continueRes.error}
+      friendsListening={friendsRes.items}
+      friendsError={friendsRes.error}
+      friendsLikes={friendsLikesRes.items}
+      friendsLikesError={friendsLikesRes.error}
+      friendsMixes={friendsMixesRes.items}
+      friendsMixesError={friendsMixesRes.error}
+      followingPlaylists={followingPlaylists}
+      playlistFollowsReady={!playlistAmong.missingTable}
+      playlistPreviewTracks={playlistPreviewTracks}
     />
   );
 }
