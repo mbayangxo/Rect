@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkLiveDiscoverability } from "@/lib/dashboard/discoverability";
 import { notifyTrackRelease } from "@/lib/dashboard/notifications";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -56,11 +57,35 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const status = trackStatusForWrite(intent);
 
-  const { data: existing, error: findError } = await supabase
+  const full = await supabase
     .from("tracks")
-    .select("id, artist_id, status, title")
+    .select("id, artist_id, status, title, genre, language")
     .eq("id", trackId)
     .maybeSingle();
+
+  let existing = full.data as {
+    id: string;
+    artist_id: string | null;
+    status: string | null;
+    title: string | null;
+    genre: string | null;
+    language?: string | null;
+  } | null;
+  let findError = full.error;
+  if (
+    findError &&
+    /language|column .* does not exist/i.test(findError.message)
+  ) {
+    const lean = await supabase
+      .from("tracks")
+      .select("id, artist_id, status, title, genre")
+      .eq("id", trackId)
+      .maybeSingle();
+    existing = lean.data
+      ? { ...lean.data, language: null }
+      : null;
+    findError = lean.error;
+  }
 
   if (findError) {
     return NextResponse.json({ error: findError.message }, { status: 500 });
@@ -72,10 +97,33 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Not your track." }, { status: 403 });
   }
 
+  if (status === TRACK_STATUS_LIVE) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("countries")
+      .eq("id", user.id)
+      .maybeSingle();
+    const gate = checkLiveDiscoverability({
+      genre: existing.genre,
+      language: existing.language ?? null,
+      countries: profile?.countries,
+    });
+    if (!gate.ok) {
+      return NextResponse.json(
+        { error: gate.error, code: gate.code, issues: gate.issues },
+        { status: 400 },
+      );
+    }
+  }
+
   const wasPublished = isPublishedTrack(existing);
 
-  let data: { id: string; title: string | null; status: string | null; artist_id: string | null } | null =
-    null;
+  let data: {
+    id: string;
+    title: string | null;
+    status: string | null;
+    artist_id: string | null;
+  } | null = null;
   let error: { message: string } | null = null;
 
   // Prefer DB-canonical `live`; fall back to `published` if an older check allows only that.

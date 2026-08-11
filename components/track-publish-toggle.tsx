@@ -2,18 +2,26 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { formatDiscoverabilityError } from "@/lib/dashboard/discoverability";
 
 type Props = {
   trackId: string;
   status: string | null | undefined;
   /** Highlight after upload redirect */
   emphasize?: boolean;
+  genre?: string | null;
+  language?: string | null;
+  /** Artist has at least one place set. */
+  hasPlaces?: boolean;
 };
 
 export function TrackPublishToggle({
   trackId,
   status,
   emphasize = false,
+  genre = null,
+  language = null,
+  hasPlaces = true,
 }: Props) {
   const router = useRouter();
   const published =
@@ -34,6 +42,19 @@ export function TrackPublishToggle({
     setError(null);
     setNote(null);
     const next = live ? "pending" : "live";
+
+    if (next === "live") {
+      const issues: Array<"places" | "genre" | "language"> = [];
+      if (!hasPlaces) issues.push("places");
+      if (!genre?.trim()) issues.push("genre");
+      if (!language?.trim()) issues.push("language");
+      if (issues.length > 0) {
+        setError(formatDiscoverabilityError(issues));
+        setPending(false);
+        return;
+      }
+    }
+
     try {
       const res = await fetch(`/api/tracks/${trackId}/status`, {
         method: "PATCH",
@@ -53,8 +74,8 @@ export function TrackPublishToggle({
         const n = Number(data.notified) || 0;
         setNote(
           n === 0
-            ? "Live — no followers to notify yet"
-            : `Live — notified ${n} follower${n === 1 ? "" : "s"}`,
+            ? "Live on Home, Wave & Charts — no followers to notify yet"
+            : `Live on Home, Wave & Charts — notified ${n} follower${n === 1 ? "" : "s"}`,
         );
       } else {
         setNote("Back to draft");
@@ -91,7 +112,11 @@ export function TrackPublishToggle({
           {note}
         </p>
       ) : null}
-      {error ? <p className="mt-1 text-[0.6rem] text-[#F5A623]">{error}</p> : null}
+      {error ? (
+        <p className="mt-1 max-w-[11rem] text-[0.6rem] leading-snug text-[#F5A623]">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -96,6 +96,23 @@ export function StudioClient({
       setError("Title is required.");
       return;
     }
+    if (needsPlaces) {
+      setError(
+        "Set at least one place in My portal before publishing — Charts place boards need it.",
+      );
+      document
+        .getElementById("studio-profile")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (!genre.trim()) {
+      setError("Pick a genre before publishing.");
+      return;
+    }
+    if (!language.trim()) {
+      setError("Pick a language before publishing.");
+      return;
+    }
     if (!splitsOk) {
       setError(`Writer splits must total 100% (now ${splitsTotal.toFixed(1)}%).`);
       return;
@@ -154,11 +171,8 @@ export function StudioClient({
       }
 
       const trackId = data.track.id.trim();
-      const placesNote = needsPlaces
-        ? " Add your place below so you appear on Dakar & Alkebulan charts."
-        : "";
       setSuccess(
-        `Published “${data.track.title || title}” — live on Home & Charts.${placesNote}`,
+        `Published “${data.track.title || title}” — live on Home, Wave, and Charts (including place boards).`,
       );
       setTitle("");
       setGenre("");
@@ -167,19 +181,10 @@ export function StudioClient({
       setCover(null);
       setWriters([newWriter(displayName, "100")]);
       window.setTimeout(() => {
-        if (needsPlaces) {
-          document
-            .getElementById("studio-profile")
-            ?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
         router.push(
           trackId
-            ? `/studio?focus=${encodeURIComponent(trackId)}${
-                needsPlaces ? "&setup=places" : ""
-              }`
-            : needsPlaces
-              ? "/studio?setup=places"
-              : "/studio",
+            ? `/studio?focus=${encodeURIComponent(trackId)}`
+            : "/studio",
         );
         router.refresh();
       }, 700);
@@ -228,8 +233,8 @@ export function StudioClient({
           {displayName}
         </h1>
         <p className="mt-2 text-sm text-white/45">
-          Upload, publish, and manage your catalog. Live tracks appear on Home
-          and Charts.
+          Upload and publish with place, genre, and language so tracks actually
+          appear on Home, Wave, and Charts.
         </p>
 
         {needsPlaces ? (
@@ -237,8 +242,8 @@ export function StudioClient({
             id="studio-places-banner"
             className="mt-6 rounded-xl border border-[#F5A623]/35 bg-[#F5A623]/10 px-4 py-3 text-sm text-[#F5A623]"
           >
-            Set at least one place in My portal so your songs can appear on Dakar
-            and Alkebulan chart boards.{" "}
+            Publishing is blocked until you set at least one place — Dakar and
+            Alkebulan boards need it.{" "}
             <a href="#studio-profile" className="font-semibold underline">
               Set places now
             </a>
@@ -291,10 +296,11 @@ export function StudioClient({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className="text-xs text-white/45">Genre</span>
+                <span className="text-xs text-white/45">Genre (required)</span>
                 <select
                   value={genre}
                   onChange={(e) => setGenre(e.target.value)}
+                  required
                   className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-[#1DB954]"
                 >
                   <option value="">Select genre</option>
@@ -306,10 +312,11 @@ export function StudioClient({
                 </select>
               </label>
               <label className="block">
-                <span className="text-xs text-white/45">Language</span>
+                <span className="text-xs text-white/45">Language (required)</span>
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
+                  required
                   className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-[#1DB954]"
                 >
                   <option value="">Select language</option>
@@ -419,10 +426,14 @@ export function StudioClient({
 
             <button
               type="submit"
-              disabled={pending || !splitsOk}
+              disabled={pending || !splitsOk || needsPlaces}
               className="w-full rounded-full bg-[#1DB954] py-3.5 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
             >
-              {pending ? "Publishing…" : "Publish"}
+              {pending
+                ? "Publishing…"
+                : needsPlaces
+                  ? "Set place to publish"
+                  : "Publish"}
             </button>
           </form>
         </section>
@@ -482,6 +493,9 @@ export function StudioClient({
                             trackId={t.id}
                             status={t.status}
                             emphasize={focused && !live}
+                            genre={t.genre}
+                            language={t.language}
+                            hasPlaces={!needsPlaces}
                           />
                         </div>
                       </div>
