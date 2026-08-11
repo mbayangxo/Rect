@@ -297,6 +297,12 @@ export function PlaylistDetailClient({
 
   async function setPublic(nextPublic: boolean): Promise<boolean> {
     if (!playlist || !playlist.is_owner || privacyPending) return false;
+    if (nextPublic && !playlist.cover_art_url?.trim()) {
+      setError(
+        "Add a cover before making this mix public — Search and Home need artwork.",
+      );
+      return false;
+    }
     setPrivacyPending(true);
     setError(null);
     setPublishNote(null);
@@ -466,6 +472,10 @@ export function PlaylistDetailClient({
   async function removeCover() {
     if (!playlist || !playlist.is_owner || coverBusy || !playlist.cover_art_url)
       return;
+    if (playlist.is_public) {
+      setError("Make the mix private before removing cover art.");
+      return;
+    }
     setCoverBusy(true);
     setError(null);
     const prev = playlist.cover_art_url;
@@ -554,7 +564,7 @@ export function PlaylistDetailClient({
                       ? "Replace cover"
                       : "Add cover"}
                 </button>
-                {playlist.cover_art_url ? (
+                {playlist.cover_art_url && !playlist.is_public ? (
                   <button
                     type="button"
                     disabled={coverBusy}
@@ -563,6 +573,11 @@ export function PlaylistDetailClient({
                   >
                     Remove
                   </button>
+                ) : null}
+                {playlist.cover_art_url && playlist.is_public ? (
+                  <p className="w-full text-[0.65rem] text-white/35">
+                    Make private to remove cover.
+                  </p>
                 ) : null}
               </div>
             ) : null}
@@ -745,11 +760,20 @@ export function PlaylistDetailClient({
             {isOwner && !playlist.is_public ? (
               <button
                 type="button"
-                disabled={privacyPending}
+                disabled={privacyPending || !playlist.cover_art_url?.trim()}
                 onClick={() => void setPublic(true)}
                 className="rounded-full bg-[#1DB954] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
+                title={
+                  playlist.cover_art_url?.trim()
+                    ? undefined
+                    : "Add a cover before publishing"
+                }
               >
-                {privacyPending ? "…" : "Publish for friends"}
+                {privacyPending
+                  ? "…"
+                  : !playlist.cover_art_url?.trim()
+                    ? "Add cover to publish"
+                    : "Publish for friends"}
               </button>
             ) : null}
             {isOwner && playlist.is_public ? (

@@ -193,6 +193,12 @@ export function PlaylistsClient({
     setError(null);
     setPublishNote(null);
     const nextPublic = !p.is_public;
+    if (nextPublic && !p.cover_art_url?.trim()) {
+      setError(
+        "Add a cover before making this mix public — open the playlist and upload artwork.",
+      );
+      return;
+    }
     const prev = playlists;
     setPrivacyId(p.id);
     setPlaylists((list) =>
@@ -445,6 +451,7 @@ export function PlaylistsClient({
                     playlistId={p.id}
                     name={p.name}
                     isPublic={p.is_public}
+                    hasCover={Boolean(p.cover_art_url)}
                     isOwner
                     onBecamePublic={() => {
                       setPlaylists((list) =>
