@@ -9,12 +9,14 @@ import { TrackCover } from "@/components/track-cover";
 import { TrackEditButton } from "@/components/track-edit-button";
 import { TrackPublishToggle } from "@/components/track-publish-toggle";
 import type { ArtistStatTrack } from "@/lib/dashboard/artist-stats";
+import type { WriterSplit } from "@/lib/dashboard/writer-splits";
 import {
   CULTURAL_GENRES,
   CULTURAL_LANGUAGES,
   readAudioDurationSecs,
 } from "@/lib/cultural-options";
 import { isPublishedTrack, trackTitle } from "@/lib/tracks";
+import { TrackWritersEditor } from "@/components/track-writers-editor";
 
 type WriterRow = { id: string; name: string; percent: string };
 
@@ -27,6 +29,8 @@ type Props = {
   countries: string[];
   genres: string[];
   tracks: ArtistStatTrack[];
+  writersByTrackId?: Record<string, WriterSplit[]>;
+  writersReady?: boolean;
   totalPlays: number;
   publishedCount: number;
   draftCount: number;
@@ -53,6 +57,8 @@ export function StudioClient({
   countries,
   genres,
   tracks,
+  writersByTrackId = {},
+  writersReady = false,
   totalPlays,
   publishedCount,
   draftCount,
@@ -484,6 +490,17 @@ export function StudioClient({
                             emphasize={focused && !live}
                           />
                         </div>
+                        {writersReady ? (
+                          <TrackWritersEditor
+                            trackId={t.id}
+                            initialWriters={writersByTrackId[t.id] ?? []}
+                            compact
+                          />
+                        ) : (
+                          <p className="mt-2 text-[0.65rem] text-white/30">
+                            Writer splits table not ready — run phase1 SQL.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </li>
