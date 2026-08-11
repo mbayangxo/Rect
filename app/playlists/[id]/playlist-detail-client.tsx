@@ -297,6 +297,12 @@ export function PlaylistDetailClient({
 
   async function setPublic(nextPublic: boolean): Promise<boolean> {
     if (!playlist || !playlist.is_owner || privacyPending) return false;
+    if (nextPublic && playlist.tracks.length < 1) {
+      setError(
+        "Add at least one track before making this mix public — empty mixes stay private.",
+      );
+      return false;
+    }
     setPrivacyPending(true);
     setError(null);
     setPublishNote(null);
@@ -745,11 +751,20 @@ export function PlaylistDetailClient({
             {isOwner && !playlist.is_public ? (
               <button
                 type="button"
-                disabled={privacyPending}
+                disabled={privacyPending || playlist.tracks.length < 1}
                 onClick={() => void setPublic(true)}
                 className="rounded-full bg-[#1DB954] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
+                title={
+                  playlist.tracks.length < 1
+                    ? "Add tracks before publishing"
+                    : undefined
+                }
               >
-                {privacyPending ? "…" : "Publish for friends"}
+                {privacyPending
+                  ? "…"
+                  : playlist.tracks.length < 1
+                    ? "Add tracks to publish"
+                    : "Publish for friends"}
               </button>
             ) : null}
             {isOwner && playlist.is_public ? (

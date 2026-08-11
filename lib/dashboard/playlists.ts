@@ -420,20 +420,22 @@ export async function loadPublicPlaylistsByOwner(
       countById.set(pid, (countById.get(pid) ?? 0) + 1);
     }
 
-    const playlists: PlaylistSummary[] = rows.map((r) => ({
-      id: r.id as string,
-      name: (r.name as string)?.trim() || "Playlist",
-      description: normalizeDescription(r.description),
-      cover_art_url:
-        typeof r.cover_art_url === "string" && r.cover_art_url.trim()
-          ? r.cover_art_url.trim()
-          : null,
-      created_at: (r.created_at as string | null) ?? null,
-      updated_at: (r.updated_at as string | null) ?? null,
-      track_count: countById.get(r.id as string) ?? 0,
-      is_public: true,
-      pinned_at: null,
-    }));
+    const playlists: PlaylistSummary[] = rows
+      .map((r) => ({
+        id: r.id as string,
+        name: (r.name as string)?.trim() || "Playlist",
+        description: normalizeDescription(r.description),
+        cover_art_url:
+          typeof r.cover_art_url === "string" && r.cover_art_url.trim()
+            ? r.cover_art_url.trim()
+            : null,
+        created_at: (r.created_at as string | null) ?? null,
+        updated_at: (r.updated_at as string | null) ?? null,
+        track_count: countById.get(r.id as string) ?? 0,
+        is_public: true,
+        pinned_at: null,
+      }))
+      .filter((p) => p.track_count > 0);
 
     return { playlists, missingTable: false, error: null };
   } catch (e) {
@@ -1155,9 +1157,10 @@ export async function setPlaylistPublic(
   | {
       ok: false;
       error: string;
-      code?: "missing_table" | "not_found" | "failed";
+      code?: "missing_table" | "not_found" | "failed" | "tracks_required";
     }
-> {
+  >
+{
   const prev = await supabase
     .from("playlists")
     .select("id, is_public")
@@ -1184,6 +1187,31 @@ export async function setPlaylistPublic(
   }
   if (!prev.data) {
     return { ok: false, error: "Playlist not found", code: "not_found" };
+  }
+
+  if (isPublic) {
+    const { count, error: countError } = await supabase
+      .from("playlist_tracks")
+      .select("track_id", { count: "exact", head: true })
+      .eq("playlist_id", playlistId);
+    if (countError) {
+      if (isMissingRelation(countError.message)) {
+        return {
+          ok: false,
+          error: "Run playlists SQL in Supabase first",
+          code: "missing_table",
+        };
+      }
+      return { ok: false, error: countError.message, code: "failed" };
+    }
+    if (!count || count < 1) {
+      return {
+        ok: false,
+        error:
+          "Add at least one track before making this mix public — empty mixes stay private.",
+        code: "tracks_required",
+      };
+    }
   }
 
   const wasPublic = Boolean(prev.data.is_public);

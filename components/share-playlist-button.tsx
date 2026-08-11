@@ -8,6 +8,8 @@ type Props = {
   playlistId: string;
   name: string;
   isPublic: boolean;
+  /** Mix has at least one track — required before Share can auto-publish. */
+  hasTracks?: boolean;
   /** When true, Share will make the playlist public first if needed. */
   isOwner?: boolean;
   compact?: boolean;
@@ -20,6 +22,7 @@ export function SharePlaylistButton({
   playlistId,
   name,
   isPublic,
+  hasTracks = true,
   isOwner = false,
   compact = false,
   dropUp = false,
@@ -39,6 +42,13 @@ export function SharePlaylistButton({
 
   async function ensurePublic(): Promise<boolean> {
     if (!isOwner || publicNow) return true;
+    if (!hasTracks) {
+      setFriendNote("Add tracks before sharing publicly.");
+      window.setTimeout(() => setFriendNote(null), 4000);
+      setStatus("error");
+      window.setTimeout(() => setStatus("idle"), 2500);
+      return false;
+    }
     setStatus("pending");
     try {
       const res = await fetch(`/api/playlists/${playlistId}`, {
@@ -53,6 +63,8 @@ export function SharePlaylistButton({
         notified?: number;
       };
       if (!res.ok || data.error) {
+        setFriendNote(data.error || "Could not make public");
+        window.setTimeout(() => setFriendNote(null), 4000);
         setStatus("error");
         window.setTimeout(() => setStatus("idle"), 2500);
         return false;
