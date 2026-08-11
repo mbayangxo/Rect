@@ -10,7 +10,9 @@ import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
 import type { LikedTrack } from "@/lib/dashboard/likes";
-import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
+import type { FollowedPlaylist } from "@/lib/dashboard/playlist-follows";
+import type { PlaylistSummary } from "@/lib/dashboard/playlists";
+import { trackArtist, trackTitle, formatTrackDuration, type TrackRow } from "@/lib/tracks";
 
 type Props = {
   initialTracks: LikedTrack[];
@@ -18,13 +20,73 @@ type Props = {
   missingTable: boolean;
   /** True when privacy_show_likes is off (default). */
   likesHidden?: boolean;
+  ownedPlaylists?: PlaylistSummary[];
+  ownedError?: string | null;
+  ownedMissing?: boolean;
+  savedPlaylists?: FollowedPlaylist[];
+  savedError?: string | null;
+  savedMissing?: boolean;
+  playlistPreviewTracks?: Record<string, TrackRow>;
 };
+
+function MixCard({
+  href,
+  name,
+  meta,
+  preview,
+  coverUrl,
+}: {
+  href: string;
+  name: string;
+  meta: string;
+  preview?: TrackRow | null;
+  coverUrl?: string | null;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex w-[148px] shrink-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] text-left transition hover:border-white/25"
+    >
+      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-[#0a2e18] to-[#060908]">
+        {coverUrl || preview?.cover_art_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={coverUrl || preview?.cover_art_url || ""}
+            alt=""
+            className="h-full w-full object-cover opacity-80 transition group-hover:opacity-100"
+          />
+        ) : preview ? (
+          <div className="flex h-full items-center justify-center p-4">
+            <TrackCover track={preview} size="md" />
+          </div>
+        ) : (
+          <div className="flex h-full items-end p-3">
+            <span className="text-[0.55rem] font-bold uppercase tracking-wide text-[#1DB954]/80">
+              Mix
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="p-3">
+        <p className="truncate text-sm font-semibold">{name}</p>
+        <p className="mt-0.5 truncate text-[0.65rem] text-white/40">{meta}</p>
+      </div>
+    </Link>
+  );
+}
 
 export function LibraryClient({
   initialTracks,
   loadError,
   missingTable,
   likesHidden = true,
+  ownedPlaylists = [],
+  ownedError = null,
+  ownedMissing = false,
+  savedPlaylists = [],
+  savedError = null,
+  savedMissing = false,
+  playlistPreviewTracks = {},
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -40,6 +102,8 @@ export function LibraryClient({
   }, [initialTracks]);
 
   const playable = tracks.filter((t) => t.audio_url);
+  const ownedPreview = ownedPlaylists.slice(0, 8);
+  const savedPreview = savedPlaylists.slice(0, 8);
 
   async function unlike(trackId: string) {
     setPendingId(trackId);
@@ -156,207 +220,337 @@ export function LibraryClient({
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-5xl space-y-8 px-5 py-10 sm:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-              Your library
-            </p>
-            <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
-              Liked songs
-            </h1>
-            <p className="mt-2 text-sm text-white/45">
-              Tracks you heart on RECT SOUND — saved in your account.
-            </p>
-            {likesHidden ? (
-              <p className="mt-4 max-w-xl rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
-                Your likes stay off your public page.{" "}
-                <Link
-                  href="/profile"
-                  className="text-[#1DB954] hover:underline"
-                >
-                  Turn on Liked songs
-                </Link>{" "}
-                in Profile if you want friends to see them.
-              </p>
-            ) : (
-              <p className="mt-2 text-sm text-white/40">
-                Shared on your public page. Change anytime in{" "}
-                <Link
-                  href="/profile"
-                  className="text-[#1DB954] hover:underline"
-                >
-                  Privacy settings
-                </Link>
-                .
-              </p>
-            )}
-          </div>
-          {!missingTable && tracks.length > 0 ? (
-            <button
-              type="button"
-              disabled={clearing}
-              onClick={() => void clearLikes()}
-              onBlur={() => {
-                if (!clearing) setConfirmClear(false);
-              }}
-              className="rounded-full border border-white/20 px-4 py-2 text-sm text-white/45 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
-            >
-              {clearing
-                ? "Clearing…"
-                : confirmClear
-                  ? "Confirm clear all"
-                  : "Clear likes"}
-            </button>
-          ) : null}
-        </div>
-
-        {missingTable ? (
-          <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
-            <p className="text-base font-medium">Likes not enabled yet</p>
-            <p className="mt-2 text-sm text-white/40">
-              Run the track likes SQL in Supabase, then heart songs from Home.
-            </p>
-          </div>
-        ) : loadError ? (
-          <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
-            Could not load library. {loadError}
+      <div className="mx-auto w-full max-w-5xl space-y-10 px-5 py-10 sm:px-8">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
+            Your music
           </p>
-        ) : tracks.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
-            <p className="text-base font-medium">No liked songs yet</p>
-            <p className="mt-2 text-sm text-white/40">
-              Tap ♥ on a track in Home to save it here.
-            </p>
-            <Link
-              href="/dashboard"
-              className="mt-6 inline-block rounded-full bg-[#1DB954] px-5 py-2 text-sm font-semibold text-black"
+          <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+            Library
+          </h1>
+          <p className="mt-2 max-w-xl text-sm text-white/45">
+            Liked songs, mixes you own, and mixes you’ve saved — one place.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            <a
+              href="#liked"
+              className="rounded-full border border-white/15 px-3 py-1.5 text-white/60 hover:border-[#1DB954]/40 hover:text-[#1DB954]"
             >
-              Go to Home
+              Liked · {missingTable ? "—" : tracks.length}
+            </a>
+            <a
+              href="#your-mixes"
+              className="rounded-full border border-white/15 px-3 py-1.5 text-white/60 hover:border-[#1DB954]/40 hover:text-[#1DB954]"
+            >
+              Your mixes · {ownedMissing ? "—" : ownedPlaylists.length}
+            </a>
+            <a
+              href="#saved-mixes"
+              className="rounded-full border border-white/15 px-3 py-1.5 text-white/60 hover:border-[#1DB954]/40 hover:text-[#1DB954]"
+            >
+              Saved · {savedMissing ? "—" : savedPlaylists.length}
+            </a>
+            <Link
+              href="/playlists"
+              className="rounded-full border border-[#1DB954]/35 px-3 py-1.5 text-[#1DB954] hover:bg-[#1DB954]/10"
+            >
+              Manage playlists →
             </Link>
           </div>
-        ) : (
-          <>
-            {error ? (
-              <p className="text-sm text-[#F5A623]" role="alert">
-                {error}
-              </p>
-            ) : null}
+        </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {playable.length > 0 ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => player.playQueue(playable, 0)}
-                    className="rounded-full bg-[#1DB954] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349]"
-                  >
-                    ▶ Play all
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      player.playQueue(playable, 0, {
-                        shuffle: true,
-                        repeat: true,
-                      })
-                    }
-                    className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10"
-                  >
-                    ⇄ Shuffle
-                  </button>
-                </>
-              ) : null}
-              <button
-                type="button"
-                disabled={savingPlaylist}
-                onClick={() => void saveAsPlaylist()}
-                className="rounded-full border border-white/20 px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10 disabled:opacity-50"
+        {/* Your mixes */}
+        <section id="your-mixes">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+              Your mixes
+            </h2>
+            <Link
+              href="/playlists"
+              className="text-xs text-[#1DB954] hover:underline"
+            >
+              All playlists
+            </Link>
+          </div>
+          {ownedMissing ? (
+            <p className="text-sm text-white/40">
+              Playlists not set up yet — run playlists SQL in Supabase.
+            </p>
+          ) : ownedError ? (
+            <p className="text-sm text-[#F5A623]">{ownedError}</p>
+          ) : ownedPreview.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center">
+              <p className="text-sm text-white/45">No mixes yet.</p>
+              <Link
+                href="/playlists"
+                className="mt-3 inline-block text-sm text-[#1DB954] hover:underline"
               >
-                {savingPlaylist ? "Saving…" : "Save as playlist"}
-              </button>
-              <p className="text-xs text-white/40">
-                {tracks.length} song{tracks.length === 1 ? "" : "s"}
+                Create a playlist
+              </Link>
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+              {ownedPreview.map((p) => (
+                <MixCard
+                  key={p.id}
+                  href={`/playlists/${p.id}`}
+                  name={p.name}
+                  meta={`${p.track_count} track${p.track_count === 1 ? "" : "s"}${
+                    p.is_public ? " · Public" : " · Private"
+                  }`}
+                  preview={playlistPreviewTracks[p.id]}
+                  coverUrl={p.cover_art_url}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Saved mixes */}
+        <section id="saved-mixes">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+              Saved mixes
+            </h2>
+            <Link
+              href="/playlists"
+              className="text-xs text-[#1DB954] hover:underline"
+            >
+              Open playlists
+            </Link>
+          </div>
+          {savedMissing ? (
+            <p className="text-sm text-white/40">
+              Saved mixes not set up yet.
+            </p>
+          ) : savedError ? (
+            <p className="text-sm text-[#F5A623]">{savedError}</p>
+          ) : savedPreview.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-white/15 px-4 py-8 text-center">
+              <p className="text-sm text-white/45">
+                Save a friend’s mix from their playlist page — it shows up here.
               </p>
             </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
+              {savedPreview.map((p) => (
+                <MixCard
+                  key={p.id}
+                  href={`/playlists/${p.id}`}
+                  name={p.name}
+                  meta={`by ${p.owner_name} · ${p.track_count} track${
+                    p.track_count === 1 ? "" : "s"
+                  }`}
+                  preview={playlistPreviewTracks[p.id]}
+                  coverUrl={p.cover_art_url}
+                />
+              ))}
+            </div>
+          )}
+        </section>
 
-            <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-              {tracks.map((t, i) => {
-                const active = player.track?.id === t.id;
-                const canPlay = Boolean(t.audio_url);
-                const queueIdx = playable.findIndex((x) => x.id === t.id);
-                return (
-                  <li
-                    key={t.id}
-                    className={`flex items-center gap-3 border-b border-white/[0.06] px-4 py-3 last:border-0 ${
-                      active ? "bg-[#1DB954]/10" : ""
-                    }`}
+        {/* Liked songs */}
+        <section id="liked" className="space-y-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+                Liked songs
+              </h2>
+              <p className="mt-2 text-sm text-white/45">
+                Tracks you heart on RECT SOUND — saved in your account.
+              </p>
+              {likesHidden ? (
+                <p className="mt-3 max-w-xl rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
+                  Your likes stay off your public page.{" "}
+                  <Link
+                    href="/profile"
+                    className="text-[#1DB954] hover:underline"
                   >
-                    <span className="w-6 shrink-0 text-center text-xs tabular-nums text-white/35">
-                      {i + 1}
-                    </span>
-                    <TrackCover track={t} size="sm" />
+                    Turn on Liked songs
+                  </Link>{" "}
+                  in Profile if you want friends to see them.
+                </p>
+              ) : (
+                <p className="mt-2 text-sm text-white/40">
+                  Shared on your public page. Change anytime in{" "}
+                  <Link
+                    href="/profile"
+                    className="text-[#1DB954] hover:underline"
+                  >
+                    Privacy settings
+                  </Link>
+                  .
+                </p>
+              )}
+            </div>
+            {!missingTable && tracks.length > 0 ? (
+              <button
+                type="button"
+                disabled={clearing}
+                onClick={() => void clearLikes()}
+                onBlur={() => {
+                  if (!clearing) setConfirmClear(false);
+                }}
+                className="rounded-full border border-white/20 px-4 py-2 text-sm text-white/45 hover:border-red-400/40 hover:text-red-300 disabled:opacity-50"
+              >
+                {clearing
+                  ? "Clearing…"
+                  : confirmClear
+                    ? "Confirm clear all"
+                    : "Clear likes"}
+              </button>
+            ) : null}
+          </div>
+
+          {missingTable ? (
+            <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
+              <p className="text-base font-medium">Likes not enabled yet</p>
+              <p className="mt-2 text-sm text-white/40">
+                Run the track likes SQL in Supabase, then heart songs from Home.
+              </p>
+            </div>
+          ) : loadError ? (
+            <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
+              Could not load likes. {loadError}
+            </p>
+          ) : tracks.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
+              <p className="text-base font-medium">No liked songs yet</p>
+              <p className="mt-2 text-sm text-white/40">
+                Tap ♥ on a track in Home to save it here.
+              </p>
+              <Link
+                href="/dashboard"
+                className="mt-6 inline-block rounded-full bg-[#1DB954] px-5 py-2 text-sm font-semibold text-black"
+              >
+                Go to Home
+              </Link>
+            </div>
+          ) : (
+            <>
+              {error ? (
+                <p className="text-sm text-[#F5A623]" role="alert">
+                  {error}
+                </p>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-2">
+                {playable.length > 0 ? (
+                  <>
                     <button
                       type="button"
-                      disabled={!canPlay}
-                      onClick={() => {
-                        if (!canPlay) return;
-                        if (active) player.toggle();
-                        else player.playQueue(playable, Math.max(0, queueIdx));
-                      }}
-                      className="min-w-0 flex-1 text-left disabled:opacity-40"
+                      onClick={() => player.playQueue(playable, 0)}
+                      className="rounded-full bg-[#1DB954] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349]"
                     >
-                      <span className="block truncate text-sm font-medium">
-                        {trackTitle(t)}
-                      </span>
-                      <span className="block truncate text-xs text-white/40">
-                        {trackArtist(t)}
-                        {t.genre ? ` · ${t.genre}` : ""}
-                      </span>
-                    </button>
-                    {formatTrackDuration(t.duration_secs) ? (
-                      <span className="shrink-0 text-xs tabular-nums text-white/35">
-                        {formatTrackDuration(t.duration_secs)}
-                      </span>
-                    ) : null}
-                    <AddToPlaylist
-                      trackId={t.id}
-                      compact
-                      loginNext="/library"
-                    />
-                    <QueueTrackButton track={t} compact />
-            <ShareTrackButton track={t} compact />
-                    <button
-                      type="button"
-                      disabled={pendingId === t.id}
-                      onClick={() => void unlike(t.id)}
-                      className="shrink-0 px-2 text-lg text-[#1DB954] disabled:opacity-40"
-                      aria-label={`Unlike ${trackTitle(t)}`}
-                      title="Unlike"
-                    >
-                      ♥
+                      ▶ Play all
                     </button>
                     <button
                       type="button"
-                      disabled={!canPlay}
-                      onClick={() => {
-                        if (!canPlay) return;
-                        if (active) player.toggle();
-                        else player.playQueue(playable, Math.max(0, queueIdx));
-                      }}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1DB954] text-sm font-bold text-black disabled:opacity-40"
-                      aria-label={
-                        active && player.playing ? "Pause" : "Play"
+                      onClick={() =>
+                        player.playQueue(playable, 0, {
+                          shuffle: true,
+                          repeat: true,
+                        })
                       }
+                      className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10"
                     >
-                      {active && player.playing ? "❚❚" : "▶"}
+                      ⇄ Shuffle
                     </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
+                  </>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={savingPlaylist}
+                  onClick={() => void saveAsPlaylist()}
+                  className="rounded-full border border-white/20 px-4 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10 disabled:opacity-50"
+                >
+                  {savingPlaylist ? "Saving…" : "Save as playlist"}
+                </button>
+                <p className="text-xs text-white/40">
+                  {tracks.length} song{tracks.length === 1 ? "" : "s"}
+                </p>
+              </div>
+
+              <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                {tracks.map((t, i) => {
+                  const active = player.track?.id === t.id;
+                  const canPlay = Boolean(t.audio_url);
+                  const queueIdx = playable.findIndex((x) => x.id === t.id);
+                  return (
+                    <li
+                      key={t.id}
+                      className={`flex items-center gap-3 border-b border-white/[0.06] px-4 py-3 last:border-0 ${
+                        active ? "bg-[#1DB954]/10" : ""
+                      }`}
+                    >
+                      <span className="w-6 shrink-0 text-center text-xs tabular-nums text-white/35">
+                        {i + 1}
+                      </span>
+                      <TrackCover track={t} size="sm" />
+                      <button
+                        type="button"
+                        disabled={!canPlay}
+                        onClick={() => {
+                          if (!canPlay) return;
+                          if (active) player.toggle();
+                          else
+                            player.playQueue(playable, Math.max(0, queueIdx));
+                        }}
+                        className="min-w-0 flex-1 text-left disabled:opacity-40"
+                      >
+                        <span className="block truncate text-sm font-medium">
+                          {trackTitle(t)}
+                        </span>
+                        <span className="block truncate text-xs text-white/40">
+                          {trackArtist(t)}
+                          {t.genre ? ` · ${t.genre}` : ""}
+                        </span>
+                      </button>
+                      {formatTrackDuration(t.duration_secs) ? (
+                        <span className="shrink-0 text-xs tabular-nums text-white/35">
+                          {formatTrackDuration(t.duration_secs)}
+                        </span>
+                      ) : null}
+                      <AddToPlaylist
+                        trackId={t.id}
+                        compact
+                        loginNext="/library"
+                      />
+                      <QueueTrackButton track={t} compact />
+                      <ShareTrackButton track={t} compact />
+                      <button
+                        type="button"
+                        disabled={pendingId === t.id}
+                        onClick={() => void unlike(t.id)}
+                        className="shrink-0 px-2 text-lg text-[#1DB954] disabled:opacity-40"
+                        aria-label={`Unlike ${trackTitle(t)}`}
+                        title="Unlike"
+                      >
+                        ♥
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!canPlay}
+                        onClick={() => {
+                          if (!canPlay) return;
+                          if (active) player.toggle();
+                          else
+                            player.playQueue(playable, Math.max(0, queueIdx));
+                        }}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1DB954] text-sm font-bold text-black disabled:opacity-40"
+                        aria-label={
+                          active && player.playing ? "Pause" : "Play"
+                        }
+                      >
+                        {active && player.playing ? "❚❚" : "▶"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </section>
       </div>
     </main>
   );

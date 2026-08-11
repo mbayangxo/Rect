@@ -44,7 +44,7 @@ const BROWSE = [
   { href: "/playlists", label: "Playlists", tone: "from-[#1a1f0f] to-[#060908]" },
   { href: "/tips", label: "Tips", tone: "from-[#2b1f0f] to-[#090806]" },
   { href: "/studio", label: "Studio", tone: "from-[#0f2b1a] to-[#060908]" },
-  { href: "/library", label: "Liked", tone: "from-[#2B0F1A] to-[#090608]" },
+  { href: "/library", label: "Library", tone: "from-[#2B0F1A] to-[#090608]" },
   { href: "/journal", label: "Journal", tone: "from-[#0F1A2B] to-[#06080A]" },
 ] as const;
 
