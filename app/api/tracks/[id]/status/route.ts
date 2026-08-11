@@ -58,7 +58,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const { data: existing, error: findError } = await supabase
     .from("tracks")
-    .select("id, artist_id, status, title")
+    .select("id, artist_id, status, title, cover_art_url")
     .eq("id", trackId)
     .maybeSingle();
 
@@ -70,6 +70,23 @@ export async function PATCH(request: Request, { params }: Params) {
   }
   if (existing.artist_id !== user.id) {
     return NextResponse.json({ error: "Not your track." }, { status: 403 });
+  }
+
+  if (status === TRACK_STATUS_LIVE) {
+    const cover =
+      typeof existing.cover_art_url === "string"
+        ? existing.cover_art_url.trim()
+        : "";
+    if (!cover) {
+      return NextResponse.json(
+        {
+          error:
+            "Add cover art before going live — Charts and Home need artwork.",
+          code: "cover_required",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   const wasPublished = isPublishedTrack(existing);
