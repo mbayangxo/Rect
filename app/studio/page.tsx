@@ -3,6 +3,7 @@ import { StudioClient } from "@/app/studio/studio-client";
 import { isArtistAccount } from "@/lib/dashboard/artist-access";
 import { loadArtistStudioStats } from "@/lib/dashboard/artist-stats";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
+import { loadArtistTipStats } from "@/lib/dashboard/tips";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,10 @@ export default async function StudioPage({ searchParams }: Props) {
   }
 
   const user = current.user;
-  const stats = await loadArtistStudioStats(supabase, user.id);
+  const [stats, tips] = await Promise.all([
+    loadArtistStudioStats(supabase, user.id),
+    loadArtistTipStats(supabase, user.id),
+  ]);
 
   let portal = {
     city: "",
@@ -103,8 +107,20 @@ export default async function StudioPage({ searchParams }: Props) {
       genres={portal.genres}
       tracks={stats.tracks}
       totalPlays={stats.totalPlays}
+      playsThisMonth={stats.playsThisMonth}
+      uniqueListeners={stats.uniqueListeners}
+      followerCount={stats.followerCount}
+      followsReady={stats.followsReady}
+      recentListeners={stats.recentListeners}
       publishedCount={stats.publishedCount}
       draftCount={stats.draftCount}
+      tipTotalXof={tips.totalXof}
+      tipCount={tips.tipCount}
+      tipThisMonthXof={tips.thisMonthXof}
+      uniqueTippers={tips.uniqueTippers}
+      recentTips={tips.recent}
+      tipsMissing={tips.missingTable}
+      tipsError={tips.error}
       loadError={stats.error}
       focusTrackId={focusTrackId}
       setupPlaces={setupPlaces || needsPlaces}

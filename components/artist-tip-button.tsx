@@ -128,6 +128,9 @@ export function ArtistTipButton({
             : "mt-3"
         }
       >
+        <p className="mb-2 text-[0.65rem] text-white/35">
+          Demo tip — recorded as XOF, not a real charge yet.
+        </p>
         {trackLine}
         {noteField}
         {compact ? (

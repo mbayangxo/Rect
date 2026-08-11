@@ -8,7 +8,11 @@ import { RectLogo } from "@/components/rect-logo";
 import { TrackCover } from "@/components/track-cover";
 import { TrackEditButton } from "@/components/track-edit-button";
 import { TrackPublishToggle } from "@/components/track-publish-toggle";
-import type { ArtistStatTrack } from "@/lib/dashboard/artist-stats";
+import type {
+  ArtistRecentListener,
+  ArtistStatTrack,
+} from "@/lib/dashboard/artist-stats";
+import type { ArtistTipLedgerEntry } from "@/lib/dashboard/tips";
 import {
   CULTURAL_GENRES,
   CULTURAL_LANGUAGES,
@@ -28,8 +32,20 @@ type Props = {
   genres: string[];
   tracks: ArtistStatTrack[];
   totalPlays: number;
+  playsThisMonth: number;
+  uniqueListeners: number;
+  followerCount: number;
+  followsReady: boolean;
+  recentListeners: ArtistRecentListener[];
   publishedCount: number;
   draftCount: number;
+  tipTotalXof: number;
+  tipCount: number;
+  tipThisMonthXof: number;
+  uniqueTippers: number;
+  recentTips: ArtistTipLedgerEntry[];
+  tipsMissing: boolean;
+  tipsError: string | null;
   loadError: string | null;
   focusTrackId?: string | null;
   setupPlaces?: boolean;
@@ -54,8 +70,20 @@ export function StudioClient({
   genres,
   tracks,
   totalPlays,
+  playsThisMonth,
+  uniqueListeners,
+  followerCount,
+  followsReady,
+  recentListeners,
   publishedCount,
   draftCount,
+  tipTotalXof,
+  tipCount,
+  tipThisMonthXof,
+  uniqueTippers,
+  recentTips,
+  tipsMissing,
+  tipsError,
   loadError,
   focusTrackId = null,
   setupPlaces = false,
@@ -228,8 +256,9 @@ export function StudioClient({
           {displayName}
         </h1>
         <p className="mt-2 text-sm text-white/45">
-          Upload, publish, and manage your catalog. Live tracks appear on Home
-          and Charts.
+          Upload, publish, and see real streams and tips. Listener play packs
+          spend credits on plays — tips land here as XOF (demo payments for
+          now).
         </p>
 
         {needsPlaces ? (
@@ -245,7 +274,7 @@ export function StudioClient({
           </div>
         ) : null}
 
-        <div className="mt-6 grid grid-cols-3 gap-3">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
             <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
               Streams
@@ -253,7 +282,46 @@ export function StudioClient({
             <p className="mt-1 text-xl font-semibold text-[#1DB954]">
               {totalPlays.toLocaleString()}
             </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">
+              {playsThisMonth.toLocaleString()} this month
+            </p>
           </div>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
+              Listeners
+            </p>
+            <p className="mt-1 text-xl font-semibold">
+              {uniqueListeners.toLocaleString()}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">unique</p>
+          </div>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
+              Followers
+            </p>
+            <p className="mt-1 text-xl font-semibold">
+              {followsReady ? followerCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">
+              {followsReady ? "artists you follow you" : "follows offline"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
+              Tips
+            </p>
+            <p className="mt-1 text-xl font-semibold text-[#1DB954]">
+              {tipsMissing ? "—" : `${tipTotalXof.toLocaleString()} XOF`}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">
+              {tipsMissing
+                ? "tips SQL needed"
+                : `${tipCount} tip${tipCount === 1 ? "" : "s"} · ${tipThisMonthXof.toLocaleString()} this month`}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
             <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
               Live
@@ -267,6 +335,98 @@ export function StudioClient({
             <p className="mt-1 text-xl font-semibold">{draftCount}</p>
           </div>
         </div>
+
+        {(tipsError || (!tipsMissing && tipCount > 0) || recentListeners.length > 0) && (
+          <section className="mt-8 space-y-6">
+            {!tipsMissing ? (
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+                  Tip ledger
+                </h2>
+                {tipsError ? (
+                  <p className="mt-3 text-sm text-[#F5A623]">{tipsError}</p>
+                ) : tipCount === 0 ? (
+                  <p className="mt-3 text-sm text-white/40">
+                    No tips yet. Share your portal — listeners tip from your
+                    songs. Amounts are demo XOF until real payments ship.
+                  </p>
+                ) : (
+                  <>
+                    <p className="mt-2 text-xs text-white/40">
+                      {uniqueTippers} tipper{uniqueTippers === 1 ? "" : "s"} ·
+                      demo payments (stub) — not withdrawable yet
+                    </p>
+                    <ul className="mt-3 space-y-2">
+                      {recentTips.slice(0, 8).map((tip) => (
+                        <li
+                          key={tip.id}
+                          className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3"
+                        >
+                          <div className="flex items-baseline justify-between gap-3">
+                            <p className="min-w-0 truncate text-sm font-medium">
+                              {tip.tipper_name}
+                              {tip.track_title ? (
+                                <span className="font-normal text-white/40">
+                                  {" "}
+                                  · {tip.track_title}
+                                </span>
+                              ) : null}
+                            </p>
+                            <p className="shrink-0 tabular-nums text-sm text-[#1DB954]">
+                              {tip.amount_xof.toLocaleString()} XOF
+                            </p>
+                          </div>
+                          {tip.message ? (
+                            <p className="mt-1 text-xs text-white/45">
+                              “{tip.message}”
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-[0.65rem] text-white/30">
+                            {tip.created_at
+                              ? new Date(tip.created_at).toLocaleString()
+                              : ""}
+                            {tip.payment_method === "stub"
+                              ? " · demo payment"
+                              : tip.payment_method
+                                ? ` · ${tip.payment_method}`
+                                : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            ) : null}
+
+            {recentListeners.length > 0 ? (
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+                  Recent listeners
+                </h2>
+                <ul className="mt-3 space-y-2">
+                  {recentListeners.slice(0, 8).map((row) => (
+                    <li
+                      key={`${row.listener_id}-${row.track_id}-${row.played_at ?? ""}`}
+                      className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm"
+                    >
+                      <span className="font-medium">{row.display_name}</span>
+                      <span className="text-white/40">
+                        {" "}
+                        played {row.track_title}
+                      </span>
+                      {row.played_at ? (
+                        <span className="mt-0.5 block text-[0.65rem] text-white/30">
+                          {new Date(row.played_at).toLocaleString()}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        )}
 
         {/* 1. UPLOAD TRACK */}
         <section className="mt-12">
@@ -464,9 +624,9 @@ export function StudioClient({
                         <p className="mt-0.5 text-xs text-white/40">
                           {t.play_count.toLocaleString()} stream
                           {t.play_count === 1 ? "" : "s"}
-                          {" · "}
-                          {t.play_count.toLocaleString()} play pack credit
-                          {t.play_count === 1 ? "" : "s"} earned
+                          {t.plays_this_month > 0
+                            ? ` · ${t.plays_this_month.toLocaleString()} this month`
+                            : ""}
                           {t.genre ? ` · ${t.genre}` : ""}
                           {!live ? " · Draft" : " · Live"}
                         </p>

@@ -85,6 +85,10 @@ export function PlayPacksPanel({
         )}
       </div>
 
+      <p className="mb-3 px-0 text-xs text-white/40">
+        Demo packs — credits are added instantly with no real payment yet.
+      </p>
+
       {!creditsReady ? (
         <p className="mb-3 px-0 text-xs text-white/40">
           Run the play credits SQL in Supabase to enable buying packs.
