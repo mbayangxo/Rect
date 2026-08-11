@@ -9,6 +9,7 @@ export type DashboardUserProfile = {
   countries: string[] | null;
   genres: string[] | null;
   languages: string[] | null;
+  listening_times: string[] | null;
 };
 
 export type CurrentUserResult =
@@ -40,6 +41,8 @@ export type CurrentUserResult =
     };
 
 const PROFILE_SELECT =
+  "id, display_name, email, role, account_type, countries, genres, languages, listening_times";
+const PROFILE_SELECT_MID =
   "id, display_name, email, role, account_type, countries, genres, languages";
 const PROFILE_SELECT_LEAN =
   "id, display_name, email, role, account_type, countries, genres";
@@ -94,6 +97,40 @@ export async function getDashboardCurrentUser(
 
   if (
     profileError &&
+    /listening_times|column .* does not exist/i.test(profileError.message)
+  ) {
+    const mid = await supabase
+      .from("users")
+      .select(PROFILE_SELECT_MID)
+      .eq("id", user.id)
+      .maybeSingle();
+    if (
+      mid.error &&
+      /languages|column .* does not exist/i.test(mid.error.message)
+    ) {
+      const lean = await supabase
+        .from("users")
+        .select(PROFILE_SELECT_LEAN)
+        .eq("id", user.id)
+        .maybeSingle();
+      row = lean.data
+        ? ({
+            ...lean.data,
+            languages: null,
+            listening_times: null,
+          } as DashboardUserProfile)
+        : null;
+      selectUsed = PROFILE_SELECT_LEAN;
+      finalProfileError = lean.error;
+    } else {
+      row = mid.data
+        ? ({ ...mid.data, listening_times: null } as DashboardUserProfile)
+        : null;
+      selectUsed = PROFILE_SELECT_MID;
+      finalProfileError = mid.error;
+    }
+  } else if (
+    profileError &&
     /languages|column .* does not exist/i.test(profileError.message)
   ) {
     const lean = await supabase
@@ -102,7 +139,11 @@ export async function getDashboardCurrentUser(
       .eq("id", user.id)
       .maybeSingle();
     row = lean.data
-      ? ({ ...lean.data, languages: null } as DashboardUserProfile)
+      ? ({
+          ...lean.data,
+          languages: null,
+          listening_times: null,
+        } as DashboardUserProfile)
       : null;
     selectUsed = PROFILE_SELECT_LEAN;
     finalProfileError = lean.error;
@@ -133,8 +174,14 @@ export async function getDashboardCurrentUser(
   const metaLanguages = Array.isArray(meta.languages)
     ? (meta.languages.filter((x) => typeof x === "string") as string[])
     : null;
+  const metaListening = Array.isArray(meta.listening_times)
+    ? (meta.listening_times.filter((x) => typeof x === "string") as string[])
+    : null;
   if (row && !row.languages && metaLanguages) {
     row = { ...row, languages: metaLanguages };
+  }
+  if (row && (!row.listening_times || row.listening_times.length === 0) && metaListening) {
+    row = { ...row, listening_times: metaListening };
   }
   const displayName =
     (row?.display_name && row.display_name.trim()) ||

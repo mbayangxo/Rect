@@ -10,6 +10,8 @@ import { trackMatchesGenre } from "@/lib/dashboard/genres";
 import { trackMatchesLanguage } from "@/lib/dashboard/languages";
 import { loadLikeCountMap } from "@/lib/dashboard/likes";
 import {
+  activeDaypartFromTaste,
+  daypartSoftScore,
   genreOverlapScore,
   languageOverlapScore,
   normalizeTasteList,
@@ -268,6 +270,7 @@ export async function loadRankedTracks(
     const preferredGenres = taste?.genres ?? [];
     const preferredPlaces = taste?.countries ?? [];
     const preferredLanguages = taste?.languages ?? [];
+    const activeDaypart = activeDaypartFromTaste(taste);
     const likeCounts = await loadLikeCountMap(db, ids);
 
     const ranked: RankedTrack[] = rows
@@ -281,10 +284,17 @@ export async function loadRankedTracks(
       }))
       .filter((t) => !isDemoTrack(t))
       .sort((a, b) => {
+        const dayA = activeDaypart ? daypartSoftScore(activeDaypart, a) : 0;
+        const dayB = activeDaypart ? daypartSoftScore(activeDaypart, b) : 0;
+
         if (sort === "newest") {
           const byDate = (b.created_at || "").localeCompare(a.created_at || "");
           if (byDate !== 0) return byDate;
-          return b.play_count - a.play_count;
+          return (
+            dayB - dayA ||
+            b.play_count - a.play_count ||
+            b.like_count - a.like_count
+          );
         }
 
         const placeA = placeOverlapScore(
@@ -303,6 +313,7 @@ export async function loadRankedTracks(
           placeB - placeA ||
           tasteB - tasteA ||
           langB - langA ||
+          dayB - dayA ||
           b.play_count - a.play_count ||
           b.like_count - a.like_count ||
           (b.created_at || "").localeCompare(a.created_at || "")
@@ -328,7 +339,7 @@ export async function loadRankedTracks(
   }
 }
 
-/** CONNECTION 2 — featured / For You (taste-boosted top by play_count). */
+/** CONNECTION 2 — featured / For You (taste + daypart soft-boosted by play_count). */
 export async function loadFeaturedTracks(
   supabase: SupabaseClient,
   taste?: ListenerTaste | null,
