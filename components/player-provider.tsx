@@ -17,7 +17,7 @@ import { PlayerLikeButton } from "@/components/player-like-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
 import { PRIVATE_ARTIST_LABEL } from "@/lib/dashboard/privacy";
-import { publishCreditsRemaining } from "@/lib/credits-live";
+import { publishCreditsRemaining, subscribeCreditsRemaining } from "@/lib/credits-live";
 import { trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 const PLAYER_PREFS_KEY = "rect-player-prefs";
@@ -125,6 +125,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [creditNotice, setCreditNotice] = useState<string | null>(null);
+  const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null);
   const nextRef = useRef<() => void>(() => undefined);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
@@ -186,6 +187,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     repeatRef.current = repeat;
     syncQueueFlags();
   }, [repeat, syncQueueFlags]);
+
+  useEffect(() => {
+    return subscribeCreditsRemaining(setCreditsRemaining);
+  }, []);
 
   useEffect(() => {
     trackRef.current = track;
@@ -701,13 +706,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           <div className="rounded-xl border border-[#F5A623]/40 bg-[#120e06]/95 px-4 py-3 text-sm text-[#F5A623] backdrop-blur-md">
             {creditNotice}{" "}
             {/credit|pack/i.test(creditNotice) ? (
-              <a href="/dashboard" className="font-semibold underline">
+              <a href="/dashboard#packs" className="font-semibold underline">
                 Get a pack
               </a>
             ) : null}
             {/sign in/i.test(creditNotice) ? (
               <a
-                href="/auth/login?next=/dashboard"
+                href="/auth/login?next=/dashboard%23packs"
                 className="font-semibold underline"
               >
                 Sign in
@@ -942,6 +947,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             >
               {muted || volume === 0 ? "Off" : "Vol"}
             </button>
+            {creditsRemaining != null ? (
+              <Link
+                href="/dashboard#packs"
+                className={`hidden shrink-0 rounded-full border px-2.5 py-1.5 text-[0.65rem] font-semibold tabular-nums sm:inline-flex ${
+                  creditsRemaining <= 0
+                    ? "border-[#F5A623]/50 text-[#F5A623]"
+                    : "border-[#1DB954]/40 text-[#1DB954]"
+                }`}
+                title="Play credits — get a pack"
+              >
+                {creditsRemaining}{" "}
+                <span className="font-medium opacity-80">
+                  {creditsRemaining === 1 ? "credit" : "credits"}
+                </span>
+              </Link>
+            ) : null}
             {track.artist_id &&
             trackArtist(track) !== PRIVATE_ARTIST_LABEL ? (
               <>

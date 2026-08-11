@@ -32,6 +32,12 @@ export function PlayPacksPanel({
   }, [initialCredits]);
 
   useEffect(() => {
+    if (creditsReady) {
+      publishCreditsRemaining(initialCredits);
+    }
+  }, [creditsReady, initialCredits]);
+
+  useEffect(() => {
     return subscribeCreditsRemaining(setCredits);
   }, []);
 
