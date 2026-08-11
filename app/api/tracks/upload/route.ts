@@ -487,6 +487,17 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!publish && isPublishedTrack({ status: String(track.status ?? "") })) {
+    return NextResponse.json(
+      {
+        error: "Expected a draft, but the track is live.",
+        code: "not_draft",
+        track,
+      },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     track,

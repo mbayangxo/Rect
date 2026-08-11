@@ -71,6 +71,7 @@ export function StudioClient({
     newWriter(displayName, "100"),
   ]);
   const [pending, setPending] = useState(false);
+  const [pendingMode, setPendingMode] = useState<"live" | "draft" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -83,8 +84,7 @@ export function StudioClient({
 
   const splitsOk = Math.abs(splitsTotal - 100) <= 0.01;
 
-  async function onPublish(e: FormEvent) {
-    e.preventDefault();
+  async function uploadTrack(asLive: boolean) {
     setError(null);
     setSuccess(null);
 
@@ -108,11 +108,12 @@ export function StudioClient({
     }
 
     setPending(true);
+    setPendingMode(asLive ? "live" : "draft");
     try {
       const durationSecs = await readAudioDurationSecs(file);
       const body = new FormData();
       body.set("title", title.trim());
-      body.set("publish", "1");
+      body.set("publish", asLive ? "1" : "0");
       if (genre.trim()) body.set("genre", genre.trim());
       if (language.trim()) body.set("language", language.trim());
       if (durationSecs != null) body.set("duration_secs", String(durationSecs));
@@ -148,18 +149,34 @@ export function StudioClient({
         return;
       }
 
-      if (!data.published || !data.track?.id) {
-        setError("Upload did not publish a live track. Try again.");
+      if (!data.track?.id) {
+        setError("Upload did not return a track. Try again.");
+        return;
+      }
+
+      if (asLive) {
+        if (!data.published) {
+          setError("Upload did not publish a live track. Try again.");
+          return;
+        }
+      } else if (data.published) {
+        setError("Expected a draft, but the track went live. Check status.");
         return;
       }
 
       const trackId = data.track.id.trim();
-      const placesNote = needsPlaces
-        ? " Add your place below so you appear on Dakar & Alkebulan charts."
-        : "";
-      setSuccess(
-        `Published “${data.track.title || title}” — live on Home & Charts.${placesNote}`,
-      );
+      if (asLive) {
+        const placesNote = needsPlaces
+          ? " Add your place below so you appear on Dakar & Alkebulan charts."
+          : "";
+        setSuccess(
+          `Published “${data.track.title || title}” — live on Home & Charts.${placesNote}`,
+        );
+      } else {
+        setSuccess(
+          `Saved “${data.track.title || title}” as draft — finish details, then Publish from My tracks.`,
+        );
+      }
       setTitle("");
       setGenre("");
       setLanguage("");
@@ -167,7 +184,7 @@ export function StudioClient({
       setCover(null);
       setWriters([newWriter(displayName, "100")]);
       window.setTimeout(() => {
-        if (needsPlaces) {
+        if (asLive && needsPlaces) {
           document
             .getElementById("studio-profile")
             ?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -175,9 +192,9 @@ export function StudioClient({
         router.push(
           trackId
             ? `/studio?focus=${encodeURIComponent(trackId)}${
-                needsPlaces ? "&setup=places" : ""
+                asLive && needsPlaces ? "&setup=places" : ""
               }`
-            : needsPlaces
+            : asLive && needsPlaces
               ? "/studio?setup=places"
               : "/studio",
         );
@@ -187,7 +204,17 @@ export function StudioClient({
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setPending(false);
+      setPendingMode(null);
     }
+  }
+
+  async function onPublish(e: FormEvent) {
+    e.preventDefault();
+    await uploadTrack(true);
+  }
+
+  async function onSaveDraft() {
+    await uploadTrack(false);
   }
 
   return (
@@ -228,8 +255,8 @@ export function StudioClient({
           {displayName}
         </h1>
         <p className="mt-2 text-sm text-white/45">
-          Upload, publish, and manage your catalog. Live tracks appear on Home
-          and Charts.
+          Upload, save drafts, and publish your catalog. Live tracks appear on
+          Home and Charts.
         </p>
 
         {needsPlaces ? (
@@ -422,8 +449,19 @@ export function StudioClient({
               disabled={pending || !splitsOk}
               className="w-full rounded-full bg-[#1DB954] py-3.5 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
             >
-              {pending ? "Publishing…" : "Publish"}
+              {pendingMode === "live" ? "Publishing…" : "Publish"}
             </button>
+            <button
+              type="button"
+              disabled={pending || !splitsOk}
+              onClick={() => void onSaveDraft()}
+              className="w-full rounded-full border border-white/20 py-3 text-sm font-semibold text-white/80 hover:border-white/40 hover:text-white disabled:opacity-50"
+            >
+              {pendingMode === "draft" ? "Saving…" : "Save draft"}
+            </button>
+            <p className="text-center text-[0.65rem] text-white/35">
+              Drafts stay off Home & Charts until you Publish from My tracks.
+            </p>
           </form>
         </section>
 
@@ -436,7 +474,7 @@ export function StudioClient({
             <p className="mt-3 text-sm text-[#F5A623]">{loadError}</p>
           ) : tracks.length === 0 ? (
             <p className="mt-3 text-sm text-white/40">
-              No uploads yet. Publish your first track above.
+              No uploads yet. Save a draft or publish your first track above.
             </p>
           ) : (
             <ul className="mt-4 space-y-2">
