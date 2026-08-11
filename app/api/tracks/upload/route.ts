@@ -5,7 +5,7 @@ import {
   normalizeTrackLanguage,
 } from "@/lib/cultural-options";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { createRouteClient } from "@/lib/supabase/route";
 import { TRACKS_BUCKET, isPublishedTrack, trackStatusForWrite } from "@/lib/tracks";
 
 export const runtime = "nodejs";
@@ -68,6 +68,11 @@ type StorageDb = {
         };
       };
     };
+    delete: () => {
+      eq: (col: string, val: string) => {
+        eq: (col: string, val: string) => Promise<unknown>;
+      };
+    };
   };
   rpc: (
     fn: string,
@@ -117,7 +122,7 @@ function safeExt(name: string, mime: string) {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  const supabase = await createRouteClient(request);
   const {
     data: { user },
     error: userError,
@@ -362,19 +367,14 @@ export async function POST(request: Request) {
   let workingPayload = { ...insertPayload };
   const liveStatus = trackStatusForWrite("live");
   const draftStatus = trackStatusForWrite("pending");
-  // DB check historically allows pending|live (not "published").
+
+  // Publish = live only. Draft = pending only. No silent status swaps.
   const attempts = publish
     ? [
         () => ({ ...workingPayload, status: liveStatus }),
         () => ({ ...workingPayload, status: "published" }),
-        () => ({ ...workingPayload }),
-        () => ({ ...workingPayload, status: draftStatus }),
       ]
-    : [
-        () => ({ ...workingPayload, status: draftStatus }),
-        () => ({ ...workingPayload }),
-        () => ({ ...workingPayload, status: liveStatus }),
-      ];
+    : [() => ({ ...workingPayload, status: draftStatus })];
 
   let track: Record<string, unknown> | null = null;
   let lastError: string | null = null;
@@ -394,34 +394,37 @@ export async function POST(request: Request) {
     if (error && /cover_art_url|column .* does not exist/i.test(error.message)) {
       delete workingPayload.cover_art_url;
       cover_art_url = null;
+      continue;
     }
     if (error && /language|column .* does not exist/i.test(error.message)) {
       delete workingPayload.language;
+      continue;
     }
     if (
       error &&
       /duration_secs|column .* does not exist/i.test(error.message)
     ) {
       delete workingPayload.duration_secs;
+      continue;
     }
   }
 
   if (!track) {
     await db.storage.from(TRACKS_BUCKET).remove(uploadedPaths);
     return NextResponse.json(
-      { error: `Saved file but could not create track row: ${lastError}` },
+      {
+        error: publish
+          ? `Could not publish track as live: ${lastError}`
+          : `Saved file but could not create track row: ${lastError}`,
+      },
       { status: 500 },
     );
   }
 
   const trackId = String(track.id ?? "");
 
-  // If Publish was requested but insert landed as draft (legacy default/trigger), force live.
-  if (
-    publish &&
-    trackId &&
-    !isPublishedTrack({ status: String(track.status ?? "") })
-  ) {
+  if (publish && !isPublishedTrack({ status: String(track.status ?? "") })) {
+    let forced: Record<string, unknown> | null = null;
     for (const writeStatus of [liveStatus, "published"] as const) {
       const { data: updated, error: upErr } = await db
         .from("tracks")
@@ -431,16 +434,26 @@ export async function POST(request: Request) {
         .select("*")
         .maybeSingle();
       if (!upErr && updated) {
-        track = updated;
+        forced = updated;
         break;
       }
-      if (upErr && !/tracks_status_check/i.test(upErr.message)) break;
+      lastError = upErr?.message ?? lastError;
     }
+    if (!forced || !isPublishedTrack({ status: String(forced.status ?? "") })) {
+      await db.from("tracks").delete().eq("id", trackId).eq("artist_id", user.id);
+      await db.storage.from(TRACKS_BUCKET).remove(uploadedPaths);
+      return NextResponse.json(
+        {
+          error: `Publish requires status=live (got ${String(track.status)}). ${lastError || ""}`.trim(),
+          code: "not_live",
+        },
+        { status: 500 },
+      );
+    }
+    track = forced;
   }
-  let writersSaved = false;
-  let writersError: string | null = null;
+
   if (writers && trackId) {
-    // Always use the user session — RPC checks auth.uid() ownership.
     const { error: splitErr } = await supabase.rpc("set_track_writer_splits", {
       p_track_id: trackId,
       p_writers: writers.map((w) => ({
@@ -449,19 +462,29 @@ export async function POST(request: Request) {
       })),
     });
     if (splitErr) {
-      if (
-        /set_track_writer_splits|Could not find the function|PGRST202|relation .* does not exist|PGRST205/i.test(
-          splitErr.message,
-        )
-      ) {
-        writersError =
-          "Run 20260810_phase1_track_live_status.sql in Supabase SQL Editor for writer splits.";
-      } else {
-        writersError = splitErr.message;
-      }
-    } else {
-      writersSaved = true;
+      // Hard-fail: do not claim a successful publish without splits.
+      await db.from("tracks").delete().eq("id", trackId).eq("artist_id", user.id);
+      await db.storage.from(TRACKS_BUCKET).remove(uploadedPaths);
+      const missing = /set_track_writer_splits|Could not find the function|PGRST202|relation .* does not exist|PGRST205/i.test(
+        splitErr.message,
+      );
+      return NextResponse.json(
+        {
+          error: missing
+            ? "Run 20260810_phase1_track_live_status.sql in Supabase SQL Editor (writer splits)."
+            : `Writer splits failed: ${splitErr.message}`,
+          code: missing ? "missing_migration" : "writers_failed",
+        },
+        { status: missing ? 503 : 500 },
+      );
     }
+  }
+
+  if (publish && !isPublishedTrack({ status: String(track.status ?? "") })) {
+    return NextResponse.json(
+      { error: "Track saved but is not live.", code: "not_live", track },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({
@@ -470,8 +493,7 @@ export async function POST(request: Request) {
     audio_url,
     cover_art_url,
     published: publish,
-    writers_saved: writersSaved,
-    writers_error: writersError,
+    writers_saved: Boolean(writers),
     storage_mode: usingAdmin ? "service_role" : "user_rls",
   });
 }

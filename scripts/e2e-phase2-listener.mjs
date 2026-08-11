@@ -201,15 +201,11 @@ async function main() {
   // Prefer RPC (same path as /api/follows)
   const rpc = await fan.rpc("toggle_artist_follow", { p_artist_id: artistId });
   if (rpc.error) {
-    console.log("RPC follow fallback:", rpc.error.message);
-    const ins = await fan.from("artist_follows").insert({
-      follower_id: fanUp.data.user.id,
-      artist_id: artistId,
-    });
-    assert(!ins.error, `follow insert: ${ins.error?.message}`);
-  } else {
-    assert(rpc.data?.following === true, `expected following true, got ${JSON.stringify(rpc.data)}`);
+    throw new Error(
+      `toggle_artist_follow RPC failed (no insert fallback): ${rpc.error.message}`,
+    );
   }
+  assert(rpc.data?.following === true, `expected following true, got ${JSON.stringify(rpc.data)}`);
 
   const row = await fan
     .from("artist_follows")
@@ -233,13 +229,19 @@ async function main() {
   );
   console.log("OK following feed");
 
+  const bal = await fan.rpc("ensure_play_balance", { p_starter: 25 });
+  assert(!bal.error, `ensure_play_balance: ${bal.error?.message}`);
+  const consumed = await fan.rpc("consume_play_credit");
+  assert(!consumed.error, `consume_play_credit: ${consumed.error?.message}`);
+  assert(Number(consumed.data) >= 0, "insufficient credits after consume");
+
   const play = await fan
     .from("plays")
     .insert({ track_id: trackId, listener_id: fanUp.data.user.id })
     .select("id")
     .maybeSingle();
   assert(!play.error && play.data?.id, `play: ${play.error?.message}`);
-  console.log("OK listener play", play.data.id);
+  console.log("OK listener play", play.data.id, "credits_left", consumed.data);
 
   console.log(
     JSON.stringify(

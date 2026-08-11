@@ -300,14 +300,25 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             publishCreditsRemaining(data.credits_remaining);
           }
         } else {
-          // Allow a later signed-in session to record this listen.
           recordedFor.current = null;
+          const data = (await res.json().catch(() => null)) as {
+            error?: string;
+            code?: string;
+          } | null;
           if (res.status === 401) {
             setCreditNotice("Sign in to save plays and climb the charts.");
+          } else if (res.status === 402) {
+            // handled above
+          } else {
+            setCreditNotice(
+              data?.error ||
+                "Couldn't save this play. Check your connection and try again.",
+            );
           }
         }
       } catch {
         recordedFor.current = null;
+        setCreditNotice("Couldn't save this play. Network error.");
       }
     },
     [commitQueue],

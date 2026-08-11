@@ -21,13 +21,6 @@ export type PlayPacksLoadResult =
       missingTable: false;
     }
   | {
-      ok: true;
-      packs: [];
-      empty: true;
-      error: null;
-      missingTable: true;
-    }
-  | {
       ok: false;
       packs: [];
       empty: true;
@@ -37,7 +30,7 @@ export type PlayPacksLoadResult =
 
 /**
  * CONNECTION 5 — play packs for a country (default SN).
- * If table missing or no rows: empty (UI shows nothing).
+ * Missing table / query failure → ok:false (surface error; do not hide UI).
  * Falls back to SN when the preferred country has no packs seeded.
  */
 export async function loadPlayPacks(
@@ -45,7 +38,7 @@ export async function loadPlayPacks(
   country = "SN",
 ): Promise<PlayPacksLoadResult> {
   const primary = await loadPlayPacksForCountry(_supabase, country);
-  if (!primary.ok || primary.missingTable) return primary;
+  if (!primary.ok) return primary;
   if (primary.packs.length > 0 || country === "SN") return primary;
   return loadPlayPacksForCountry(_supabase, "SN");
 }
@@ -71,21 +64,14 @@ async function loadPlayPacksForCountry(
         /relation .* does not exist|Could not find the table|PGRST205/i.test(
           error.message,
         ) || /column .* does not exist/i.test(error.message);
-      if (missing) {
-        return {
-          ok: true,
-          packs: [],
-          empty: true,
-          error: null,
-          missingTable: true,
-        };
-      }
       return {
         ok: false,
         packs: [],
         empty: true,
-        error: error.message,
-        missingTable: false,
+        error: missing
+          ? "Run play_packs migration in Supabase SQL Editor."
+          : error.message,
+        missingTable: missing,
       };
     }
 

@@ -134,8 +134,9 @@ export function StudioClient({
       });
       const data = (await res.json()) as {
         error?: string;
-        track?: { id?: string; title?: string };
-        writers_error?: string | null;
+        track?: { id?: string; title?: string; status?: string };
+        published?: boolean;
+        writers_saved?: boolean;
       };
 
       if (!res.ok || data.error) {
@@ -147,14 +148,17 @@ export function StudioClient({
         return;
       }
 
-      const trackId = data.track?.id?.trim();
+      if (!data.published || !data.track?.id) {
+        setError("Upload did not publish a live track. Try again.");
+        return;
+      }
+
+      const trackId = data.track.id.trim();
       const placesNote = needsPlaces
         ? " Add your place below so you appear on Dakar & Alkebulan charts."
         : "";
       setSuccess(
-        data.writers_error
-          ? `Published “${data.track?.title || title}”. ${data.writers_error}${placesNote}`
-          : `Published “${data.track?.title || title}” — live on Home & Charts.${placesNote}`,
+        `Published “${data.track.title || title}” — live on Home & Charts.${placesNote}`,
       );
       setTitle("");
       setGenre("");

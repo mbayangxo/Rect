@@ -282,13 +282,48 @@ async function main() {
   const live = isPublished(row.status) && Boolean(row.audio_url);
   console.log("published?", live, "status=", row.status);
 
-  // Record a play (Phase 1 song plays)
-  const play = await userClient
-    .from("plays")
-    .insert({ track_id: trackId, listener_id: userId })
-    .select("id")
-    .maybeSingle();
-  console.log("play", play.error?.message || play.data?.id);
+  // Record a play via Next API when BASE_URL is set (full app path),
+  // otherwise the same RPCs the API uses.
+  let playId = null;
+  let creditsLeft = null;
+  if (baseUrl) {
+    const playRes = await fetch(`${baseUrl}/api/plays`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${login.data.session.access_token}`,
+      },
+      body: JSON.stringify({ track_id: trackId }),
+    });
+    const playBody = await playRes.json().catch(() => ({}));
+    if (!playRes.ok) {
+      throw new Error(playBody.error || `plays HTTP ${playRes.status}`);
+    }
+    playId = playBody.play_id ?? null;
+    creditsLeft = playBody.credits_remaining ?? null;
+    console.log("api play", playId, "credits_left", creditsLeft);
+  } else {
+    const bal = await userClient.rpc("ensure_play_balance", { p_starter: 25 });
+    if (bal.error) throw new Error(`ensure_play_balance: ${bal.error.message}`);
+    const consumed = await userClient.rpc("consume_play_credit");
+    if (consumed.error) {
+      throw new Error(`consume_play_credit: ${consumed.error.message}`);
+    }
+    if (Number(consumed.data) < 0) {
+      throw new Error("consume_play_credit returned insufficient credits");
+    }
+    const play = await userClient
+      .from("plays")
+      .insert({ track_id: trackId, listener_id: userId })
+      .select("id")
+      .maybeSingle();
+    if (play.error || !play.data?.id) {
+      throw new Error(`play insert: ${play.error?.message || "empty"}`);
+    }
+    playId = play.data.id;
+    creditsLeft = consumed.data;
+    console.log("play", playId, "credits_left", creditsLeft);
+  }
 
   const onFeed = live;
   console.log("home/charts eligible?", Boolean(onFeed));
@@ -298,8 +333,8 @@ async function main() {
     process.exit(2);
   }
 
-  if (play.error) {
-    console.error("FAIL: play insert", play.error.message);
+  if (!playId) {
+    console.error("FAIL: play not recorded");
     process.exit(3);
   }
 
@@ -315,7 +350,9 @@ async function main() {
         title,
         status: row.status,
         audioUrl,
-        playId: play.data?.id ?? null,
+        playId,
+        creditsLeft,
+        viaApi: Boolean(baseUrl),
         note: "Open / and /charts — live track should appear.",
         sql: "Paste supabase/migrations/20260810_phase1_track_live_status.sql for writer splits + status aliases.",
       },

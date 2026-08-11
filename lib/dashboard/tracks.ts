@@ -211,42 +211,57 @@ export async function loadRankedTracks(
         .in("track_id", ids);
 
       if (playError) {
-        for (const id of ids) counts.set(id, 0);
-      } else {
-        const listenerIds = [
-          ...new Set(
-            (playRows ?? [])
-              .map((p) => p.listener_id as string | null)
-              .filter(Boolean) as string[],
-          ),
-        ];
-        const chartOptIn = new Map<string, boolean>();
-        if (listenerIds.length > 0) {
-          const { data: privacyRows } = await db
-            .from("users")
-            .select("id, privacy_show_on_charts")
-            .in("id", listenerIds);
-          for (const u of privacyRows ?? []) {
-            chartOptIn.set(
-              u.id as string,
-              u.privacy_show_on_charts !== false,
-            );
-          }
-        }
+        return {
+          ok: false,
+          tracks: [],
+          empty: true,
+          error: `Could not load play counts: ${playError.message}`,
+          source: null,
+        };
+      }
 
-        for (const p of playRows ?? []) {
-          const listenerId = p.listener_id as string | null;
-          // Missing profile → count (same as coalesce(..., true) in SQL view)
-          if (
-            listenerId &&
-            chartOptIn.has(listenerId) &&
-            chartOptIn.get(listenerId) === false
-          ) {
-            continue;
-          }
-          const tid = p.track_id as string;
-          counts.set(tid, (counts.get(tid) ?? 0) + 1);
+      const listenerIds = [
+        ...new Set(
+          (playRows ?? [])
+            .map((p) => p.listener_id as string | null)
+            .filter(Boolean) as string[],
+        ),
+      ];
+      const chartOptIn = new Map<string, boolean>();
+      if (listenerIds.length > 0) {
+        const { data: privacyRows, error: privacyError } = await db
+          .from("users")
+          .select("id, privacy_show_on_charts")
+          .in("id", listenerIds);
+        if (privacyError) {
+          return {
+            ok: false,
+            tracks: [],
+            empty: true,
+            error: `Could not load chart privacy: ${privacyError.message}`,
+            source: null,
+          };
         }
+        for (const u of privacyRows ?? []) {
+          chartOptIn.set(
+            u.id as string,
+            u.privacy_show_on_charts !== false,
+          );
+        }
+      }
+
+      for (const p of playRows ?? []) {
+        const listenerId = p.listener_id as string | null;
+        // Missing profile → count (same as coalesce(..., true) in SQL view)
+        if (
+          listenerId &&
+          chartOptIn.has(listenerId) &&
+          chartOptIn.get(listenerId) === false
+        ) {
+          continue;
+        }
+        const tid = p.track_id as string;
+        counts.set(tid, (counts.get(tid) ?? 0) + 1);
       }
     }
 
