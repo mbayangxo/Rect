@@ -37,12 +37,23 @@ export async function POST(request: Request) {
   // Confirm track exists (public read)
   const { data: track, error: trackError } = await supabase
     .from("tracks")
-    .select("id")
+    .select("id, artist_id")
     .eq("id", trackId)
     .maybeSingle();
 
   if (trackError || !track) {
     return NextResponse.json({ error: "Track not found" }, { status: 404 });
+  }
+
+  // Artists checking their own mix — no credit burn, no chart play.
+  if (track.artist_id && track.artist_id === user.id) {
+    const balance = await loadPlayCreditBalance(supabase);
+    return NextResponse.json({
+      ok: true,
+      play_id: null,
+      own_play: true,
+      credits_remaining: balance.credits,
+    });
   }
 
   // Ensure starter balance exists, then consume one credit
