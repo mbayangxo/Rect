@@ -245,5 +245,6 @@ export async function DELETE(request: Request, ctx: Ctx) {
     ok: true,
     track_id: trackId,
     playlist_id: playlistId,
+    became_private: result.became_private,
   });
 }
