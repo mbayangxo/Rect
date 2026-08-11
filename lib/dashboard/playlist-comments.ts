@@ -60,7 +60,7 @@ export async function loadPlaylistComments(
         .eq("playlist_id", playlistId)
         .order("created_at", { ascending: true })
         .limit(limit);
-      data = lean.data;
+      data = lean.data as typeof data;
       error = lean.error;
     }
 
@@ -580,7 +580,7 @@ export async function loadOwnerRecentPlaylistComments(
         .in("playlist_id", playlistIds)
         .order("created_at", { ascending: false })
         .limit(limit);
-      rows = lean.data;
+      rows = lean.data as typeof rows;
       error = lean.error;
     }
 

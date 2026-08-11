@@ -58,7 +58,7 @@ export async function loadTrackComments(
         .eq("track_id", trackId)
         .order("created_at", { ascending: true })
         .limit(limit);
-      data = lean.data;
+      data = lean.data as typeof data;
       error = lean.error;
     }
 
@@ -565,7 +565,7 @@ export async function loadArtistRecentComments(
         .in("track_id", trackIds)
         .order("created_at", { ascending: false })
         .limit(limit);
-      rows = lean.data;
+      rows = lean.data as typeof rows;
       error = lean.error;
     }
 

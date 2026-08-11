@@ -382,7 +382,7 @@ export async function loadArtistTipStats(
         .order("created_at", { ascending: false })
         .limit(200);
       if (!mid.error) {
-        data = mid.data;
+        data = mid.data as typeof data;
         error = null;
       } else if (isMissingColumn(mid.error.message)) {
         const lean = await supabase
@@ -394,10 +394,10 @@ export async function loadArtistTipStats(
           .eq("status", "confirmed")
           .order("created_at", { ascending: false })
           .limit(200);
-        data = lean.data;
+        data = lean.data as typeof data;
         error = lean.error;
       } else {
-        data = mid.data;
+        data = mid.data as typeof data;
         error = mid.error;
       }
     }
@@ -558,7 +558,7 @@ export async function loadMyTips(
         .order("created_at", { ascending: false })
         .limit(limit);
       if (!mid.error) {
-        data = mid.data;
+        data = mid.data as typeof data;
         error = null;
       } else if (isMissingColumn(mid.error.message)) {
         const lean = await supabase
@@ -570,10 +570,10 @@ export async function loadMyTips(
           .eq("status", "confirmed")
           .order("created_at", { ascending: false })
           .limit(limit);
-        data = lean.data;
+        data = lean.data as typeof data;
         error = lean.error;
       } else {
-        data = mid.data;
+        data = mid.data as typeof data;
         error = mid.error;
       }
     }

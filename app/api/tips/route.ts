@@ -91,7 +91,7 @@ export async function POST(request: Request) {
 
   await notifyArtist(supabase, artistId, "tip", {
     amount_xof: result.amount_xof,
-    body: result.message,
+    body: result.message ?? undefined,
     track_id: result.track_id,
     tip_id: result.tip_id,
   });
