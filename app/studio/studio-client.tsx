@@ -13,6 +13,7 @@ import type {
   ArtistStatTrack,
 } from "@/lib/dashboard/artist-stats";
 import type { ArtistTipLedgerEntry } from "@/lib/dashboard/tips";
+import { PLAY_EARNING_XOF } from "@/lib/dashboard/play-earnings";
 import {
   CULTURAL_GENRES,
   CULTURAL_LANGUAGES,
@@ -46,6 +47,11 @@ type Props = {
   recentTips: ArtistTipLedgerEntry[];
   tipsMissing: boolean;
   tipsError: string | null;
+  playEarningTotalXof: number;
+  playEarningThisMonthXof: number;
+  playEarningCount: number;
+  playEarningsMissing: boolean;
+  playEarningsError: string | null;
   loadError: string | null;
   focusTrackId?: string | null;
   setupPlaces?: boolean;
@@ -84,6 +90,11 @@ export function StudioClient({
   recentTips,
   tipsMissing,
   tipsError,
+  playEarningTotalXof,
+  playEarningThisMonthXof,
+  playEarningCount,
+  playEarningsMissing,
+  playEarningsError,
   loadError,
   focusTrackId = null,
   setupPlaces = false,
@@ -256,9 +267,8 @@ export function StudioClient({
           {displayName}
         </h1>
         <p className="mt-2 text-sm text-white/45">
-          Upload, publish, and see real streams and tips. Listener play packs
-          spend credits on plays — tips land here as XOF (demo payments for
-          now).
+          Upload, publish, and see real streams and tips. Each credited listen
+          accrues {PLAY_EARNING_XOF} XOF demo play earnings here (not withdrawable yet).
         </p>
 
         {needsPlaces ? (
@@ -321,7 +331,24 @@ export function StudioClient({
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
+              Play earnings
+            </p>
+            <p className="mt-1 text-xl font-semibold text-[#1DB954]">
+              {playEarningsMissing
+                ? "—"
+                : `${playEarningTotalXof.toLocaleString()} XOF`}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">
+              {playEarningsMissing
+                ? "run play earnings SQL"
+                : playEarningsError
+                  ? playEarningsError
+                  : `${playEarningCount} credited play${playEarningCount === 1 ? "" : "s"} · ${playEarningThisMonthXof.toLocaleString()} this month`}
+            </p>
+          </div>
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
             <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
               Live
@@ -336,7 +363,10 @@ export function StudioClient({
           </div>
         </div>
 
-        {(tipsError || (!tipsMissing && tipCount > 0) || recentListeners.length > 0) && (
+        {(tipsError ||
+          playEarningsError ||
+          (!tipsMissing && tipCount > 0) ||
+          recentListeners.length > 0) && (
           <section className="mt-8 space-y-6">
             {!tipsMissing ? (
               <div>

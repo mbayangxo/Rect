@@ -3,6 +3,7 @@ import { StudioClient } from "@/app/studio/studio-client";
 import { isArtistAccount } from "@/lib/dashboard/artist-access";
 import { loadArtistStudioStats } from "@/lib/dashboard/artist-stats";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
+import { loadArtistPlayEarnings } from "@/lib/dashboard/play-earnings";
 import { loadArtistTipStats } from "@/lib/dashboard/tips";
 import { createClient } from "@/lib/supabase/server";
 
@@ -34,9 +35,10 @@ export default async function StudioPage({ searchParams }: Props) {
   }
 
   const user = current.user;
-  const [stats, tips] = await Promise.all([
+  const [stats, tips, playEarnings] = await Promise.all([
     loadArtistStudioStats(supabase, user.id),
     loadArtistTipStats(supabase, user.id),
+    loadArtistPlayEarnings(supabase, user.id),
   ]);
 
   let portal = {
@@ -121,6 +123,11 @@ export default async function StudioPage({ searchParams }: Props) {
       recentTips={tips.recent}
       tipsMissing={tips.missingTable}
       tipsError={tips.error}
+      playEarningTotalXof={playEarnings.totalXof}
+      playEarningThisMonthXof={playEarnings.thisMonthXof}
+      playEarningCount={playEarnings.playCount}
+      playEarningsMissing={playEarnings.missingTable}
+      playEarningsError={playEarnings.error}
       loadError={stats.error}
       focusTrackId={focusTrackId}
       setupPlaces={setupPlaces || needsPlaces}
