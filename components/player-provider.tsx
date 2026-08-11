@@ -21,6 +21,8 @@ import { publishCreditsRemaining } from "@/lib/credits-live";
 import { trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
 
 const PLAYER_PREFS_KEY = "rect-player-prefs";
+/** Credit + chart play only after this much listen time (skips don't count). */
+const CREDITED_LISTEN_SECS = 30;
 
 type PlayerPrefs = {
   volume: number;
@@ -137,6 +139,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [queueOpen, setQueueOpen] = useState(false);
   const [savingQueue, setSavingQueue] = useState(false);
   const recordedFor = useRef<string | null>(null);
+  const recordPlayRef = useRef<(trackId: string) => Promise<void>>(
+    async () => undefined,
+  );
   const trackRef = useRef<TrackRow | null>(null);
   const durationPersistedFor = useRef<string | null>(null);
   const queueRef = useRef<TrackRow[]>([]);
@@ -197,7 +202,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audio.volume = 1;
     audioRef.current = audio;
 
-    const onTime = () => setCurrentTime(audio.currentTime || 0);
+    const maybeCreditListen = () => {
+      const current = trackRef.current;
+      if (!current?.id) return;
+      if (recordedFor.current === current.id) return;
+      const t = audio.currentTime || 0;
+      const dur = audio.duration || 0;
+      const shortTrack =
+        Number.isFinite(dur) && dur > 0 && dur < CREDITED_LISTEN_SECS;
+      if (t >= CREDITED_LISTEN_SECS || (shortTrack && audio.ended)) {
+        void recordPlayRef.current(current.id);
+      }
+    };
+
+    const onTime = () => {
+      setCurrentTime(audio.currentTime || 0);
+      maybeCreditListen();
+    };
     const onMeta = () => {
       const secs = audio.duration || 0;
       setDuration(secs);
@@ -324,6 +345,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     [commitQueue],
   );
 
+  useEffect(() => {
+    recordPlayRef.current = recordPlay;
+  }, [recordPlay]);
+
   const startTrack = useCallback(
     (next: TrackRow) => {
       const audio = audioRef.current;
@@ -334,23 +359,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setCreditNotice(null);
       syncQueueFlags();
       audio.src = next.audio_url;
-      void audio
-        .play()
-        .then(() => {
-          void recordPlay(next.id);
-        })
-        .catch(() => {
-          setPlaying(false);
-          setCreditNotice(
-            "Couldn't play this track. The file may be missing or unsupported.",
-          );
-          const q = queueRef.current;
-          if (q.length > 1) {
-            window.setTimeout(() => nextRef.current(), 500);
-          }
-        });
+      void audio.play().catch(() => {
+        setPlaying(false);
+        setCreditNotice(
+          "Couldn't play this track. The file may be missing or unsupported.",
+        );
+        const q = queueRef.current;
+        if (q.length > 1) {
+          window.setTimeout(() => nextRef.current(), 500);
+        }
+      });
     },
-    [recordPlay, syncQueueFlags],
+    [syncQueueFlags],
   );
 
   const play = useCallback(
@@ -604,6 +624,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!audio) return;
 
     const onEnded = () => {
+      const current = trackRef.current;
+      // Finished the file — count even when shorter than the 30s threshold.
+      if (current?.id && recordedFor.current !== current.id) {
+        void recordPlayRef.current(current.id);
+      }
       const q = queueRef.current;
       const nextIdx = queueIndexRef.current + 1;
       if (q.length > 0 && nextIdx < q.length) {
