@@ -12,8 +12,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const packId =
-    body.pack_id == null ? "" : String(body.pack_id).trim();
+  const packId = body.pack_id == null ? "" : String(body.pack_id).trim();
   if (!packId) {
     return NextResponse.json({ error: "pack_id is required" }, { status: 400 });
   }

@@ -2,7 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { loadArtistPortals } from "@/lib/dashboard/artists";
-import { loadPlayCreditBalance } from "@/lib/dashboard/credits";
+import {
+  loadPendingPackPurchases,
+  loadPlayCreditBalance,
+} from "@/lib/dashboard/credits";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { loadLikedAmongTrackIds, loadLikedTrackIds } from "@/lib/dashboard/likes";
 import { loadContinueListening } from "@/lib/dashboard/listening-journal";
@@ -80,6 +83,7 @@ export default async function DashboardPage() {
     artistsRes,
     packsRes,
     creditsRes,
+    pendingPacksRes,
     likesRes,
     continueRes,
     inboxRes,
@@ -91,6 +95,7 @@ export default async function DashboardPage() {
     loadArtistPortals(supabase, taste),
     loadPlayPacks(supabase, packCountry),
     loadPlayCreditBalance(supabase),
+    loadPendingPackPurchases(supabase),
     loadLikedTrackIds(supabase, current.user.id),
     loadContinueListening(supabase, current.user.id, 8),
     loadArtistNotifications(supabase, current.user.id, 40),
@@ -224,6 +229,7 @@ export default async function DashboardPage() {
       tasteCountries={taste.countries.slice(0, 2)}
       creditBalance={creditsRes.credits}
       creditsReady={!creditsRes.missingTable}
+      pendingPackPurchases={pendingPacksRes.purchases}
       likedTrackIds={likedTrackIds}
       likesReady={!likesRes.missingTable && !friendLikedAmong.missingTable}
       showArtistStudio={showArtistStudio}
