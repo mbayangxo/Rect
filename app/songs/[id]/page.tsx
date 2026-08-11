@@ -253,6 +253,9 @@ export default async function SongPage({ params }: Props) {
               <p className="text-xs uppercase tracking-[0.16em] text-white/35">
                 Support the artist
               </p>
+              <p className="mt-1 text-[0.65rem] text-white/35">
+                Tips are demo amounts — not a real charge.
+              </p>
               <ArtistFollowButton
                 artistId={artistId}
                 initialFollowing={followRes.following}

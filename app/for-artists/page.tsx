@@ -58,18 +58,18 @@ export default async function ForArtistsPage() {
           For artists
         </p>
         <h1 className="mt-4 font-display text-4xl font-semibold leading-[1.1] tracking-tight">
-          Upload. Reach Africa. Get paid fairly.
+          Upload. Reach Africa. Grow with listeners.
         </h1>
         <p className="mt-5 text-base leading-relaxed text-white/55">
           {user && !isArtist
-            ? "You’re already on RECT as a listener. Turn on Studio on this same account — no new signup."
-            : "RECT for artists lives alongside listening. Fans discover music on the main app — you manage your catalog in Studio."}
+            ? "You’re already on RECT as a listener. Turn on Studio on this same account — no new signup. Tips and play earnings are demo ledgers today, not withdrawable payouts yet."
+            : "RECT for artists lives alongside listening. Fans discover music on the main app — you manage your catalog in Studio. Tips and play earnings are demo ledgers today, not withdrawable payouts yet."}
         </p>
 
         <ul className="mt-8 space-y-3 text-sm text-white/70">
           <li>Upload tracks and cover art</li>
           <li>See plays on your releases</li>
-          <li>Reach listeners across the continent</li>
+          <li>Receive demo tips from fans (not real cash yet)</li>
         </ul>
 
         <div className="mt-12 flex flex-col gap-3">

@@ -71,8 +71,8 @@ export function ArtistTipButton({
       }
       setMessage(
         onTrack
-          ? `Tipped ${data.amount_xof ?? amount} XOF on ${onTrack}`
-          : `Tipped ${data.amount_xof ?? amount} XOF`,
+          ? `Demo tip · ${data.amount_xof ?? amount} XOF on ${onTrack} (not charged)`
+          : `Demo tip · ${data.amount_xof ?? amount} XOF recorded (not charged)`,
       );
       setNote("");
       setOpen(false);
@@ -130,6 +130,15 @@ export function ArtistTipButton({
       >
         {trackLine}
         {noteField}
+        <p
+          className={
+            compact
+              ? "mb-2 text-[0.55rem] leading-snug text-white/35"
+              : "mb-2 text-xs text-white/40"
+          }
+        >
+          Demo support — recorded for the artist, not a real charge or payout.
+        </p>
         {compact ? (
           <div className="flex flex-col gap-1.5">
             {TIP_AMOUNTS_XOF.map((amt) => (
@@ -140,7 +149,7 @@ export function ArtistTipButton({
                 onClick={() => tip(amt)}
                 className="rounded-lg bg-[#1DB954] px-3 py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
               >
-                {pending === amt ? "…" : `${amt} XOF`}
+                {pending === amt ? "…" : `Demo ${amt} XOF`}
               </button>
             ))}
             {error ? (
@@ -159,7 +168,7 @@ export function ArtistTipButton({
                 onClick={() => tip(amt)}
                 className="rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
               >
-                {pending === amt ? "…" : `${amt} XOF`}
+                {pending === amt ? "…" : `Demo ${amt} XOF`}
               </button>
             ))}
           </div>

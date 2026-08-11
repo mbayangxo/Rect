@@ -244,7 +244,7 @@ export function ArtistInboxClient({
                       {n.kind === "tip" ? (
                         <>
                           <span className="text-[#1DB954]">
-                            {n.amount_xof?.toLocaleString() ?? "?"} XOF
+                            Demo {n.amount_xof?.toLocaleString() ?? "?"} XOF
                           </span>{" "}
                           tip from{" "}
                           {n.actor_id ? (
@@ -1627,7 +1627,7 @@ export function ArtistInboxClient({
                     </p>
                     <p className="mt-1 text-xs text-white/40">
                       {formatNotificationTime(n.created_at)}
-                      {n.kind === "tip" ? " · stub" : ""}
+                      {n.kind === "tip" ? " · demo" : ""}
                     </p>
                   </div>
                   <span className="shrink-0 text-[0.65rem] uppercase tracking-[0.12em] text-white/30">
