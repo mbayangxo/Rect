@@ -137,6 +137,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [queueOpen, setQueueOpen] = useState(false);
   const [savingQueue, setSavingQueue] = useState(false);
   const recordedFor = useRef<string | null>(null);
+  const startGenRef = useRef(0);
   const trackRef = useRef<TrackRow | null>(null);
   const durationPersistedFor = useRef<string | null>(null);
   const queueRef = useRef<TrackRow[]>([]);
@@ -259,21 +260,31 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audio.volume = muted ? 0 : volume;
   }, [volume, muted]);
 
-  const recordPlay = useCallback(
-    async (trackId: string) => {
-      if (recordedFor.current === trackId) return;
-      recordedFor.current = trackId;
+  /**
+   * Consume a play credit (and insert the play) before audio starts.
+   * Guests (401) may still listen without a recorded play.
+   * Insufficient credits (402) and other auth'd failures block audio.
+   */
+  const authorizePlay = useCallback(
+    async (trackId: string): Promise<"ok" | "guest" | "blocked"> => {
       try {
         const res = await fetch("/api/plays", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ track_id: trackId }),
         });
+
         if (res.status === 402) {
-          recordedFor.current = null;
+          publishCreditsRemaining(0);
           commitQueue([], 0);
           setQueueOpen(false);
-          publishCreditsRemaining(0);
+          setTrack(null);
+          const audio = audioRef.current;
+          if (audio) {
+            audio.pause();
+            audio.removeAttribute("src");
+            setPlaying(false);
+          }
           const data = (await res.json().catch(() => null)) as {
             error?: string;
           } | null;
@@ -281,12 +292,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             data?.error ||
               "No play credits left. Buy a play pack on Home to keep listening.",
           );
-          const audio = audioRef.current;
-          if (audio) {
-            audio.pause();
-            setPlaying(false);
-          }
-          return;
+          return "blocked";
+        }
+
+        if (res.status === 401) {
+          setCreditNotice("Sign in to save plays and climb the charts.");
+          return "guest";
         }
 
         if (res.ok) {
@@ -299,26 +310,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           ) {
             publishCreditsRemaining(data.credits_remaining);
           }
-        } else {
-          recordedFor.current = null;
-          const data = (await res.json().catch(() => null)) as {
-            error?: string;
-            code?: string;
-          } | null;
-          if (res.status === 401) {
-            setCreditNotice("Sign in to save plays and climb the charts.");
-          } else if (res.status === 402) {
-            // handled above
-          } else {
-            setCreditNotice(
-              data?.error ||
-                "Couldn't save this play. Check your connection and try again.",
-            );
-          }
+          return "ok";
         }
+
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setCreditNotice(
+          data?.error ||
+            "Couldn't authorize this play. Check your connection and try again.",
+        );
+        return "blocked";
       } catch {
-        recordedFor.current = null;
-        setCreditNotice("Couldn't save this play. Network error.");
+        setCreditNotice("Couldn't authorize this play. Network error.");
+        return "blocked";
       }
     },
     [commitQueue],
@@ -327,30 +332,44 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const startTrack = useCallback(
     (next: TrackRow) => {
       const audio = audioRef.current;
-      if (!audio || !next.audio_url) return;
+      const src = next.audio_url;
+      if (!audio || !src) return;
+
+      const gen = ++startGenRef.current;
+      audio.pause();
+      setPlaying(false);
       setTrack(next);
       recordedFor.current = null;
       durationPersistedFor.current = null;
       setCreditNotice(null);
       syncQueueFlags();
-      audio.src = next.audio_url;
-      void audio
-        .play()
-        .then(() => {
-          void recordPlay(next.id);
-        })
-        .catch(() => {
+
+      void (async () => {
+        const verdict = await authorizePlay(next.id);
+        if (gen !== startGenRef.current) return;
+
+        if (verdict === "blocked") {
+          // 402 already cleared the bar; other failures should not leave a silent track loaded.
+          setTrack((current) => (current?.id === next.id ? null : current));
+          return;
+        }
+
+        recordedFor.current = next.id;
+        audio.src = src;
+        try {
+          await audio.play();
+        } catch {
           setPlaying(false);
           setCreditNotice(
             "Couldn't play this track. The file may be missing or unsupported.",
           );
-          const q = queueRef.current;
-          if (q.length > 1) {
+          if (queueRef.current.length > 1) {
             window.setTimeout(() => nextRef.current(), 500);
           }
-        });
+        }
+      })();
     },
-    [recordPlay, syncQueueFlags],
+    [authorizePlay, syncQueueFlags],
   );
 
   const play = useCallback(
