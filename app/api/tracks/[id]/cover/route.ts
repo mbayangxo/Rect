@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { TRACKS_BUCKET } from "@/lib/tracks";
+import { isPublishedTrack, TRACKS_BUCKET } from "@/lib/tracks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -189,7 +189,7 @@ export async function DELETE(_request: Request, { params }: Params) {
 
   const { data: existing, error: findError } = await supabase
     .from("tracks")
-    .select("id, artist_id, cover_art_url")
+    .select("id, artist_id, cover_art_url, status")
     .eq("id", trackId)
     .maybeSingle();
 
@@ -201,6 +201,17 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
   if (existing.artist_id !== user.id) {
     return NextResponse.json({ error: "Not your track." }, { status: 403 });
+  }
+
+  if (isPublishedTrack(existing)) {
+    return NextResponse.json(
+      {
+        error:
+          "Unpublish the track before removing cover art — live releases need artwork.",
+        code: "cover_required",
+      },
+      { status: 400 },
+    );
   }
 
   if (!existing.cover_art_url) {

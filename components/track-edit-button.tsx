@@ -17,6 +17,8 @@ type Props = {
   genre: string | null;
   language?: string | null;
   hasCover?: boolean;
+  /** Live tracks keep cover art until unpublished. */
+  isLive?: boolean;
 };
 
 export function TrackEditButton({
@@ -25,6 +27,7 @@ export function TrackEditButton({
   genre,
   language = null,
   hasCover = false,
+  isLive = false,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -98,6 +101,10 @@ export function TrackEditButton({
           return;
         }
       } else if (removeCover && hasCover) {
+        if (isLive) {
+          setError("Unpublish the track before removing cover art.");
+          return;
+        }
         const res = await fetch(`/api/tracks/${trackId}/cover`, {
           method: "DELETE",
         });
@@ -244,10 +251,12 @@ export function TrackEditButton({
               : removeCover
                 ? "Cover will be removed on save"
                 : hasCover
-                  ? "JPG/PNG/WebP · replaces current"
-                  : "JPG/PNG/WebP · optional"}
+                  ? isLive
+                    ? "JPG/PNG/WebP · replaces current · required while live"
+                    : "JPG/PNG/WebP · replaces current"
+                  : "JPG/PNG/WebP · required before going live"}
           </p>
-          {hasCover && !coverFile ? (
+          {hasCover && !coverFile && !isLive ? (
             <button
               type="button"
               onClick={() => setRemoveCover((v) => !v)}
@@ -255,6 +264,11 @@ export function TrackEditButton({
             >
               {removeCover ? "Keep cover" : "Remove cover"}
             </button>
+          ) : null}
+          {isLive && hasCover ? (
+            <p className="mt-2 text-[0.6rem] text-white/35">
+              Unpublish to remove cover art.
+            </p>
           ) : null}
           {error ? (
             <p className="mt-2 text-xs text-[#F5A623]" role="alert">

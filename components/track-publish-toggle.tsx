@@ -8,12 +8,14 @@ type Props = {
   status: string | null | undefined;
   /** Highlight after upload redirect */
   emphasize?: boolean;
+  hasCover?: boolean;
 };
 
 export function TrackPublishToggle({
   trackId,
   status,
   emphasize = false,
+  hasCover = true,
 }: Props) {
   const router = useRouter();
   const published =
@@ -34,6 +36,13 @@ export function TrackPublishToggle({
     setError(null);
     setNote(null);
     const next = live ? "pending" : "live";
+
+    if (next === "live" && !hasCover) {
+      setError("Add cover art before going live.");
+      setPending(false);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/tracks/${trackId}/status`, {
         method: "PATCH",
@@ -91,7 +100,11 @@ export function TrackPublishToggle({
           {note}
         </p>
       ) : null}
-      {error ? <p className="mt-1 text-[0.6rem] text-[#F5A623]">{error}</p> : null}
+      {error ? (
+        <p className="mt-1 max-w-[11rem] text-[0.6rem] leading-snug text-[#F5A623]">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

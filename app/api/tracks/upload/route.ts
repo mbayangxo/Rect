@@ -258,6 +258,17 @@ export async function POST(request: Request) {
     coverFile = cover;
   }
 
+  if (publish && !coverFile) {
+    return NextResponse.json(
+      {
+        error:
+          "Cover art is required before going live — Charts and Home need artwork.",
+        code: "cover_required",
+      },
+      { status: 400 },
+    );
+  }
+
   // Soft artist gate — listeners should use become-artist first.
   const { data: profile } = await supabase
     .from("users")

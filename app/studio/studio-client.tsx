@@ -106,6 +106,10 @@ export function StudioClient({
         return;
       }
     }
+    if (!cover) {
+      setError("Add cover art before going live.");
+      return;
+    }
 
     setPending(true);
     setPendingMode(asLive ? "live" : "draft");
@@ -360,7 +364,7 @@ export function StudioClient({
             </label>
 
             <label className="block">
-              <span className="text-xs text-white/45">Cover art</span>
+              <span className="text-xs text-white/45">Cover art (required)</span>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -515,11 +519,13 @@ export function StudioClient({
                             genre={t.genre}
                             language={t.language}
                             hasCover={Boolean(t.cover_art_url)}
+                            isLive={live}
                           />
                           <TrackPublishToggle
                             trackId={t.id}
                             status={t.status}
                             emphasize={focused && !live}
+                            hasCover={Boolean(t.cover_art_url)}
                           />
                         </div>
                       </div>
