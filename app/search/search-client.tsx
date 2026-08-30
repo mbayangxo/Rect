@@ -127,6 +127,8 @@ export function SearchClient({
     initialPlaylists.length === 0 &&
     initialPeople.length === 0;
 
+  const playableSongs = initialTracks.filter((t) => t.audio_url);
+
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
       <header className="border-b border-white/10">
@@ -266,25 +268,64 @@ export function SearchClient({
           <div className="space-y-10">
             <div className="grid gap-10 lg:grid-cols-2">
               <section>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
-                  Songs{" "}
-                  {initialTracks.length ? `(${initialTracks.length})` : ""}
-                </h2>
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+                    Songs{" "}
+                    {initialTracks.length ? `(${initialTracks.length})` : ""}
+                  </h2>
+                  {playableSongs.length > 0 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => player.playQueue(playableSongs, 0)}
+                        className="rounded-full bg-[#1DB954] px-3 py-1 text-xs font-semibold text-black hover:bg-[#17a349]"
+                      >
+                        ▶ Play all
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          player.playQueue(playableSongs, 0, {
+                            shuffle: true,
+                            repeat: true,
+                          })
+                        }
+                        className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                      >
+                        ⇄ Shuffle
+                      </button>
+                    </>
+                  ) : null}
+                </div>
                 {initialTracks.length === 0 ? (
                   <p className="text-sm text-white/40">No songs matched.</p>
                 ) : (
                   <ul className="space-y-1">
-                    {initialTracks.map((t) => (
+                    {initialTracks.map((t) => {
+                      const active = player.track?.id === t.id;
+                      const canPlay = Boolean(t.audio_url);
+                      const queueIdx = playableSongs.findIndex(
+                        (x) => x.id === t.id,
+                      );
+                      return (
                       <li
                         key={t.id}
-                        className="flex items-center gap-2 rounded-xl px-3 py-3 hover:bg-white/[0.04]"
+                        className={`flex items-center gap-2 rounded-xl px-3 py-3 hover:bg-white/[0.04] ${
+                          active ? "bg-[#1DB954]/10" : ""
+                        }`}
                       >
                         <button
                           type="button"
                           onClick={() => {
-                            if (t.audio_url) player.play(t);
+                            if (!canPlay) return;
+                            if (active) player.toggle();
+                            else
+                              player.playQueue(
+                                playableSongs,
+                                Math.max(0, queueIdx),
+                              );
                           }}
-                          disabled={!t.audio_url}
+                          disabled={!canPlay}
                           className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-40"
                         >
                           <TrackCover track={t} size="sm" />
@@ -323,7 +364,8 @@ export function SearchClient({
                         <QueueTrackButton track={t} compact />
                         <ShareTrackButton track={t} compact />
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
               </section>
