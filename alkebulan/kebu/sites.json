@@ -1,0 +1,15 @@
+{
+  "platform": "Alkebulan",
+  "builder": "Kebu",
+  "sites": [
+    {
+      "id": "k-direction",
+      "name": "K-DIRECTION",
+      "legal": "K-DIRECTION CORP.",
+      "path": "sites/k-direction",
+      "port": 3100,
+      "tickets": "joko",
+      "firstSite": true
+    }
+  ]
+}

@@ -26,6 +26,9 @@ export default async function PortalHome() {
   return (
     <div>
       <h1 className="font-display text-5xl tracking-[0.1em] uppercase">Dashboard</h1>
+      <p className="mt-3 max-w-xl text-white/70">
+        This is K-Direction’s Kebu portal. Edit the public site from here.
+      </p>
       <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => (
           <li key={card.label}>

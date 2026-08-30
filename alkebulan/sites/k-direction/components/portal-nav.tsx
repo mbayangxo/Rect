@@ -15,7 +15,7 @@ const links = [
 export function PortalNav() {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 bg-ink px-4 py-3">
-      <p className="font-display text-2xl tracking-[0.12em] text-lime">K-Direction portal</p>
+      <p className="font-display text-2xl tracking-[0.12em] text-lime">Kebu · K-Direction</p>
       <nav className="flex flex-wrap gap-2" aria-label="Portal">
         {links.map((link) => (
           <Link
