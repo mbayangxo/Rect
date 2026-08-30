@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/catalog";
 import { getPrisma } from "@/lib/db";
+import { portalResumeHref } from "@/lib/uploads";
 
 export const metadata = { title: "Applications" };
 
@@ -30,7 +31,7 @@ export default async function PortalApplicationsPage() {
               </p>
               {app.note ? <p className="mt-2 text-white/80">{app.note}</p> : null}
               <p className="mt-3 flex flex-wrap gap-4">
-                <a className="text-lime underline" href={app.resumePath} target="_blank" rel="noreferrer">
+                <a className="text-lime underline" href={portalResumeHref(app.resumePath)} target="_blank" rel="noreferrer">
                   View resume
                 </a>
                 <Link className="uppercase text-white/60" href={`/portal/jobs/${app.jobId}`}>

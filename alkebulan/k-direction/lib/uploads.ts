@@ -58,6 +58,22 @@ export function resumeDiskPath(fileName: string) {
   return path.join(process.cwd(), "data", "uploads", "resumes", fileName);
 }
 
+export function resumeSearchPaths(fileName: string) {
+  const primary = resumeDiskPath(fileName);
+  if (!primary) {
+    return [];
+  }
+  return [
+    primary,
+    path.join(process.cwd(), "public", "uploads", "resumes", fileName),
+  ];
+}
+
+export function portalResumeHref(storedPath: string) {
+  const file = storedPath.split("/").pop() ?? "";
+  return file ? `/portal/resumes/${file}` : storedPath;
+}
+
 export function resumeContentType(fileName: string) {
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
   return RESUME_CONTENT[ext] ?? "application/octet-stream";
