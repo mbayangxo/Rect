@@ -21,7 +21,7 @@ create policy "playlists_select_copy_notif_recipient"
     exists (
       select 1
       from public.artist_notifications n
-      where n.related_playlist_id = id
+      where n.related_playlist_id = playlists.id
         and n.kind = 'playlist_copy'
         and n.recipient_id = auth.uid()
     )
@@ -36,7 +36,7 @@ create policy "playlist_tracks_select_copy_notif_recipient"
     exists (
       select 1
       from public.artist_notifications n
-      where n.related_playlist_id = playlist_id
+      where n.related_playlist_id = playlist_tracks.playlist_id
         and n.kind = 'playlist_copy'
         and n.recipient_id = auth.uid()
     )
