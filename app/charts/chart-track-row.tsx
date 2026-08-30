@@ -18,16 +18,26 @@ import { formatTrackDuration } from "@/lib/tracks";
 export function ChartTrackRow({
   track,
   rank,
+  queue,
   initialLiked = false,
   likesReady = false,
 }: {
   track: RankedTrack;
   rank: number;
+  /** Playable board order for continuous listen. */
+  queue: RankedTrack[];
   initialLiked?: boolean;
   likesReady?: boolean;
 }) {
   const player = usePlayer();
   const canPlay = Boolean(track.audio_url);
+
+  function playFromBoard() {
+    if (!track.audio_url) return;
+    const idx = queue.findIndex((x) => x.id === track.id);
+    player.playQueue(queue, idx >= 0 ? idx : 0);
+  }
+
   const artistHref = track.artist_id ? `/artists/${track.artist_id}` : null;
 
   return (
@@ -48,9 +58,7 @@ export function ChartTrackRow({
       <button
         type="button"
         disabled={!canPlay}
-        onClick={() => {
-          if (track.audio_url) player.play(track);
-        }}
+        onClick={playFromBoard}
         className="shrink-0 transition hover:opacity-90 disabled:opacity-40"
         aria-label={`Play ${trackTitle(track)}`}
       >
@@ -87,9 +95,7 @@ export function ChartTrackRow({
       {canPlay ? (
         <button
           type="button"
-          onClick={() => {
-            if (track.audio_url) player.play(track);
-          }}
+          onClick={playFromBoard}
           className="text-xs text-[#1DB954] hover:opacity-80"
           aria-label={`Play ${trackTitle(track)}`}
         >

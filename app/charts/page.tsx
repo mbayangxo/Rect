@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChartTrackRow } from "@/app/charts/chart-track-row";
+import { ChartBoard } from "@/app/charts/charts-board-client";
 import { GenreFilterChips } from "@/components/genre-filter-chips";
 import { LanguageFilterChips } from "@/components/language-filter-chips";
 import { PlaceFilterChips } from "@/components/place-filter-chips";
@@ -80,73 +80,6 @@ const CHART_BOARDS = [
     emptyHint: "Artists with African places set will rank here.",
   },
 ] as const;
-
-function ChartBoard({
-  title,
-  subtitle,
-  tracks,
-  emptyHint,
-  placeHref,
-  error,
-  likedTracks = {},
-  likesReady = false,
-}: {
-  title: string;
-  subtitle: string;
-  tracks: RankedTrack[];
-  emptyHint: string;
-  placeHref?: string;
-  error: string | null;
-  likedTracks?: Record<string, boolean>;
-  likesReady?: boolean;
-}) {
-  return (
-    <section
-      id={title.toLowerCase().replace(/\s+/g, "-")}
-      className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6"
-    >
-      <div className="flex items-baseline justify-between gap-3 border-b border-white/10 pb-4">
-        <div>
-          <h2 className="font-[family-name:var(--font-syne)] text-lg font-semibold tracking-tight text-[#1DB954] sm:text-xl">
-            {title}
-          </h2>
-          <p className="mt-1 text-xs text-white/40 sm:text-sm">{subtitle}</p>
-        </div>
-        <span className="text-[0.55rem] font-semibold uppercase tracking-[0.14em] text-white/30">
-          RECT Charts
-        </span>
-      </div>
-
-      {error ? (
-        <p className="mt-6 text-center text-sm text-[#1DB954]">{error}</p>
-      ) : tracks.length === 0 ? (
-        <div className="mt-8 space-y-3 text-center">
-          <p className="text-sm text-white/40">{emptyHint}</p>
-          {placeHref ? (
-            <Link
-              href={placeHref}
-              className="inline-block text-xs text-[#1DB954] hover:underline"
-            >
-              Open place hub →
-            </Link>
-          ) : null}
-        </div>
-      ) : (
-        <ol className="mt-4 space-y-0">
-          {tracks.map((t, i) => (
-            <ChartTrackRow
-              key={t.id}
-              track={t}
-              rank={i + 1}
-              initialLiked={Boolean(likedTracks[t.id])}
-              likesReady={likesReady}
-            />
-          ))}
-        </ol>
-      )}
-    </section>
-  );
-}
 
 function boardTracks(res: TracksLoadResult): RankedTrack[] {
   return res.ok ? res.tracks : [];
