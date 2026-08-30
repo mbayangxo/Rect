@@ -85,7 +85,7 @@ export default async function ForArtistsPage() {
               <BecomeArtistButton />
               <p className="text-center text-xs text-white/40">
                 Keeps your likes, journal, and follows on this account. Upload
-                from Studio — TAALI registration is optional later.
+                from Studio — optional registry fields on tracks for later.
               </p>
             </>
           ) : (

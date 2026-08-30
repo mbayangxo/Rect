@@ -1,9 +1,11 @@
 -- ============================================================
--- Fix play_id types — plays.id is uuid in RECT Supabase
--- Paste in Supabase SQL Editor → Run
+-- Artist play earnings — idempotent bootstrap
+-- Run this if you see:
+--   relation "public.artist_play_earnings" does not exist
 --
--- If artist_play_earnings does not exist at all, run
--- 20260830_artist_play_earnings_bootstrap.sql instead (includes this fix).
+-- Safe to re-run. Creates table + RPCs for Artist OS analytics.
+-- Requires: users, tracks, plays, record_credited_play base (20260811).
+-- TAALI is NOT involved — RECT-only play credit → artist XOF demo earnings.
 -- ============================================================
 
 create table if not exists public.artist_play_earnings (
@@ -17,6 +19,15 @@ create table if not exists public.artist_play_earnings (
   constraint artist_play_earnings_play_unique unique (play_id)
 );
 
+create index if not exists artist_play_earnings_artist_created_idx
+  on public.artist_play_earnings (artist_id, created_at desc);
+
+create index if not exists artist_play_earnings_track_idx
+  on public.artist_play_earnings (track_id);
+
+create index if not exists artist_play_earnings_play_idx
+  on public.artist_play_earnings (play_id);
+
 alter table public.artist_play_earnings enable row level security;
 
 drop policy if exists "artist_play_earnings_select_own" on public.artist_play_earnings;
@@ -27,9 +38,6 @@ create policy "artist_play_earnings_select_own"
 
 drop function if exists public.record_play_earning(uuid, bigint, integer);
 drop function if exists public.record_play_earning(uuid, uuid, integer);
-
-create index if not exists artist_play_earnings_play_idx
-  on public.artist_play_earnings (play_id);
 
 create or replace function public.record_play_earning(
   p_track_id uuid,
@@ -89,7 +97,7 @@ $$;
 revoke all on function public.record_play_earning(uuid, uuid, integer) from public;
 grant execute on function public.record_play_earning(uuid, uuid, integer) to authenticated;
 
--- record_credited_play must return uuid play_id
+-- Ensure record_credited_play returns uuid play_id (plays.id is uuid)
 drop function if exists public.record_credited_play(uuid);
 drop function if exists public.record_credited_play(uuid, integer);
 

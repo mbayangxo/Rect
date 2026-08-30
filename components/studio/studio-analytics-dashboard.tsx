@@ -124,6 +124,17 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
         </div>
       ) : null}
 
+      {!data.revenue.earningsReady ? (
+        <div className="rounded-xl border border-[#F5A623]/30 bg-[#F5A623]/10 px-4 py-3 text-sm text-[#F5A623]">
+          Run{" "}
+          <code className="text-[0.85em]">
+            supabase/migrations/20260830_artist_play_earnings_bootstrap.sql
+          </code>{" "}
+          in Supabase SQL Editor to enable play earnings rows. Stream counts still
+          work; revenue uses {PLAY_EARNING_XOF} XOF/play estimate until then.
+        </div>
+      ) : null}
+
       {/* Time filters */}
       <section className="flex flex-wrap items-center gap-2">
         {RANGES.map((r) => (

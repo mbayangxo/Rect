@@ -102,14 +102,24 @@ After applying, run `_probe_missing_aug08_09.sql` — every row should show `ok`
 86. `20260810_phase1_track_live_status.sql`
 87. `20260810_track_writer_splits.sql`
 88. `20260811_record_credited_play.sql`
-90. `20260811_artist_play_earnings.sql`
-91. `20260811_play_pack_purchase_pending.sql`
-92. `20260830_fix_play_earnings_play_id.sql` ← **fix if play earnings fail**
-93. `20260830_tracks_taali_fields.sql` ← optional nullable TAALI columns on tracks
+89. `20260811_artist_play_earnings.sql` — or skip if you run bootstrap below
+90. `20260811_play_pack_purchase_pending.sql`
+91. **`20260830_artist_play_earnings_bootstrap.sql`** ← **run if `artist_play_earnings` missing**
+92. `20260830_fix_play_earnings_play_id.sql` ← only if table exists but play_id type wrong
+93. `20260830_tracks_taali_fields.sql` ← optional nullable columns on tracks (no TAALI DB/API)
 94. `20260830_users_artist_banner.sql` ← artist portal banner (optional)
 95. `20260830_tracks_editorial_boost.sql` ← RECT SCORE editorial component (optional)
 96. `20260830_joko_play_pack_payment.sql` ← JOKO mobile money on play packs (optional)
 97. `20260830_artist_merch_store.sql` ← Artist merch store + JOKO purchases
+
+### Artist OS minimum (if starting mid-stream)
+
+Run in order if probe shows gaps:
+
+1. `20260810_phase1_track_live_status.sql`
+2. `20260811_record_credited_play.sql`
+3. **`20260830_artist_play_earnings_bootstrap.sql`** — play earnings + credited play fix
+4. `20260830_tracks_taali_fields.sql` — optional nullable track fields only
 
 ## Verify
 

@@ -12,7 +12,7 @@ import { join } from "path";
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const baseUrl = (process.env.BASE_URL || "").replace(/\/$/, "");
+const baseUrl = (process.env.BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 
 function usableKey(k) {
   return Boolean(k) && k.length > 40 && !/SENSITI|REDACTED|your[_-]?key|placeholder/i.test(k);
@@ -306,6 +306,51 @@ async function main() {
   const playRows = playsRes.data ?? [];
   const analyticsPlays = playRows.filter((p) => p.listener_id !== artistId).length;
   console.log("8. Analytics-equivalent plays", analyticsPlays);
+  if (analyticsPlays < 1) throw new Error("analytics play count < 1");
+
+  console.log("9. Studio analytics API…");
+  const analyticsRes = await fetch(`${baseUrl}/api/studio/analytics?range=all`, {
+    headers: { Authorization: `Bearer ${artistLogin.data.session.access_token}` },
+  });
+  const analytics = await analyticsRes.json().catch(() => ({}));
+  if (!analyticsRes.ok) {
+    throw new Error(analytics.error || `analytics ${analyticsRes.status}`);
+  }
+  console.log(
+    "   overview streams",
+    analytics.overview?.totalStreamsAllTime,
+    "revenue",
+    analytics.revenue?.streamsXof,
+  );
+  if ((analytics.overview?.totalStreamsAllTime ?? 0) < 1) {
+    throw new Error("analytics overview streams < 1");
+  }
+
+  const { count: earningCount, error: earnErr } = await countClient
+    .from("artist_play_earnings")
+    .select("id", { count: "exact", head: true })
+    .eq("artist_id", artistId);
+  if (earnErr && /does not exist|PGRST205/i.test(earnErr.message)) {
+    console.warn(
+      "10. WARN: artist_play_earnings missing — run 20260830_artist_play_earnings_bootstrap.sql",
+    );
+  } else {
+    console.log("10. Play earnings rows", earningCount ?? 0);
+    if ((earningCount ?? 0) < 1) {
+      console.warn("   WARN: no earnings row — run artist_play_earnings bootstrap");
+    }
+  }
+
+  console.log("11. Home feed includes track…");
+  const dashRes = await fetch(`${baseUrl}/dashboard`, {
+    headers: { Cookie: "" },
+  });
+  const dashHtml = await dashRes.text();
+  if (!dashHtml.includes(title) && !dashHtml.includes(trackId)) {
+    console.warn("   WARN: track title not in dashboard HTML (may need taste match)");
+  } else {
+    console.log("   dashboard ok");
+  }
 
   console.log(
     JSON.stringify(
@@ -318,7 +363,10 @@ async function main() {
           "fan login",
           "fan play",
           "play count",
-          "analytics",
+          "analytics plays",
+          "studio analytics API",
+          "play earnings",
+          "home feed",
         ],
         artistEmail,
         fanEmail,
@@ -326,7 +374,8 @@ async function main() {
         trackId,
         title,
         playCount: count,
-        viaApi: Boolean(baseUrl),
+        analyticsStreams: analytics.overview?.totalStreamsAllTime,
+        revenueXof: analytics.revenue?.streamsXof,
       },
       null,
       2,

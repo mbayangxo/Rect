@@ -1,7 +1,5 @@
 -- ============================================================
--- Optional TAALI columns on tracks (nullable — filled by TAALI API later)
--- Paste in Supabase SQL Editor → Run
--- RECT does not connect to TAALI; these are storage-only fields.
+-- Optional nullable columns on tracks (storage only — no external TAALI DB/API)
 -- ============================================================
 
 alter table public.tracks
