@@ -57,6 +57,7 @@ export async function saveSettings(formData: FormData) {
       inquiriesEmail: text(formData, "inquiriesEmail"),
       inquiryDestination: text(formData, "inquiryDestination") || "portal",
       kebuUrl: text(formData, "kebuUrl") || null,
+      jokoUrl: text(formData, "jokoUrl") || null,
     },
   });
   revalidatePath("/", "layout");

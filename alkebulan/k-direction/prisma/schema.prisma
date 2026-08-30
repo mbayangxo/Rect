@@ -16,6 +16,7 @@ model SiteSettings {
   inquiriesEmail     String
   inquiryDestination String   @default("portal")
   kebuUrl            String?
+  jokoUrl            String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }

@@ -11,6 +11,7 @@ create table if not exists "SiteSettings" (
   "inquiriesEmail" text not null,
   "inquiryDestination" text not null default 'portal',
   "kebuUrl" text,
+  "jokoUrl" text,
   "createdAt" timestamptz not null default now(),
   "updatedAt" timestamptz not null default now()
 );

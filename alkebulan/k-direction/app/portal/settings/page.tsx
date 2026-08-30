@@ -45,6 +45,20 @@ export default async function SettingsPage() {
           Kebu URL
           <input name="kebuUrl" type="url" defaultValue={settings.kebuUrl ?? ""} className="normal-case border border-white/30 bg-transparent px-3 py-2" />
         </label>
+        <label className="grid gap-2 text-sm uppercase tracking-[0.14em]">
+          Joko tickets URL
+          <input
+            name="jokoUrl"
+            type="url"
+            placeholder="https://"
+            defaultValue={settings.jokoUrl ?? ""}
+            className="normal-case border border-white/30 bg-transparent px-3 py-2"
+          />
+        </label>
+        <p className="text-sm text-white/60">
+          People buy event tickets on Joko. This site never takes payment. Paste the Joko home or
+          events page here. Each event can still override with its own Joko listing.
+        </p>
         <button className="justify-self-start bg-lime px-6 py-3 font-display text-2xl text-ink uppercase">
           Save
         </button>

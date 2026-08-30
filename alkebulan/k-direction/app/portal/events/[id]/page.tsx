@@ -50,8 +50,17 @@ export default async function EditEventPage({
         </label>
         <label className="grid gap-2 text-sm uppercase tracking-[0.14em]">
           Joko ticket URL
-          <input name="ticketUrl" type="url" defaultValue={event?.ticketUrl ?? ""} className="normal-case border border-white/30 bg-transparent px-3 py-2" />
+          <input
+            name="ticketUrl"
+            type="url"
+            placeholder="https://"
+            defaultValue={event?.ticketUrl ?? ""}
+            className="normal-case border border-white/30 bg-transparent px-3 py-2"
+          />
         </label>
+        <p className="text-sm text-white/60">
+          Buyers pay on Joko, not here. Paste the Joko page for this show.
+        </p>
         <label className="grid gap-2 text-sm uppercase tracking-[0.14em]">
           Description
           <textarea name="description" rows={5} defaultValue={event?.description ?? ""} className="normal-case border border-white/30 bg-transparent px-3 py-2" />

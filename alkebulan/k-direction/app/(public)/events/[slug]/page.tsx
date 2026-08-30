@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { JokoTicketsButton } from "@/components/joko-tickets-button";
 import { PageFrame } from "@/components/page-frame";
-import { formatDate, getEvent } from "@/lib/catalog";
+import { formatDate, getEvent, getSettings } from "@/lib/catalog";
+import { jokoTicketHref } from "@/lib/joko";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +20,7 @@ export default async function EventPage({
   params,
 }: PageProps<"/events/[slug]">) {
   const { slug } = await params;
-  const event = await getEvent(slug);
+  const [event, settings] = await Promise.all([getEvent(slug), getSettings()]);
   if (!event || !event.published) {
     notFound();
   }
@@ -48,20 +50,7 @@ export default async function EventPage({
       {event.description ? (
         <p className="mt-6 max-w-xl text-lg whitespace-pre-wrap">{event.description}</p>
       ) : null}
-      {event.ticketUrl ? (
-        <p className="mt-8">
-          <a
-            href={event.ticketUrl}
-            className="inline-block bg-ink px-8 py-3 font-display text-2xl tracking-[0.12em] text-lime uppercase"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Buy tickets on Joko
-          </a>
-        </p>
-      ) : (
-        <p className="mt-8 text-lg">Tickets will be listed on Joko when they go on sale.</p>
-      )}
+      <JokoTicketsButton href={jokoTicketHref(event.ticketUrl, settings.jokoUrl)} />
     </PageFrame>
   );
 }

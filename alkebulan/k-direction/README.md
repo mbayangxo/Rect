@@ -13,7 +13,7 @@ This Cursor agent is tied to the Rect GitHub repo. It cannot become a separate K
 | **Edit blogs?** | **Yes.** `/portal` → Blog. |
 | **Portal for artists and events?** | **Yes.** `/portal` — add or remove artists and events. |
 | **Job applications + resumes?** | **Yes.** Careers apply form. Staff view at `/portal/applications`. Resumes are portal-only. |
-| **Tickets?** | **Joko.** Each event stores a Joko ticket URL. Public button: “Buy tickets on Joko.” No checkout inside K-Direction. |
+| **Tickets?** | **Joko only.** People pay on Joko. K-Direction never checkouts. Settings can store a Joko home URL; each event can store its own Joko listing. Public button: “Buy tickets on Joko.” |
 | **Kebu?** | This *is* a Kebu site (first one). Settings and artists can also store a Kebu URL. |
 | **Contact form?** | **Always the portal inbox.** Settings: portal / personal email / both. Email send needs a provider on Vercel later. |
 | **Supabase migrations?** | **No, not applied.** Prisma + SQLite locally. SQL draft in `supabase/migrations/` for a future Kebu/K-Direction Supabase project. Do not use Rect Sound’s database. |

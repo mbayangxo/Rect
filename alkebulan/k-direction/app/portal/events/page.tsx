@@ -15,6 +15,9 @@ export default async function PortalEventsPage() {
           Add event
         </Link>
       </div>
+      <p className="mt-3 max-w-xl text-white/70">
+        Ticket sales go through Joko. Paste a Joko URL on each event. This site does not checkout.
+      </p>
       <ul className="mt-8 grid gap-4">
         {events.map((event) => (
           <li key={event.id} className="flex flex-wrap items-center justify-between gap-3 border border-white/15 p-4">
