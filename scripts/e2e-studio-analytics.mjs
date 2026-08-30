@@ -222,8 +222,23 @@ async function main() {
     throw new Error("overview total streams < 5");
   }
 
-  if ((analytics.revenue?.streamsXof ?? 0) < 1) {
-    console.warn("   WARN: revenue may be 0 if play earnings migration missing");
+  if ((analytics.revenue?.streamsXof ?? 0) < 50) {
+    if (analytics.revenue?.earningsReady) {
+      throw new Error(
+        `expected revenue >= 50 XOF with earnings table, got ${analytics.revenue?.streamsXof ?? 0}`,
+      );
+    }
+    console.warn(
+      "   WARN: revenue is 0 — apply 20260830_artist_play_earnings_bootstrap.sql",
+    );
+  } else {
+    console.log("   revenue verified", analytics.revenue?.streamsXof, "XOF");
+  }
+
+  if ((analytics.chartPositions ?? []).length < 1) {
+    console.warn("   WARN: no chart positions yet (track may need more plays)");
+  } else {
+    console.log("   chart positions verified", analytics.chartPositions.length);
   }
 
   console.log("\nPASS: Studio analytics E2E");

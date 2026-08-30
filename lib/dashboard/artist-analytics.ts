@@ -2,14 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   dayKey,
   formatDayLabel,
+  formatWeekLabel,
   inTimeWindow,
-  minCompletionAtCredit,
   parseAnalyticsRange,
+  weekStartKey,
   type AnalyticsRangeId,
   type AnalyticsTimeWindow,
 } from "@/lib/dashboard/analytics-time";
 import { loadLikeCountMap } from "@/lib/dashboard/likes";
-import { PLAY_EARNING_XOF, loadArtistPlayEarnings } from "@/lib/dashboard/play-earnings";
+import { loadArtistPlayEarnings } from "@/lib/dashboard/play-earnings";
 import {
   loadArtistChartPositions,
   type ArtistChartPosition,
@@ -20,6 +21,12 @@ import { isDemoTrack, isPublishedTrack, trackTitle, type TrackRow } from "@/lib/
 
 export type PlaysByDay = {
   date: string;
+  label: string;
+  count: number;
+};
+
+export type PlaysByWeek = {
+  weekStart: string;
   label: string;
   count: number;
 };
@@ -106,6 +113,7 @@ export type StudioAnalytics = {
     highestBoard: string | null;
   }[];
   playsTrend: PlaysByDay[];
+  weeklyTrend: PlaysByWeek[];
   engagement: {
     totalLikes: number;
     totalComments: number;
@@ -138,7 +146,48 @@ type PlayRow = {
   track_id: string;
   listener_id?: string | null;
   created_at?: string | null;
+  listened_secs?: number | null;
 };
+
+function completionRatesByTrack(
+  playRows: PlayRow[],
+  trackById: Map<string, TrackRow>,
+): Map<string, number> {
+  const acc = new Map<
+    string,
+    { listenedTotal: number; playCount: number; duration: number }
+  >();
+
+  for (const p of playRows) {
+    const secs = p.listened_secs;
+    if (secs == null || secs <= 0) continue;
+    const track = trackById.get(p.track_id);
+    const duration =
+      typeof track?.duration_secs === "number" && track.duration_secs > 0
+        ? track.duration_secs
+        : null;
+    if (!duration) continue;
+
+    const cur = acc.get(p.track_id) ?? {
+      listenedTotal: 0,
+      playCount: 0,
+      duration,
+    };
+    cur.listenedTotal += Math.min(secs, duration);
+    cur.playCount += 1;
+    acc.set(p.track_id, cur);
+  }
+
+  const out = new Map<string, number>();
+  for (const [trackId, s] of acc) {
+    if (s.playCount <= 0) continue;
+    out.set(
+      trackId,
+      Math.round((s.listenedTotal / (s.playCount * s.duration)) * 100),
+    );
+  }
+  return out;
+}
 
 function emptyAnalytics(window: AnalyticsTimeWindow): StudioAnalytics {
   return {
@@ -187,6 +236,7 @@ function emptyAnalytics(window: AnalyticsTimeWindow): StudioAnalytics {
     chartPositions: [],
     chartMilestones: [],
     playsTrend: [],
+    weeklyTrend: [],
     engagement: {
       totalLikes: 0,
       totalComments: 0,
@@ -248,13 +298,19 @@ export async function loadStudioAnalytics(
     ).toISOString();
 
     let playRows: PlayRow[] = [];
+    let listenedSecsReady = true;
     if (trackIds.length > 0) {
       const playsRes = await db
         .from("plays")
-        .select("id, track_id, listener_id, created_at")
+        .select("id, track_id, listener_id, created_at, listened_secs")
         .in("track_id", trackIds);
 
       if (playsRes.error) {
+        listenedSecsReady = /listened_secs|column .* does not exist/i.test(
+          playsRes.error.message,
+        )
+          ? false
+          : listenedSecsReady;
         const lean = await db
           .from("plays")
           .select("track_id, listener_id, created_at")
@@ -357,6 +413,35 @@ export async function loadStudioAnalytics(
       count: countsByDay.get(date) ?? 0,
     }));
 
+    const weekBuckets = new Map<string, number>();
+    const weeksBack = 12;
+    const firstWeekStart = new Date(startOfUtcDay(now));
+    firstWeekStart.setUTCDate(firstWeekStart.getUTCDate() - weeksBack * 7);
+    for (let w = 0; w <= weeksBack; w++) {
+      const d = new Date(firstWeekStart);
+      d.setUTCDate(d.getUTCDate() + w * 7);
+      weekBuckets.set(weekStartKey(d.toISOString()), 0);
+    }
+    for (const p of validPlays) {
+      const at = p.created_at;
+      if (!at) continue;
+      const wk = weekStartKey(at);
+      if (weekBuckets.has(wk)) {
+        weekBuckets.set(wk, (weekBuckets.get(wk) ?? 0) + 1);
+      }
+    }
+    const weeklyTrend: PlaysByWeek[] = [...weekBuckets.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([weekStart, count]) => ({
+        weekStart,
+        label: formatWeekLabel(weekStart),
+        count,
+      }));
+
+    const completionByTrack = listenedSecsReady
+      ? completionRatesByTrack(validPlays, trackById)
+      : new Map<string, number>();
+
     const [earnings, chartRes, followersRes, tipsReady, likesMap] =
       await Promise.all([
         loadArtistPlayEarnings(supabase, artistId),
@@ -411,6 +496,22 @@ export async function loadStudioAnalytics(
         const tid = s.track_id as string;
         if (!tid) continue;
         sharesByTrack.set(tid, (sharesByTrack.get(tid) ?? 0) + 1);
+      }
+    }
+
+    const savesByTrack = new Map<string, number>();
+    if (trackIds.length > 0) {
+      const { data: saves, error: saveErr } = await db
+        .from("playlist_tracks")
+        .select("track_id")
+        .in("track_id", trackIds);
+      if (saveErr && !isMissingRelation(saveErr.message)) {
+        errors.push(`Saves: ${saveErr.message}`);
+      }
+      for (const row of saves ?? []) {
+        const tid = row.track_id as string;
+        if (!tid) continue;
+        savesByTrack.set(tid, (savesByTrack.get(tid) ?? 0) + 1);
       }
     }
 
@@ -484,16 +585,12 @@ export async function loadStudioAnalytics(
         streamsToday: todayByTrack.get(t.id) ?? 0,
         chartPosition: chart?.position ?? null,
         chartBoard: chart?.board ?? null,
-        revenueXof:
-          earningsByTrack.get(t.id) ??
-          (earnings.missingTable
-            ? (totalByTrack.get(t.id) ?? 0) * PLAY_EARNING_XOF
-            : 0),
+        revenueXof: earningsByTrack.get(t.id) ?? 0,
         downloadSales: 0,
-        completionRate: minCompletionAtCredit(t.duration_secs),
+        completionRate: completionByTrack.get(t.id) ?? null,
         skipRate: null,
         likes: likesMap.get(t.id) ?? 0,
-        saves: likesMap.get(t.id) ?? 0,
+        saves: savesByTrack.get(t.id) ?? 0,
         shares: sharesByTrack.get(t.id) ?? 0,
         comments: commentsByTrack.get(t.id) ?? 0,
         publishedAt: t.created_at ?? null,
@@ -652,9 +749,7 @@ export async function loadStudioAnalytics(
         };
       });
 
-    const streamsXof = earnings.missingTable
-      ? totalStreamsAllTime * PLAY_EARNING_XOF
-      : earnings.totalXof;
+    const streamsXof = earnings.missingTable ? 0 : earnings.totalXof;
 
     let streamsInRangeXof = 0;
     if (!earnings.missingTable) {
@@ -667,8 +762,6 @@ export async function loadStudioAnalytics(
           streamsInRangeXof += Number(row.amount_xof) || 0;
         }
       }
-    } else {
-      streamsInRangeXof = streamsInRange * PLAY_EARNING_XOF;
     }
 
     const allTimeXof = streamsXof + tipsXof + merchXof;
@@ -677,7 +770,6 @@ export async function loadStudioAnalytics(
 
     let monthTotalXof = 0;
     if (!earnings.missingTable) monthTotalXof += earnings.thisMonthXof;
-    else monthTotalXof += streamsThisWeek * PLAY_EARNING_XOF;
 
     const { data: monthTips } = tipsReady
       ? await db
@@ -747,6 +839,7 @@ export async function loadStudioAnalytics(
       chartPositions: chartRes.positions,
       chartMilestones,
       playsTrend,
+      weeklyTrend,
       engagement: {
         totalLikes: [...likesMap.values()].reduce((a, b) => a + b, 0),
         totalComments: [...commentsByTrack.values()].reduce((a, b) => a + b, 0),

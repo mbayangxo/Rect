@@ -119,7 +119,8 @@ Run in order if probe shows gaps:
 1. `20260810_phase1_track_live_status.sql`
 2. `20260811_record_credited_play.sql`
 3. **`20260830_artist_play_earnings_bootstrap.sql`** — play earnings + credited play fix
-4. `20260830_tracks_taali_fields.sql` — optional nullable track fields only
+4. **`20260830_plays_listened_secs.sql`** — completion rate (`listened_secs` on plays)
+5. `20260830_tracks_taali_fields.sql` — optional nullable track fields only
 
 ## Verify
 

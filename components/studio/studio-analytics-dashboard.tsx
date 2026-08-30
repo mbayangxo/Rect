@@ -7,7 +7,6 @@ import type {
   StudioAnalytics,
 } from "@/lib/dashboard/artist-analytics";
 import type { AnalyticsRangeId } from "@/lib/dashboard/analytics-time";
-import { PLAY_EARNING_XOF } from "@/lib/dashboard/play-earnings";
 
 type Props = {
   initialData: StudioAnalytics;
@@ -31,7 +30,10 @@ type SortKey =
   | "revenueXof"
   | "downloadSales"
   | "completionRate"
-  | "likes";
+  | "likes"
+  | "saves"
+  | "shares"
+  | "comments";
 
 export function StudioAnalyticsDashboard({ initialData }: Props) {
   return (
@@ -56,6 +58,7 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
   const [sortAsc, setSortAsc] = useState(false);
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     setData(initialData);
@@ -68,14 +71,26 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
     params.set("range", range);
     if (range === "custom" && from) params.set("from", from);
     if (range === "custom" && to) params.set("to", to);
+    setFetchError(null);
     startTransition(() => {
       router.push(`/studio/analytics?${params.toString()}`);
       void fetch(`/api/studio/analytics?${params.toString()}`)
-        .then((r) => r.json())
-        .then((json: StudioAnalytics) => setData(json))
-        .catch(() => {});
+        .then(async (r) => {
+          const json = (await r.json()) as StudioAnalytics & { error?: string };
+          if (!r.ok) {
+            throw new Error(json.error ?? `Analytics failed (${r.status})`);
+          }
+          setData(json);
+        })
+        .catch((e: unknown) => {
+          setFetchError(
+            e instanceof Error ? e.message : "Failed to refresh analytics",
+          );
+        });
     });
   }
+
+  const maxWeekly = Math.max(1, ...(data.weeklyTrend ?? []).map((w) => w.count));
 
   const sortedSongs = useMemo(() => {
     const list = [...data.songs];
@@ -124,14 +139,20 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
         </div>
       ) : null}
 
+      {fetchError ? (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {fetchError}
+        </div>
+      ) : null}
+
       {!data.revenue.earningsReady ? (
         <div className="rounded-xl border border-[#F5A623]/30 bg-[#F5A623]/10 px-4 py-3 text-sm text-[#F5A623]">
           Run{" "}
           <code className="text-[0.85em]">
             supabase/migrations/20260830_artist_play_earnings_bootstrap.sql
           </code>{" "}
-          in Supabase SQL Editor to enable play earnings rows. Stream counts still
-          work; revenue uses {PLAY_EARNING_XOF} XOF/play estimate until then.
+          in Supabase SQL Editor to record stream revenue. Stream counts work
+          now; revenue shows 0 until that migration is applied.
         </div>
       ) : null}
 
@@ -250,7 +271,7 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
           <EmptyState text="Upload and publish a track — streams appear here after fans listen." />
         ) : (
           <div className="mt-4 overflow-x-auto rounded-xl border border-white/[0.08]">
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[1100px] text-left text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-[0.65rem] uppercase tracking-wider text-white/40">
                   <th className="px-3 py-3">Song</th>
@@ -264,6 +285,9 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
                   <SortTh label="Min %" k="completionRate" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
                   <th className="px-3 py-3">Skip</th>
                   <SortTh label="Likes" k="likes" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+                  <SortTh label="Saves" k="saves" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+                  <SortTh label="Shares" k="shares" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
+                  <SortTh label="Comments" k="comments" sortKey={sortKey} sortAsc={sortAsc} onSort={toggleSort} />
                 </tr>
               </thead>
               <tbody>
@@ -318,8 +342,11 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
                         ? `${song.completionRate}%`
                         : "—"}
                     </td>
-                    <td className="px-3 py-3 text-xs text-white/35">N/A</td>
+                    <td className="px-3 py-3 text-xs text-white/35">—</td>
                     <td className="px-3 py-3 tabular-nums">{song.likes}</td>
+                    <td className="px-3 py-3 tabular-nums">{song.saves}</td>
+                    <td className="px-3 py-3 tabular-nums">{song.shares}</td>
+                    <td className="px-3 py-3 tabular-nums">{song.comments}</td>
                   </tr>
                 ))}
               </tbody>
@@ -327,8 +354,9 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
           </div>
         )}
         <p className="mt-2 text-[0.65rem] text-white/30">
-          Completion % = minimum at credit threshold ({PLAY_EARNING_XOF} XOF / 30s
-          rule). Skip rate not tracked yet.
+          Completion % averages listened seconds per credited play (requires{" "}
+          <code className="text-[0.9em]">20260830_plays_listened_secs.sql</code>
+          ). Skip rate is not tracked yet.
         </p>
       </section>
 
@@ -338,29 +366,14 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-white/45">
-              Countries
+              Listener countries
             </h3>
             {data.audience.countries.length === 0 ? (
-              <p className="mt-3 text-sm text-white/35">No listener location data in range.</p>
+              <p className="mt-3 text-sm text-white/35">
+                No listener location data in range.
+              </p>
             ) : (
-              <ul className="mt-3 space-y-2">
-                {data.audience.countries.map((c) => (
-                  <li key={c.name}>
-                    <div className="flex justify-between text-sm">
-                      <span>{c.name}</span>
-                      <span className="tabular-nums text-white/50">
-                        {c.count} · {c.pct}%
-                      </span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-[#1DB954]"
-                        style={{ width: `${Math.max(c.pct, 2)}%` }}
-                      />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <CountryMap countries={data.audience.countries} />
             )}
           </div>
 
@@ -423,7 +436,9 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
           </span>
         </p>
         <div className="mt-4 rounded-xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-white/35">
-          JOKO payout history will appear here when artist withdrawals ship.
+          {data.revenue.payouts.length === 0
+            ? "No JOKO payouts recorded yet."
+            : null}
         </div>
       </section>
 
@@ -492,7 +507,7 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
           <h3 className="text-xs font-semibold uppercase tracking-wider text-white/45">
             Week-by-week streams
           </h3>
-          <BarChart data={data.playsTrend.slice(-14)} max={maxTrend} compact />
+          <LineChart data={data.weeklyTrend ?? []} max={maxWeekly} />
         </div>
       </section>
 
@@ -531,9 +546,7 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
           <p className="mt-4 text-sm text-white/35">No fan activity in this range yet.</p>
         )}
 
-        <p className="mt-4 text-xs text-white/30">
-          Fan club growth over time — not live yet (no fan club table).
-        </p>
+        <EmptyState text="Fan club growth requires a fan club table — not configured yet." />
       </section>
     </div>
   );
@@ -683,6 +696,117 @@ function MiniList({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function CountryMap({
+  countries,
+}: {
+  countries: { name: string; count: number; pct: number }[];
+}) {
+  const maxPct = Math.max(1, ...countries.map((c) => c.pct));
+  return (
+    <div className="mt-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {countries.map((c) => {
+          const intensity = 0.25 + (c.pct / maxPct) * 0.75;
+          return (
+            <div
+              key={c.name}
+              className="rounded-lg border border-white/[0.08] px-3 py-2.5"
+              style={{
+                backgroundColor: `rgba(29, 185, 84, ${intensity * 0.35})`,
+              }}
+              title={`${c.name}: ${c.count} listeners · ${c.pct}%`}
+            >
+              <p className="truncate text-sm font-medium">{c.name}</p>
+              <p className="mt-0.5 text-xs tabular-nums text-white/50">
+                {c.count} · {c.pct}%
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      <ul className="mt-4 space-y-2">
+        {countries.map((c) => (
+          <li key={`bar-${c.name}`}>
+            <div className="flex justify-between text-xs">
+              <span className="text-white/60">{c.name}</span>
+              <span className="tabular-nums text-white/40">{c.count}</span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-[#1DB954]"
+                style={{ width: `${Math.max(c.pct, 2)}%` }}
+              />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function LineChart({
+  data,
+  max,
+}: {
+  data: { weekStart: string; label: string; count: number }[];
+  max: number;
+}) {
+  if (data.length === 0) {
+    return (
+      <p className="mt-4 text-sm text-white/35">No weekly stream data yet.</p>
+    );
+  }
+
+  const width = 640;
+  const height = 160;
+  const padX = 8;
+  const padY = 24;
+  const innerW = width - padX * 2;
+  const innerH = height - padY * 2;
+  const step = data.length > 1 ? innerW / (data.length - 1) : 0;
+
+  const points = data.map((w, i) => {
+    const x = padX + i * step;
+    const y = padY + innerH - (w.count / max) * innerH;
+    return { x, y, ...w };
+  });
+
+  const polyline = points.map((p) => `${p.x},${p.y}`).join(" ");
+
+  return (
+    <div className="mt-4 overflow-x-auto rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-40 w-full min-w-[320px]"
+        role="img"
+        aria-label="Week by week stream trend"
+      >
+        <polyline
+          fill="none"
+          stroke="#1DB954"
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          points={polyline}
+        />
+        {points.map((p) => (
+          <g key={p.weekStart}>
+            <circle cx={p.x} cy={p.y} r="3.5" fill="#1DB954" />
+            <text
+              x={p.x}
+              y={height - 4}
+              textAnchor="middle"
+              className="fill-white/35 text-[9px]"
+            >
+              {p.label}
+            </text>
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }

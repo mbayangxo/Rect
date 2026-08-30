@@ -142,14 +142,15 @@ begin
     raise exception 'insufficient_credits';
   end if;
 
-  insert into public.plays (track_id, listener_id)
-  values (p_track_id, v_uid)
+  insert into public.plays (track_id, listener_id, listened_secs)
+  values (p_track_id, v_uid, 30)
   returning id into v_play_id;
 
   return jsonb_build_object(
     'ok', true,
     'play_id', v_play_id,
-    'credits_remaining', v_new
+    'credits_remaining', v_new,
+    'listened_secs', 30
   );
 end;
 $$;

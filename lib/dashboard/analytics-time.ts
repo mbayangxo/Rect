@@ -103,6 +103,24 @@ export function formatDayLabel(key: string): string {
   });
 }
 
+/** ISO date (YYYY-MM-DD) for the Monday starting the week containing `iso`. */
+export function weekStartKey(iso: string): string {
+  const d = new Date(iso);
+  const day = d.getUTCDay();
+  const diff = day === 0 ? 6 : day - 1;
+  const monday = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+  );
+  monday.setUTCDate(monday.getUTCDate() - diff);
+  return monday.toISOString().slice(0, 10);
+}
+
+export function formatWeekLabel(weekStart: string): string {
+  const [y, m, d] = weekStart.split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  return dt.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 /** Credited streams require ~30s listen — minimum completion ratio at credit. */
 export const CREDIT_LISTEN_SECS = 30;
 
