@@ -1,12 +1,23 @@
 import { StudioAnalyticsDashboard } from "@/components/studio/studio-analytics-dashboard";
-import { loadArtistAnalyticsDashboard } from "@/lib/dashboard/artist-analytics";
+import { loadStudioAnalytics } from "@/lib/dashboard/artist-analytics";
+import type { AnalyticsRangeId } from "@/lib/dashboard/analytics-time";
 import { requireStudioArtist } from "@/lib/studio/require-artist";
 
 export const dynamic = "force-dynamic";
 
-export default async function StudioAnalyticsPage() {
+type Props = {
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+};
+
+export default async function StudioAnalyticsPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const range = (params.range ?? "week") as AnalyticsRangeId;
   const { supabase, userId } = await requireStudioArtist("/studio/analytics");
-  const data = await loadArtistAnalyticsDashboard(supabase, userId);
+  const data = await loadStudioAnalytics(supabase, userId, {
+    range,
+    from: params.from ?? null,
+    to: params.to ?? null,
+  });
 
   return (
     <>
@@ -17,10 +28,11 @@ export default async function StudioAnalyticsPage() {
         Performance
       </h1>
       <p className="mt-2 text-sm text-white/45">
-        Plays, followers, and demo play earnings from credited listens.
+        Real streams, revenue, audience, and STANDINGS from Supabase — no demo
+        filler.
       </p>
       <div className="mt-8">
-        <StudioAnalyticsDashboard data={data} />
+        <StudioAnalyticsDashboard initialData={data} />
       </div>
     </>
   );
