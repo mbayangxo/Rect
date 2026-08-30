@@ -17,6 +17,7 @@ import { PlayerLikeButton } from "@/components/player-like-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
 import { PRIVATE_ARTIST_LABEL } from "@/lib/dashboard/privacy";
+import { resolvePlaybackUrl } from "@/lib/offline/track-downloads";
 import { publishCreditsRemaining, subscribeCreditsRemaining } from "@/lib/credits-live";
 import { createClient } from "@/lib/supabase/client";
 import { trackArtist, trackTitle, type TrackRow } from "@/lib/tracks";
@@ -423,7 +424,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           );
         }
 
-        audio.src = src;
+        const playbackSrc = (await resolvePlaybackUrl(next)) ?? src;
+        audio.src = playbackSrc;
         try {
           await audio.play();
         } catch {

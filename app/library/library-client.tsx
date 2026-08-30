@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AddToPlaylist } from "@/components/add-to-playlist";
+import { DownloadTrackButton } from "@/components/download-track-button";
 import { usePlayer } from "@/components/player-provider";
 import { RectLogo } from "@/components/rect-logo";
 import { QueueTrackButton } from "@/components/queue-track-button";
@@ -12,6 +13,12 @@ import { TrackCover } from "@/components/track-cover";
 import type { LikedTrack } from "@/lib/dashboard/likes";
 import type { FollowedPlaylist } from "@/lib/dashboard/playlist-follows";
 import type { PlaylistSummary } from "@/lib/dashboard/playlists";
+import {
+  formatBytes,
+  listOfflineTracks,
+  syncStaleDownloads,
+  type OfflineTrackMeta,
+} from "@/lib/offline/track-downloads";
 import { trackArtist, trackTitle, formatTrackDuration, type TrackRow } from "@/lib/tracks";
 
 type Props = {
@@ -96,10 +103,25 @@ export function LibraryClient({
   const [clearing, setClearing] = useState(false);
   const [savingPlaylist, setSavingPlaylist] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineTracks, setOfflineTracks] = useState<OfflineTrackMeta[]>([]);
 
   useEffect(() => {
     setTracks(initialTracks);
   }, [initialTracks]);
+
+  useEffect(() => {
+    void listOfflineTracks().then(setOfflineTracks);
+  }, []);
+
+  useEffect(() => {
+    const onOnline = () => {
+      void syncStaleDownloads(tracks).then(({ updated }) => {
+        if (updated > 0) void listOfflineTracks().then(setOfflineTracks);
+      });
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [tracks]);
 
   const playable = tracks.filter((t) => t.audio_url);
   const ownedPreview = ownedPlaylists.slice(0, 8);
@@ -349,6 +371,48 @@ export function LibraryClient({
           )}
         </section>
 
+        {/* Offline downloads */}
+        <section id="downloads" className="space-y-4">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+              Downloaded for offline
+            </h2>
+            <p className="mt-2 text-sm text-white/45">
+              Saves to this device — plays without using data. Updates when you’re
+              back online if a track changes.
+            </p>
+          </div>
+          {offlineTracks.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-white/15 px-6 py-10 text-center">
+              <p className="text-sm text-white/40">
+                No downloads yet. Tap ↓ on any liked song to save it offline.
+              </p>
+            </div>
+          ) : (
+            <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+              {offlineTracks.map((o) => (
+                <li
+                  key={o.trackId}
+                  className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3 last:border-0"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{o.title}</p>
+                    <p className="truncate text-xs text-white/40">
+                      {o.artistName} · {formatBytes(o.bytes)}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/songs/${o.trackId}`}
+                    className="shrink-0 text-xs text-[#1DB954] hover:underline"
+                  >
+                    Open
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         {/* Liked songs */}
         <section id="liked" className="space-y-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -517,6 +581,13 @@ export function LibraryClient({
                         loginNext="/library"
                       />
                       <QueueTrackButton track={t} compact />
+                      <DownloadTrackButton
+                        track={t}
+                        compact
+                        onChange={() => {
+                          void listOfflineTracks().then(setOfflineTracks);
+                        }}
+                      />
                       <ShareTrackButton track={t} compact />
                       <button
                         type="button"

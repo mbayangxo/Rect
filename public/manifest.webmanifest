@@ -1,0 +1,17 @@
+{
+  "name": "RECT SOUND",
+  "short_name": "RECT",
+  "description": "RECT SOUND — listen offline, support artists.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#040d06",
+  "theme_color": "#1DB954",
+  "icons": [
+    {
+      "src": "/rect-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
