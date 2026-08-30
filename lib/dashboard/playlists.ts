@@ -420,20 +420,22 @@ export async function loadPublicPlaylistsByOwner(
       countById.set(pid, (countById.get(pid) ?? 0) + 1);
     }
 
-    const playlists: PlaylistSummary[] = rows.map((r) => ({
-      id: r.id as string,
-      name: (r.name as string)?.trim() || "Playlist",
-      description: normalizeDescription(r.description),
-      cover_art_url:
-        typeof r.cover_art_url === "string" && r.cover_art_url.trim()
-          ? r.cover_art_url.trim()
-          : null,
-      created_at: (r.created_at as string | null) ?? null,
-      updated_at: (r.updated_at as string | null) ?? null,
-      track_count: countById.get(r.id as string) ?? 0,
-      is_public: true,
-      pinned_at: null,
-    }));
+    const playlists: PlaylistSummary[] = rows
+      .map((r) => ({
+        id: r.id as string,
+        name: (r.name as string)?.trim() || "Playlist",
+        description: normalizeDescription(r.description),
+        cover_art_url:
+          typeof r.cover_art_url === "string" && r.cover_art_url.trim()
+            ? r.cover_art_url.trim()
+            : null,
+        created_at: (r.created_at as string | null) ?? null,
+        updated_at: (r.updated_at as string | null) ?? null,
+        track_count: countById.get(r.id as string) ?? 0,
+        is_public: true,
+        pinned_at: null,
+      }))
+      .filter((p) => Boolean(p.cover_art_url));
 
     return { playlists, missingTable: false, error: null };
   } catch (e) {
@@ -1155,12 +1157,13 @@ export async function setPlaylistPublic(
   | {
       ok: false;
       error: string;
-      code?: "missing_table" | "not_found" | "failed";
+      code?: "missing_table" | "not_found" | "failed" | "cover_required";
     }
-> {
+  >
+{
   const prev = await supabase
     .from("playlists")
-    .select("id, is_public")
+    .select("id, is_public, cover_art_url")
     .eq("id", playlistId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -1180,10 +1183,30 @@ export async function setPlaylistPublic(
         code: "failed",
       };
     }
+    if (/cover_art_url|column .* does not exist/i.test(prev.error.message)) {
+      return {
+        ok: false,
+        error: "Run 20260808_playlist_cover.sql in Supabase first",
+        code: "failed",
+      };
+    }
     return { ok: false, error: prev.error.message, code: "failed" };
   }
   if (!prev.data) {
     return { ok: false, error: "Playlist not found", code: "not_found" };
+  }
+
+  const cover =
+    typeof prev.data.cover_art_url === "string"
+      ? prev.data.cover_art_url.trim()
+      : "";
+  if (isPublic && !cover) {
+    return {
+      ok: false,
+      error:
+        "Add a cover before making this mix public — Search and Home need artwork.",
+      code: "cover_required",
+    };
   }
 
   const wasPublic = Boolean(prev.data.is_public);

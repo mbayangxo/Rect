@@ -1207,6 +1207,11 @@ export async function loadFriendsMixes(
     for (const r of rows) {
       const ownerId = r.user_id as string;
       if (!ownerId) continue;
+      const cover =
+        typeof r.cover_art_url === "string" && r.cover_art_url.trim()
+          ? r.cover_art_url.trim()
+          : null;
+      if (!cover) continue;
       items.push({
         id: String(r.id),
         name:
@@ -1215,10 +1220,7 @@ export async function loadFriendsMixes(
           typeof r.description === "string" && r.description.trim()
             ? r.description.trim()
             : null,
-        cover_art_url:
-          typeof r.cover_art_url === "string" && r.cover_art_url.trim()
-            ? r.cover_art_url.trim()
-            : null,
+        cover_art_url: cover,
         updated_at: (r.updated_at as string | null) ?? null,
         owner_id: ownerId,
         owner_name: nameMap.get(ownerId) || "Listener",

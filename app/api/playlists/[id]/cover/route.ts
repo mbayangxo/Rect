@@ -210,7 +210,7 @@ export async function DELETE(_request: Request, { params }: Params) {
 
   const { data: existing, error: findError } = await supabase
     .from("playlists")
-    .select("id, user_id, cover_art_url")
+    .select("id, user_id, cover_art_url, is_public")
     .eq("id", playlistId)
     .maybeSingle();
 
@@ -231,6 +231,17 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
   if (existing.user_id !== user.id) {
     return NextResponse.json({ error: "Not your playlist." }, { status: 403 });
+  }
+
+  if (Boolean(existing.is_public)) {
+    return NextResponse.json(
+      {
+        error:
+          "Make the mix private before removing cover art — public mixes need artwork.",
+        code: "cover_required",
+      },
+      { status: 400 },
+    );
   }
 
   if (!existing.cover_art_url) {

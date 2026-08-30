@@ -599,25 +599,27 @@ async function searchPublicPlaylists(
       countById.set(pid, (countById.get(pid) ?? 0) + 1);
     }
 
-    return rows.map((r) => {
-      const desc =
-        typeof r.description === "string" && r.description.trim()
-          ? r.description.trim()
-          : null;
-      const cover =
-        typeof r.cover_art_url === "string" && r.cover_art_url.trim()
-          ? r.cover_art_url.trim()
-          : null;
-      const uid = r.user_id as string | null;
-      return {
-        id: r.id as string,
-        name: (typeof r.name === "string" && r.name.trim()) || "Playlist",
-        description: desc,
-        cover_art_url: cover,
-        owner_name: uid ? (ownerNames.get(uid) ?? null) : null,
-        track_count: countById.get(r.id as string) ?? 0,
-      };
-    });
+    return rows
+      .map((r) => {
+        const desc =
+          typeof r.description === "string" && r.description.trim()
+            ? r.description.trim()
+            : null;
+        const cover =
+          typeof r.cover_art_url === "string" && r.cover_art_url.trim()
+            ? r.cover_art_url.trim()
+            : null;
+        const uid = r.user_id as string | null;
+        return {
+          id: r.id as string,
+          name: (typeof r.name === "string" && r.name.trim()) || "Playlist",
+          description: desc,
+          cover_art_url: cover,
+          owner_name: uid ? (ownerNames.get(uid) ?? null) : null,
+          track_count: countById.get(r.id as string) ?? 0,
+        };
+      })
+      .filter((p) => Boolean(p.cover_art_url));
   } catch {
     return [];
   }
