@@ -1442,7 +1442,7 @@ export async function removeTrackFromPlaylist(
   playlistId: string,
   trackId: string,
 ): Promise<
-  | { ok: true }
+  | { ok: true; became_private: boolean }
   | {
       ok: false;
       error: string;
@@ -1451,25 +1451,47 @@ export async function removeTrackFromPlaylist(
 > {
   const { data: pl, error: plError } = await supabase
     .from("playlists")
-    .select("id, user_id")
+    .select("id, user_id, is_public")
     .eq("id", playlistId)
     .maybeSingle();
 
-  if (plError) {
-    if (isMissingRelation(plError.message)) {
+  let playlistRow = pl as {
+    id: string;
+    user_id: string | null;
+    is_public?: boolean | null;
+  } | null;
+  let loadError = plError;
+
+  if (
+    loadError &&
+    /is_public|column .* does not exist/i.test(loadError.message)
+  ) {
+    const lean = await supabase
+      .from("playlists")
+      .select("id, user_id")
+      .eq("id", playlistId)
+      .maybeSingle();
+    playlistRow = lean.data
+      ? { ...lean.data, is_public: false }
+      : null;
+    loadError = lean.error;
+  }
+
+  if (loadError) {
+    if (isMissingRelation(loadError.message)) {
       return {
         ok: false,
         error: "Run playlists SQL in Supabase first",
         code: "missing_table",
       };
     }
-    return { ok: false, error: plError.message, code: "failed" };
+    return { ok: false, error: loadError.message, code: "failed" };
   }
-  if (!pl) {
+  if (!playlistRow) {
     return { ok: false, error: "Playlist not found", code: "not_found" };
   }
 
-  const isOwner = pl.user_id === userId;
+  const isOwner = playlistRow.user_id === userId;
   if (!isOwner) {
     const { data: row } = await supabase
       .from("playlist_tracks")
@@ -1507,15 +1529,45 @@ export async function removeTrackFromPlaylist(
     return { ok: false, error: error.message, code: "failed" };
   }
 
+  const { count, error: countError } = await supabase
+    .from("playlist_tracks")
+    .select("track_id", { count: "exact", head: true })
+    .eq("playlist_id", playlistId);
+
+  let becamePrivate = false;
+  const wasPublic = Boolean(playlistRow.is_public);
+  const empty = !countError && (count ?? 0) < 1;
+
   if (isOwner) {
+    const patch: { updated_at: string; is_public?: boolean } = {
+      updated_at: new Date().toISOString(),
+    };
+    if (empty && wasPublic) {
+      patch.is_public = false;
+      becamePrivate = true;
+    }
     await supabase
       .from("playlists")
-      .update({ updated_at: new Date().toISOString() })
+      .update(patch)
       .eq("id", playlistId)
       .eq("user_id", userId);
+  } else if (empty && wasPublic) {
+    // Collaborator emptied the mix — owner row still needs to leave discovery.
+    const admin = createAdminClient();
+    const db = admin ?? supabase;
+    const { error: privError } = await db
+      .from("playlists")
+      .update({
+        is_public: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", playlistId);
+    if (!privError) {
+      becamePrivate = true;
+    }
   }
 
-  return { ok: true };
+  return { ok: true, became_private: becamePrivate };
 }
 
 export async function reorderPlaylistTracks(

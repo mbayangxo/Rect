@@ -149,10 +149,11 @@ export function PlaylistDetailClient({
     setPendingId(trackId);
     setError(null);
     const prev = playlist;
+    const nextCount = Math.max(0, playlist.track_count - 1);
     setPlaylist({
       ...playlist,
       tracks: playlist.tracks.filter((t) => t.id !== trackId),
-      track_count: Math.max(0, playlist.track_count - 1),
+      track_count: nextCount,
     });
     try {
       const res = await fetch(`/api/playlists/${playlist.id}/tracks`, {
@@ -160,11 +161,24 @@ export function PlaylistDetailClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ track_id: trackId }),
       });
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        became_private?: boolean;
+      };
       if (!res.ok || data.error) {
         setPlaylist(prev);
         setError(data.error || "Could not remove track");
         return;
+      }
+      if (data.became_private) {
+        setPlaylist((current) =>
+          current
+            ? { ...current, is_public: false, track_count: nextCount }
+            : current,
+        );
+        setPublishNote(
+          "Mix is private — add a track to publish again.",
+        );
       }
       router.refresh();
     } catch (e) {
