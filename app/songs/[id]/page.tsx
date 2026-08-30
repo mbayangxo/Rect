@@ -28,6 +28,9 @@ import { personProfileHref } from "@/lib/dashboard/people";
 import { loadFollowingAmong } from "@/lib/dashboard/people-follows";
 import { PRIVATE_ARTIST_LABEL } from "@/lib/dashboard/privacy";
 import { tipsTableReady } from "@/lib/dashboard/tips";
+import {
+  loadTrackWriterSplits,
+} from "@/lib/dashboard/writer-splits";
 import { createClient } from "@/lib/supabase/server";
 import {
   formatTrackDuration,
@@ -36,6 +39,7 @@ import {
   trackTitle,
   type TrackRow,
 } from "@/lib/tracks";
+import { TrackWritersEditor } from "@/components/track-writers-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -95,7 +99,7 @@ export default async function SongPage({ params }: Props) {
   const languageSlug = track.language ? languageToSlug(track.language) : "";
   const loginNext = `/songs/${id}`;
 
-  const [likeCountRes, likesRes, countRes, followRes, tipsReady, commentsRes, likersRes, friendsLikedRes] =
+  const [likeCountRes, likesRes, countRes, followRes, tipsReady, commentsRes, likersRes, friendsLikedRes, writersRes] =
     await Promise.all([
       loadTrackLikeCount(supabase, id),
       user
@@ -133,6 +137,7 @@ export default async function SongPage({ params }: Props) {
             missingTable: false,
             error: null as string | null,
           }),
+      loadTrackWriterSplits(supabase, id),
     ]);
 
   const likerIds = [
@@ -239,6 +244,57 @@ export default async function SongPage({ params }: Props) {
           <div className="mt-8">
             <TrackPlayButton track={track} />
           </div>
+
+          {!writersRes.missingTable ? (
+            <section className="mt-6 border-t border-white/[0.08] pt-5">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">
+                Writers
+              </h2>
+              {writersRes.error ? (
+                <p className="mt-2 text-sm text-[#F5A623]">{writersRes.error}</p>
+              ) : isOwner ? (
+                <div className="mt-3">
+                  <TrackWritersEditor
+                    trackId={track.id}
+                    initialWriters={writersRes.writers}
+                  />
+                </div>
+              ) : writersRes.writers.length === 0 ? (
+                <p className="mt-2 text-sm text-white/40">
+                  No writer credits listed.
+                </p>
+              ) : (
+                <ul className="mt-3 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]">
+                  {writersRes.writers.map((w, i) => (
+                    <li
+                      key={`${w.writer_name}-${i}`}
+                      className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3 text-sm last:border-b-0"
+                    >
+                      <span className="min-w-0 truncate font-medium">
+                        {w.writer_name}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-white/45">
+                        {w.share_percent}%
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          ) : isOwner ? (
+            <section className="mt-6 border-t border-white/[0.08] pt-5">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-white/45">
+                Writers
+              </h2>
+              <p className="mt-2 text-xs text-white/35">
+                Run{" "}
+                <code className="text-[#1DB954]">
+                  20260810_phase1_track_live_status.sql
+                </code>{" "}
+                to store writer splits.
+              </p>
+            </section>
+          ) : null}
 
           {isOwner && artistId ? (
             <p className="mt-4 text-sm text-white/45">
