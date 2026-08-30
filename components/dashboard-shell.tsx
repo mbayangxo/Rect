@@ -45,6 +45,7 @@ type Props = {
   personalized: boolean;
   tasteGenres: string[];
   tasteCountries: string[];
+  tasteDaypart?: string | null;
   creditBalance: number;
   creditsReady: boolean;
   likedTrackIds: string[];
@@ -88,6 +89,7 @@ export function DashboardShell({
   personalized,
   tasteGenres,
   tasteCountries,
+  tasteDaypart = null,
   creditBalance,
   creditsReady,
   likedTrackIds,
@@ -540,7 +542,9 @@ export function DashboardShell({
                 {featured.length > 1 ? (
                   <div className="dash-featured-list">
                     {personalized &&
-                    (tasteGenres.length > 0 || tasteCountries.length > 0) ? (
+                    (tasteGenres.length > 0 ||
+                      tasteCountries.length > 0 ||
+                      tasteDaypart) ? (
                       <p className="mb-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 px-1 text-[0.58rem] uppercase tracking-[0.12em] text-white/35">
                         <span>Tuned to</span>
                         {tasteGenres.map((g, i) => {
@@ -582,6 +586,15 @@ export function DashboardShell({
                             </span>
                           );
                         })}
+                        {tasteDaypart ? (
+                          <>
+                            {(tasteGenres.length > 0 ||
+                              tasteCountries.length > 0) && (
+                              <span aria-hidden>·</span>
+                            )}
+                            <span className="text-white/55">{tasteDaypart}</span>
+                          </>
+                        ) : null}
                       </p>
                     ) : null}
                     {featured.slice(0, 6).map((t, i) => (

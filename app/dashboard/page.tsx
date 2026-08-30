@@ -16,6 +16,8 @@ import { loadFollowingAmongPlaylists } from "@/lib/dashboard/playlist-follows";
 import { loadFirstTracksForPlaylists } from "@/lib/dashboard/playlists";
 import { loadPlayPacks } from "@/lib/dashboard/play-packs";
 import {
+  activeDaypartFromTaste,
+  DAYPART_META,
   hasTasteSignal,
   packCountryFromTaste,
   tasteFromProfile,
@@ -67,6 +69,10 @@ export default async function DashboardPage() {
   const taste = tasteFromProfile(current.profile);
   const packCountry = packCountryFromTaste(taste);
   const personalized = hasTasteSignal(taste);
+  const activeDaypart = activeDaypartFromTaste(taste);
+  const tasteDaypart = activeDaypart
+    ? DAYPART_META[activeDaypart].label
+    : null;
   const showArtistStudio =
     current.profile?.account_type === "artist" ||
     current.profile?.role === "artist" ||
@@ -222,6 +228,7 @@ export default async function DashboardPage() {
       personalized={personalized}
       tasteGenres={taste.genres.slice(0, 3)}
       tasteCountries={taste.countries.slice(0, 2)}
+      tasteDaypart={tasteDaypart}
       creditBalance={creditsRes.credits}
       creditsReady={!creditsRes.missingTable}
       likedTrackIds={likedTrackIds}

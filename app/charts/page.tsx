@@ -24,6 +24,8 @@ import {
   resolvePlaceParam,
 } from "@/lib/dashboard/places";
 import {
+  activeDaypartFromTaste,
+  DAYPART_META,
   hasTasteSignal,
   loadListenerTaste,
   type ListenerTaste,
@@ -57,6 +59,7 @@ const CHART_BOARDS = [
     title: "THE CURRENT",
     subtitle: "Top songs across RECT SOUND",
     forYouSubtitle: "Soft-ranked for your taste · top listens",
+    forYouDaypartSubtitle: "Soft-ranked for your taste and listening time",
     limit: 10,
     emptyHint: "Play songs — the Current ranks real listens.",
   },
@@ -198,6 +201,10 @@ export default async function ChartsPage({ searchParams }: Props) {
   }
   const personalized = taste != null && hasTasteSignal(taste);
   const tasteForRank = personalized ? taste : null;
+  const activeDaypart = activeDaypartFromTaste(taste);
+  const daypartLabel = activeDaypart
+    ? DAYPART_META[activeDaypart].label
+    : null;
 
   const [results, langHubs, genreHubs, placeHubs] = await Promise.all([
     Promise.all(
@@ -226,7 +233,9 @@ export default async function ChartsPage({ searchParams }: Props) {
       board.id === "current" &&
       personalized &&
       "forYouSubtitle" in board
-        ? board.forYouSubtitle
+        ? daypartLabel && "forYouDaypartSubtitle" in board
+          ? `${board.forYouDaypartSubtitle} · ${daypartLabel}`
+          : board.forYouSubtitle
         : board.subtitle,
     tracks: boardTracks(results[i]),
     error: results[i].ok ? null : results[i].error,
@@ -281,7 +290,9 @@ export default async function ChartsPage({ searchParams }: Props) {
             Boards ranked from real plays — Dakar (Senegal), the Current, First
             Light, and Alkebulan.
             {personalized
-              ? " Soft-boosted for your places, genres, and languages."
+              ? daypartLabel
+                ? ` Soft-boosted for your places, genres, languages, and ${daypartLabel.toLowerCase()} listening.`
+                : " Soft-boosted for your places, genres, and languages."
               : null}{" "}
             {!personalized ? (
               <Link

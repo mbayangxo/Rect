@@ -4,6 +4,8 @@ import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
 import { artistMatchesPlaces } from "@/lib/dashboard/charts";
 import { loadLikeCountMap } from "@/lib/dashboard/likes";
 import {
+  activeDaypartFromTaste,
+  daypartSoftScore,
   genreOverlapScore,
   languageOverlapScore,
   normalizeTasteList,
@@ -123,13 +125,17 @@ export async function loadNewReleases(
 
     const preferred = taste?.genres ?? [];
     const preferredLangs = taste?.languages ?? [];
+    const activeDaypart = activeDaypartFromTaste(taste);
     const sorted = [...rows].sort((a, b) => {
       const tasteA = genreOverlapScore([a.genre], preferred);
       const tasteB = genreOverlapScore([b.genre], preferred);
       const langA = languageOverlapScore([a.language], preferredLangs);
       const langB = languageOverlapScore([b.language], preferredLangs);
+      const dayA = activeDaypart ? daypartSoftScore(activeDaypart, a) : 0;
+      const dayB = activeDaypart ? daypartSoftScore(activeDaypart, b) : 0;
       return (
         (b.created_at || "").localeCompare(a.created_at || "") ||
+        dayB - dayA ||
         tasteB - tasteA ||
         langB - langA
       );
