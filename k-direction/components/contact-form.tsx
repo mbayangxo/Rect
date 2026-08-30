@@ -30,8 +30,9 @@ export function ContactForm() {
 
   if (sent) {
     return (
-      <p className="font-display text-3xl tracking-[0.08em] text-lime uppercase">
-        Thanks for submitting!
+      <p className="max-w-xl font-display text-3xl tracking-[0.08em] text-lime uppercase">
+        Thanks. If a mail window did not open, send that message to{" "}
+        {site.emails.inquiries}.
       </p>
     );
   }

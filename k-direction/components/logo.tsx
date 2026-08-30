@@ -18,12 +18,14 @@ export function Logo({ href = "/", size = "nav", tone = "light" }: LogoProps) {
     >
       <span className="block">K</span>
       <span className="block">DIRECTION</span>
-      <span
-        aria-hidden="true"
-        className="block origin-top scale-y-[-1] bg-gradient-to-b from-current/55 to-transparent bg-clip-text text-transparent"
-      >
-        DIRECTION
-      </span>
+      {size === "hero" ? (
+        <span
+          aria-hidden="true"
+          className="block scale-y-[-1] opacity-40"
+        >
+          DIRECTION
+        </span>
+      ) : null}
     </span>
   );
 
