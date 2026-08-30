@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { formatDiscoverabilityError } from "@/lib/dashboard/discoverability";
 
 type Props = {
   trackId: string;
@@ -9,6 +10,10 @@ type Props = {
   /** Highlight after upload redirect */
   emphasize?: boolean;
   hasCover?: boolean;
+  genre?: string | null;
+  language?: string | null;
+  /** Artist has at least one place set. */
+  hasPlaces?: boolean;
 };
 
 export function TrackPublishToggle({
@@ -16,6 +21,9 @@ export function TrackPublishToggle({
   status,
   emphasize = false,
   hasCover = true,
+  genre = null,
+  language = null,
+  hasPlaces = true,
 }: Props) {
   const router = useRouter();
   const published =
@@ -37,10 +45,21 @@ export function TrackPublishToggle({
     setNote(null);
     const next = live ? "pending" : "live";
 
-    if (next === "live" && !hasCover) {
-      setError("Add cover art before going live.");
-      setPending(false);
-      return;
+    if (next === "live") {
+      if (!hasCover) {
+        setError("Add cover art before going live.");
+        setPending(false);
+        return;
+      }
+      const issues: Array<"places" | "genre" | "language"> = [];
+      if (!hasPlaces) issues.push("places");
+      if (!genre?.trim()) issues.push("genre");
+      if (!language?.trim()) issues.push("language");
+      if (issues.length > 0) {
+        setError(formatDiscoverabilityError(issues));
+        setPending(false);
+        return;
+      }
     }
 
     try {
@@ -62,8 +81,8 @@ export function TrackPublishToggle({
         const n = Number(data.notified) || 0;
         setNote(
           n === 0
-            ? "Live — no followers to notify yet"
-            : `Live — notified ${n} follower${n === 1 ? "" : "s"}`,
+            ? "Live on Home, Wave & Charts — no followers to notify yet"
+            : `Live on Home, Wave & Charts — notified ${n} follower${n === 1 ? "" : "s"}`,
         );
       } else {
         setNote("Back to draft");

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isArtistAccount } from "@/lib/dashboard/artist-access";
+import { checkLiveDiscoverability } from "@/lib/dashboard/discoverability";
 import {
   normalizeTrackGenre,
   normalizeTrackLanguage,
@@ -270,16 +271,59 @@ export async function POST(request: Request) {
   }
 
   // Soft artist gate — listeners should use become-artist first.
-  const { data: profile } = await supabase
-    .from("users")
-    .select("account_type, role")
-    .eq("id", user.id)
-    .maybeSingle();
+  let profile: {
+    account_type: string | null;
+    role: string | null;
+    countries?: unknown;
+  } | null = null;
+  {
+    const full = await supabase
+      .from("users")
+      .select("account_type, role, countries")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (
+      full.error &&
+      /countries|column .* does not exist/i.test(full.error.message)
+    ) {
+      const lean = await supabase
+        .from("users")
+        .select("account_type, role")
+        .eq("id", user.id)
+        .maybeSingle();
+      profile = lean.data
+        ? {
+            account_type: lean.data.account_type ?? null,
+            role: lean.data.role ?? null,
+          }
+        : null;
+    } else if (full.data) {
+      profile = {
+        account_type: full.data.account_type ?? null,
+        role: full.data.role ?? null,
+        countries: full.data.countries,
+      };
+    }
+  }
   if (!isArtistAccount(profile, user)) {
     return NextResponse.json(
       { error: "Artist account required. Switch to artist mode from Profile." },
       { status: 403 },
     );
+  }
+
+  if (publish) {
+    const gate = checkLiveDiscoverability({
+      genre,
+      language,
+      countries: profile?.countries,
+    });
+    if (!gate.ok) {
+      return NextResponse.json(
+        { error: gate.error, code: gate.code, issues: gate.issues },
+        { status: 400 },
+      );
+    }
   }
 
   if (usingAdmin) {
