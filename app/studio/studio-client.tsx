@@ -8,6 +8,7 @@ import { RectLogo } from "@/components/rect-logo";
 import { TrackCover } from "@/components/track-cover";
 import { TrackEditButton } from "@/components/track-edit-button";
 import { TrackPublishToggle } from "@/components/track-publish-toggle";
+import { usePlayer } from "@/components/player-provider";
 import type { ArtistStatTrack } from "@/lib/dashboard/artist-stats";
 import {
   CULTURAL_GENRES,
@@ -62,6 +63,7 @@ export function StudioClient({
   needsPlaces = false,
 }: Props) {
   const router = useRouter();
+  const { track: current, playing, play, toggle } = usePlayer();
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState("");
   const [language, setLanguage] = useState("");
@@ -542,6 +544,28 @@ export function StudioClient({
                           </p>
                         ) : null}
                         <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={!t.audio_url}
+                            title={
+                              t.audio_url
+                                ? `Play ${trackTitle(t)} (own listens don’t use credits)`
+                                : "No audio file on this track yet"
+                            }
+                            onClick={() => {
+                              if (!t.audio_url) return;
+                              if (current?.id === t.id) toggle();
+                              else play(t);
+                            }}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1DB954] text-xs text-black transition enabled:hover:bg-[#17a349] disabled:cursor-not-allowed disabled:bg-[#1DB954]/30 disabled:text-black/40"
+                            aria-label={
+                              current?.id === t.id && playing
+                                ? `Pause ${trackTitle(t)}`
+                                : `Play ${trackTitle(t)}`
+                            }
+                          >
+                            {current?.id === t.id && playing ? "❚❚" : "▶"}
+                          </button>
                           <TrackEditButton
                             trackId={t.id}
                             title={t.title || ""}

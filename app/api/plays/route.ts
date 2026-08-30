@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { recordCreditedPlay } from "@/lib/dashboard/credits";
+import {
+  loadPlayCreditBalance,
+  recordCreditedPlay,
+} from "@/lib/dashboard/credits";
 import { notifyTrackListen } from "@/lib/dashboard/notifications";
 import { createRouteClient } from "@/lib/supabase/route";
 
@@ -29,6 +32,26 @@ export async function POST(request: Request) {
       { error: "Sign in required to record plays.", authenticated: false },
       { status: 401 },
     );
+  }
+
+  const { data: track, error: trackError } = await supabase
+    .from("tracks")
+    .select("id, artist_id")
+    .eq("id", trackId)
+    .maybeSingle();
+
+  if (trackError || !track) {
+    return NextResponse.json({ error: "Track not found" }, { status: 404 });
+  }
+
+  if (track.artist_id && track.artist_id === user.id) {
+    const balance = await loadPlayCreditBalance(supabase);
+    return NextResponse.json({
+      ok: true,
+      play_id: null,
+      own_play: true,
+      credits_remaining: balance.credits,
+    });
   }
 
   const recorded = await recordCreditedPlay(supabase, trackId);

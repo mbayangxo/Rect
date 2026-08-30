@@ -250,8 +250,18 @@ export async function loadRankedTracks(
         }
       }
 
+      const artistByTrack = new Map(
+        rows.map((r) => [r.id, r.artist_id] as const),
+      );
+
       for (const p of playRows ?? []) {
         const listenerId = p.listener_id as string | null;
+        const tid = p.track_id as string;
+        const artistId = artistByTrack.get(tid);
+        // Artist checking own mix — never chart
+        if (listenerId && artistId && listenerId === artistId) {
+          continue;
+        }
         // Missing profile → count (same as coalesce(..., true) in SQL view)
         if (
           listenerId &&
@@ -260,7 +270,6 @@ export async function loadRankedTracks(
         ) {
           continue;
         }
-        const tid = p.track_id as string;
         counts.set(tid, (counts.get(tid) ?? 0) + 1);
       }
     }

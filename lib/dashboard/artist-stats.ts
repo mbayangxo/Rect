@@ -166,6 +166,8 @@ export async function loadArtistStudioStats(
 
     for (const p of playRows) {
       const tid = p.track_id as string;
+      // Self-listens don't count as streams / earnings signals
+      if (p.listener_id && p.listener_id === artistId) continue;
       totalByTrack.set(tid, (totalByTrack.get(tid) ?? 0) + 1);
       if (p.listener_id) listeners.add(p.listener_id);
       const at = p.created_at;
