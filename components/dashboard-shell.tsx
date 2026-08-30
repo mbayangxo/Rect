@@ -23,6 +23,7 @@ import type {
 } from "@/lib/dashboard/people-follows";
 import { personProfileHref } from "@/lib/dashboard/people";
 import type { PlayPack } from "@/lib/dashboard/play-packs";
+import type { PendingPackPurchase } from "@/lib/dashboard/credits";
 import { genreToSlug } from "@/lib/dashboard/genres";
 import { placeToSlug } from "@/lib/dashboard/places";
 import {
@@ -48,6 +49,7 @@ type Props = {
   tasteDaypart?: string | null;
   creditBalance: number;
   creditsReady: boolean;
+  pendingPackPurchases?: PendingPackPurchase[];
   likedTrackIds: string[];
   likesReady: boolean;
   showArtistStudio?: boolean;
@@ -92,6 +94,7 @@ export function DashboardShell({
   tasteDaypart = null,
   creditBalance,
   creditsReady,
+  pendingPackPurchases = [],
   likedTrackIds,
   likesReady,
   showArtistStudio = false,
@@ -988,6 +991,7 @@ export function DashboardShell({
             country={packCountry}
             initialCredits={creditBalance}
             creditsReady={creditsReady}
+            initialPending={pendingPackPurchases}
           />
         ) : (
           <div className="dash-sh px-0">

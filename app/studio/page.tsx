@@ -4,6 +4,8 @@ import { isArtistAccount } from "@/lib/dashboard/artist-access";
 import { loadArtistStudioStats } from "@/lib/dashboard/artist-stats";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { loadWriterSplitsForTracks } from "@/lib/dashboard/writer-splits";
+import { loadArtistPlayEarnings } from "@/lib/dashboard/play-earnings";
+import { loadArtistTipStats } from "@/lib/dashboard/tips";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +37,14 @@ export default async function StudioPage({ searchParams }: Props) {
 
   const user = current.user;
   const stats = await loadArtistStudioStats(supabase, user.id);
-  const writersRes = await loadWriterSplitsForTracks(
-    supabase,
-    stats.tracks.map((t) => t.id),
-  );
+  const [tips, playEarnings, writersRes] = await Promise.all([
+    loadArtistTipStats(supabase, user.id),
+    loadArtistPlayEarnings(supabase, user.id),
+    loadWriterSplitsForTracks(
+      supabase,
+      stats.tracks.map((t) => t.id),
+    ),
+  ]);
 
   let portal = {
     city: "",
@@ -110,8 +116,25 @@ export default async function StudioPage({ searchParams }: Props) {
       writersByTrackId={writersRes.byTrackId}
       writersReady={!writersRes.missingTable}
       totalPlays={stats.totalPlays}
+      playsThisMonth={stats.playsThisMonth}
+      uniqueListeners={stats.uniqueListeners}
+      followerCount={stats.followerCount}
+      followsReady={stats.followsReady}
+      recentListeners={stats.recentListeners}
       publishedCount={stats.publishedCount}
       draftCount={stats.draftCount}
+      tipTotalXof={tips.totalXof}
+      tipCount={tips.tipCount}
+      tipThisMonthXof={tips.thisMonthXof}
+      uniqueTippers={tips.uniqueTippers}
+      recentTips={tips.recent}
+      tipsMissing={tips.missingTable}
+      tipsError={tips.error}
+      playEarningTotalXof={playEarnings.totalXof}
+      playEarningThisMonthXof={playEarnings.thisMonthXof}
+      playEarningCount={playEarnings.playCount}
+      playEarningsMissing={playEarnings.missingTable}
+      playEarningsError={playEarnings.error}
       loadError={stats.error}
       focusTrackId={focusTrackId}
       setupPlaces={setupPlaces || needsPlaces}

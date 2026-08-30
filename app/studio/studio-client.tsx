@@ -9,8 +9,13 @@ import { TrackCover } from "@/components/track-cover";
 import { TrackEditButton } from "@/components/track-edit-button";
 import { TrackPublishToggle } from "@/components/track-publish-toggle";
 import { usePlayer } from "@/components/player-provider";
-import type { ArtistStatTrack } from "@/lib/dashboard/artist-stats";
+import type {
+  ArtistRecentListener,
+  ArtistStatTrack,
+} from "@/lib/dashboard/artist-stats";
 import type { WriterSplit } from "@/lib/dashboard/writer-splits";
+import type { ArtistTipLedgerEntry } from "@/lib/dashboard/tips";
+import { PLAY_EARNING_XOF } from "@/lib/dashboard/play-earnings";
 import {
   CULTURAL_GENRES,
   CULTURAL_LANGUAGES,
@@ -33,8 +38,25 @@ type Props = {
   writersByTrackId?: Record<string, WriterSplit[]>;
   writersReady?: boolean;
   totalPlays: number;
+  playsThisMonth: number;
+  uniqueListeners: number;
+  followerCount: number;
+  followsReady: boolean;
+  recentListeners: ArtistRecentListener[];
   publishedCount: number;
   draftCount: number;
+  tipTotalXof: number;
+  tipCount: number;
+  tipThisMonthXof: number;
+  uniqueTippers: number;
+  recentTips: ArtistTipLedgerEntry[];
+  tipsMissing: boolean;
+  tipsError: string | null;
+  playEarningTotalXof: number;
+  playEarningThisMonthXof: number;
+  playEarningCount: number;
+  playEarningsMissing: boolean;
+  playEarningsError: string | null;
   loadError: string | null;
   focusTrackId?: string | null;
   setupPlaces?: boolean;
@@ -61,8 +83,25 @@ export function StudioClient({
   writersByTrackId = {},
   writersReady = false,
   totalPlays,
+  playsThisMonth,
+  uniqueListeners,
+  followerCount,
+  followsReady,
+  recentListeners,
   publishedCount,
   draftCount,
+  tipTotalXof,
+  tipCount,
+  tipThisMonthXof,
+  uniqueTippers,
+  recentTips,
+  tipsMissing,
+  tipsError,
+  playEarningTotalXof,
+  playEarningThisMonthXof,
+  playEarningCount,
+  playEarningsMissing,
+  playEarningsError,
   loadError,
   focusTrackId = null,
   setupPlaces = false,
@@ -284,8 +323,9 @@ export function StudioClient({
           {displayName}
         </h1>
         <p className="mt-2 text-sm text-white/45">
-          Upload, save drafts, and publish with place, genre, and language. Live
-          tracks appear on Home, Wave, and Charts.
+          Upload, save drafts, and publish with place, genre, and language. Each
+          credited listen accrues {PLAY_EARNING_XOF} XOF demo play earnings (not
+          withdrawable yet). Live tracks appear on Home, Wave, and Charts.
         </p>
 
         {needsPlaces ? (
@@ -301,13 +341,69 @@ export function StudioClient({
           </div>
         ) : null}
 
-        <div className="mt-6 grid grid-cols-3 gap-3">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
             <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
               Streams
             </p>
             <p className="mt-1 text-xl font-semibold text-[#1DB954]">
               {totalPlays.toLocaleString()}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">
+              {playsThisMonth.toLocaleString()} this month
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
+              Listeners
+            </p>
+            <p className="mt-1 text-xl font-semibold">
+              {uniqueListeners.toLocaleString()}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">unique</p>
+          </div>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
+              Followers
+            </p>
+            <p className="mt-1 text-xl font-semibold">
+              {followsReady ? followerCount.toLocaleString() : "—"}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">
+              {followsReady ? "artists you follow you" : "follows offline"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
+              Tips
+            </p>
+            <p className="mt-1 text-xl font-semibold text-[#1DB954]">
+              {tipsMissing ? "—" : `${tipTotalXof.toLocaleString()} XOF`}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">
+              {tipsMissing
+                ? "tips SQL needed"
+                : `${tipCount} tip${tipCount === 1 ? "" : "s"} · ${tipThisMonthXof.toLocaleString()} this month`}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[0.65rem] uppercase tracking-[0.14em] text-white/40">
+              Play earnings
+            </p>
+            <p className="mt-1 text-xl font-semibold text-[#1DB954]">
+              {playEarningsMissing
+                ? "—"
+                : `${playEarningTotalXof.toLocaleString()} XOF`}
+            </p>
+            <p className="mt-0.5 text-[0.65rem] text-white/35">
+              {playEarningsMissing
+                ? "run play earnings SQL"
+                : playEarningsError
+                  ? playEarningsError
+                  : `${playEarningCount} credited play${playEarningCount === 1 ? "" : "s"} · ${playEarningThisMonthXof.toLocaleString()} this month`}
             </p>
           </div>
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
@@ -323,6 +419,101 @@ export function StudioClient({
             <p className="mt-1 text-xl font-semibold">{draftCount}</p>
           </div>
         </div>
+
+        {(tipsError ||
+          playEarningsError ||
+          (!tipsMissing && tipCount > 0) ||
+          recentListeners.length > 0) && (
+          <section className="mt-8 space-y-6">
+            {!tipsMissing ? (
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+                  Tip ledger
+                </h2>
+                {tipsError ? (
+                  <p className="mt-3 text-sm text-[#F5A623]">{tipsError}</p>
+                ) : tipCount === 0 ? (
+                  <p className="mt-3 text-sm text-white/40">
+                    No tips yet. Share your portal — listeners tip from your
+                    songs. Amounts are demo XOF until real payments ship.
+                  </p>
+                ) : (
+                  <>
+                    <p className="mt-2 text-xs text-white/40">
+                      {uniqueTippers} tipper{uniqueTippers === 1 ? "" : "s"} ·
+                      demo payments (stub) — not withdrawable yet
+                    </p>
+                    <ul className="mt-3 space-y-2">
+                      {recentTips.slice(0, 8).map((tip) => (
+                        <li
+                          key={tip.id}
+                          className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3"
+                        >
+                          <div className="flex items-baseline justify-between gap-3">
+                            <p className="min-w-0 truncate text-sm font-medium">
+                              {tip.tipper_name}
+                              {tip.track_title ? (
+                                <span className="font-normal text-white/40">
+                                  {" "}
+                                  · {tip.track_title}
+                                </span>
+                              ) : null}
+                            </p>
+                            <p className="shrink-0 tabular-nums text-sm text-[#1DB954]">
+                              {tip.amount_xof.toLocaleString()} XOF
+                            </p>
+                          </div>
+                          {tip.message ? (
+                            <p className="mt-1 text-xs text-white/45">
+                              “{tip.message}”
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-[0.65rem] text-white/30">
+                            {tip.created_at
+                              ? new Date(tip.created_at).toLocaleString()
+                              : ""}
+                            {tip.payment_method === "stub"
+                              ? " · demo payment"
+                              : tip.payment_method
+                                ? ` · ${tip.payment_method}`
+                                : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            ) : null}
+
+            {recentListeners.length > 0 ? (
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
+                  Recent listeners
+                </h2>
+                <ul className="mt-3 space-y-2">
+                  {recentListeners.slice(0, 8).map((row) => (
+                    <li
+                      key={`${row.listener_id}-${row.track_id}-${row.played_at ?? ""}`}
+                      className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm"
+                    >
+                      <span className="font-medium">{row.display_name}</span>
+                      <span className="text-white/40">
+                        {" "}
+                        played {row.track_title}
+                      </span>
+                      {row.played_at ? (
+                        <span className="mt-0.5 block text-[0.65rem] text-white/30">
+                          {new Date(row.played_at).toLocaleString()}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        )}
 
         {/* 1. UPLOAD TRACK */}
         <section className="mt-12">
@@ -537,9 +728,9 @@ export function StudioClient({
                         <p className="mt-0.5 text-xs text-white/40">
                           {t.play_count.toLocaleString()} stream
                           {t.play_count === 1 ? "" : "s"}
-                          {" · "}
-                          {t.play_count.toLocaleString()} play pack credit
-                          {t.play_count === 1 ? "" : "s"} earned
+                          {t.plays_this_month > 0
+                            ? ` · ${t.plays_this_month.toLocaleString()} this month`
+                            : ""}
                           {t.genre ? ` · ${t.genre}` : ""}
                           {!live ? " · Draft" : " · Live"}
                           {!t.audio_url ? " · Missing audio" : ""}

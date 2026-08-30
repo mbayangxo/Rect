@@ -51,19 +51,92 @@ export async function loadPlayCreditBalance(
   }
 }
 
+export type PendingPackPurchase = {
+  id: number;
+  pack_id: number;
+  credits_pending: number;
+  pack_code: string | null;
+  pack_name: string | null;
+  price_label: string | null;
+  created_at: string | null;
+};
+
+export async function loadPendingPackPurchases(
+  supabase: SupabaseClient,
+): Promise<{ purchases: PendingPackPurchase[]; error: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from("play_pack_purchases")
+      .select("id, pack_id, credits_granted, created_at, status")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (error) {
+      if (isMissingRelation(error.message)) {
+        return { purchases: [], error: null };
+      }
+      return { purchases: [], error: error.message };
+    }
+
+    const rows = data ?? [];
+    if (rows.length === 0) return { purchases: [], error: null };
+
+    const packIds = [
+      ...new Set(rows.map((r) => Number(r.pack_id)).filter(Number.isFinite)),
+    ];
+    const { data: packs } = await supabase
+      .from("play_packs")
+      .select("id, code, name, price_label")
+      .in("id", packIds);
+    const byId = new Map(
+      (packs ?? []).map((p) => [Number(p.id), p] as const),
+    );
+
+    const purchases: PendingPackPurchase[] = rows.map((r) => {
+      const pack = byId.get(Number(r.pack_id));
+      return {
+        id: Number(r.id),
+        pack_id: Number(r.pack_id),
+        credits_pending: Number(r.credits_granted) || 0,
+        pack_code: typeof pack?.code === "string" ? pack.code : null,
+        pack_name: typeof pack?.name === "string" ? pack.name : null,
+        price_label:
+          typeof pack?.price_label === "string" ? pack.price_label : null,
+        created_at: typeof r.created_at === "string" ? r.created_at : null,
+      };
+    });
+
+    return { purchases, error: null };
+  } catch (e) {
+    return {
+      purchases: [],
+      error: e instanceof Error ? e.message : "Failed to load pending packs",
+    };
+  }
+}
+
 export type PurchaseResult =
   | {
       ok: true;
+      status: "pending" | "confirmed";
       purchase_id: number | null;
       credits_granted: number;
-      balance: number;
+      credits_pending: number;
+      balance: number | null;
       pack_code: string | null;
       pack_name: string | null;
+      price_label?: string | null;
     }
   | {
       ok: false;
       error: string;
-      code?: "not_authenticated" | "pack_not_found" | "missing_table" | "failed";
+      code?:
+        | "not_authenticated"
+        | "pack_not_found"
+        | "purchase_not_found"
+        | "missing_table"
+        | "failed";
     };
 
 export async function purchasePlayPack(
@@ -97,14 +170,94 @@ export async function purchasePlayPack(
   }
 
   const row = data as Record<string, unknown> | null;
+  const status =
+    row?.status === "confirmed" ? ("confirmed" as const) : ("pending" as const);
   return {
     ok: true,
+    status,
     purchase_id: row?.purchase_id != null ? Number(row.purchase_id) : null,
     credits_granted: Number(row?.credits_granted) || 0,
-    balance: Number(row?.balance) || 0,
+    credits_pending: Number(row?.credits_pending) || 0,
+    balance: row?.balance == null ? null : Number(row.balance),
+    pack_code: typeof row?.pack_code === "string" ? row.pack_code : null,
+    pack_name: typeof row?.pack_name === "string" ? row.pack_name : null,
+    price_label: typeof row?.price_label === "string" ? row.price_label : null,
+  };
+}
+
+export async function confirmPlayPackPurchase(
+  supabase: SupabaseClient,
+  purchaseId: string | number,
+): Promise<PurchaseResult> {
+  const idNum = Number(purchaseId);
+  if (!Number.isFinite(idNum)) {
+    return { ok: false, error: "Invalid purchase", code: "purchase_not_found" };
+  }
+
+  const { data, error } = await supabase.rpc("confirm_play_pack_purchase", {
+    p_purchase_id: idNum,
+  });
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error:
+          "Run 20260811_play_pack_purchase_pending.sql in Supabase (confirm_play_pack_purchase).",
+        code: "missing_table",
+      };
+    }
+    if (/not_authenticated/i.test(error.message)) {
+      return { ok: false, error: "Sign in required", code: "not_authenticated" };
+    }
+    if (/purchase_not_found/i.test(error.message)) {
+      return {
+        ok: false,
+        error: "Purchase not found",
+        code: "purchase_not_found",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  const row = data as Record<string, unknown> | null;
+  return {
+    ok: true,
+    status: "confirmed",
+    purchase_id: row?.purchase_id != null ? Number(row.purchase_id) : idNum,
+    credits_granted: Number(row?.credits_granted) || 0,
+    credits_pending: 0,
+    balance: row?.balance == null ? null : Number(row.balance),
     pack_code: typeof row?.pack_code === "string" ? row.pack_code : null,
     pack_name: typeof row?.pack_name === "string" ? row.pack_name : null,
   };
+}
+
+export async function cancelPlayPackPurchase(
+  supabase: SupabaseClient,
+  purchaseId: string | number,
+): Promise<{ ok: true } | { ok: false; error: string; code?: string }> {
+  const idNum = Number(purchaseId);
+  if (!Number.isFinite(idNum)) {
+    return { ok: false, error: "Invalid purchase", code: "purchase_not_found" };
+  }
+
+  const { error } = await supabase.rpc("cancel_play_pack_purchase", {
+    p_purchase_id: idNum,
+  });
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error: "Run 20260811_play_pack_purchase_pending.sql in Supabase.",
+        code: "missing_table",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  return { ok: true };
 }
 
 export type ConsumeResult =

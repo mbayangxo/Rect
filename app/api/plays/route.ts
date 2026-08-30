@@ -4,6 +4,10 @@ import {
   recordCreditedPlay,
 } from "@/lib/dashboard/credits";
 import { notifyTrackListen } from "@/lib/dashboard/notifications";
+import {
+  PLAY_EARNING_XOF,
+  recordPlayEarning,
+} from "@/lib/dashboard/play-earnings";
 import { createRouteClient } from "@/lib/supabase/route";
 
 type Body = { track_id?: string };
@@ -83,9 +87,30 @@ export async function POST(request: Request) {
 
   await notifyTrackListen(supabase, trackId, recorded.play_id);
 
+  let artist_earning_xof: number | null = null;
+  let earnings_skipped: string | null = null;
+  let earnings_error: string | null = null;
+  if (recorded.play_id) {
+    const earned = await recordPlayEarning(
+      supabase,
+      trackId,
+      recorded.play_id,
+      PLAY_EARNING_XOF,
+    );
+    if (earned.ok) {
+      artist_earning_xof = earned.amount_xof;
+      earnings_skipped = earned.skipped ?? null;
+    } else {
+      earnings_error = earned.error;
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     play_id: recorded.play_id,
     credits_remaining: recorded.balance,
+    artist_earning_xof,
+    earnings_skipped,
+    earnings_error,
   });
 }
