@@ -129,6 +129,21 @@ export function DashboardShell({
     setContinueItems(continueListening);
   }, [continueListening]);
 
+  useEffect(() => {
+    const scrollToPacks = () => {
+      if (typeof window === "undefined") return;
+      if (window.location.hash !== "#packs") return;
+      window.requestAnimationFrame(() => {
+        document
+          .getElementById("packs")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    };
+    scrollToPacks();
+    window.addEventListener("hashchange", scrollToPacks);
+    return () => window.removeEventListener("hashchange", scrollToPacks);
+  }, []);
+
   async function dismissContinue(trackId: string) {
     if (dismissingId) return;
     setDismissingId(trackId);
@@ -959,6 +974,7 @@ export function DashboardShell({
         )}
 
         {/* CONNECTION 5 — Play packs */}
+        <div id="packs" className="scroll-mt-24">
         {packsError ? (
           <div className="dash-sh px-0">
             <span className="dash-sh-t">Play packs</span>
@@ -981,6 +997,7 @@ export function DashboardShell({
             </p>
           </div>
         )}
+        </div>
         </div>
         </div>
 
