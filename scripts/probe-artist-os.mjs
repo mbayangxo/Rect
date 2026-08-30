@@ -47,7 +47,7 @@ const checks = [
       if (/not_authenticated|track_not_found|insufficient/i.test(error.message)) {
         return { error: null };
       }
-      if (/does not exist|PGRST202|PGRST205/i.test(error.message)) {
+      if (isMissingSchema(error.message)) {
         return { error };
       }
       return { error: null };
@@ -66,7 +66,7 @@ const checks = [
       if (/not_authenticated|track_not_found/i.test(error.message)) {
         return { error: null };
       }
-      if (/does not exist|PGRST202|PGRST205/i.test(error.message)) {
+      if (isMissingSchema(error.message)) {
         return { error };
       }
       return { error: null };
@@ -80,6 +80,12 @@ const checks = [
   },
 ];
 
+function isMissingSchema(message) {
+  return /does not exist|Could not find the table|Could not find the function|PGRST202|PGRST205|schema cache/i.test(
+    message ?? "",
+  );
+}
+
 async function main() {
   console.log("Artist OS Supabase probe\n");
   let failed = 0;
@@ -87,17 +93,17 @@ async function main() {
   for (const check of checks) {
     const result = await check.run();
     const err = result.error;
-    const missing =
-      err &&
-      /does not exist|Could not find the table|PGRST205|schema cache|PGRST202/i.test(
-        err.message,
-      );
+    const missing = err && isMissingSchema(err.message);
 
-    if (missing || (err && check.fix)) {
+    if (missing) {
       failed += 1;
       console.log(`MISSING  ${check.name}`);
-      if (check.fix) console.log(`         → run supabase/migrations/${check.fix}`);
-      else console.log(`         → ${err?.message}`);
+      if (check.fix) {
+        console.log(`         → npm run db:apply -- ${check.fix}`);
+        console.log(`         → or paste supabase/migrations/${check.fix} in SQL Editor`);
+      } else {
+        console.log(`         → ${err?.message}`);
+      }
     } else if (err) {
       console.log(`OK       ${check.name} (${err.message.slice(0, 60)})`);
     } else {
@@ -105,7 +111,9 @@ async function main() {
     }
   }
 
-  console.log(failed ? `\n${failed} gap(s) — apply migrations above.` : "\nAll Artist OS checks passed.");
+  console.log(failed
+    ? `\n${failed} gap(s) — run: npm run db:apply:artist-os`
+    : "\nAll Artist OS checks passed.");
   process.exit(failed ? 1 : 0);
 }
 

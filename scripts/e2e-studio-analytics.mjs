@@ -181,6 +181,9 @@ async function main() {
     if (!playRes.ok) {
       throw new Error(playBody.error || `play ${i + 1} failed ${playRes.status}`);
     }
+    if (playBody.earnings_error && i === 0) {
+      console.log(`   earnings note: ${playBody.earnings_error}`);
+    }
     console.log(`   play ${i + 1}`, playBody.play_id ? "ok" : playBody.own_play ? "own" : "?");
   }
 

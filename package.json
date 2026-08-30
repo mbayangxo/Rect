@@ -6,7 +6,12 @@
     "dev": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:apply": "node --env-file=.env.local scripts/apply-supabase-sql.mjs",
+    "db:apply:artist-os": "node --env-file=.env.local scripts/apply-artist-os.mjs",
+    "probe:artist-os": "node --env-file=.env.local scripts/probe-artist-os.mjs",
+    "e2e:analytics": "node --env-file=.env.local scripts/e2e-studio-analytics.mjs",
+    "e2e:artist-os": "node --env-file=.env.local scripts/e2e-artist-os.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",
@@ -22,6 +27,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "pg": "^8.23.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -8,6 +8,14 @@
 -- TAALI is NOT involved — RECT-only play credit → artist XOF demo earnings.
 -- ============================================================
 
+-- Completion tracking (must exist before record_credited_play uses it)
+alter table public.plays
+  add column if not exists listened_secs integer check (listened_secs is null or listened_secs >= 0);
+
+create index if not exists plays_track_listened_idx
+  on public.plays (track_id, listened_secs)
+  where listened_secs is not null;
+
 create table if not exists public.artist_play_earnings (
   id bigserial primary key,
   artist_id uuid not null references public.users (id) on delete cascade,
@@ -157,5 +165,18 @@ $$;
 
 revoke all on function public.record_credited_play(uuid, integer) from public;
 grant execute on function public.record_credited_play(uuid, integer) to authenticated;
+
+-- Artists can count playlist saves on their tracks (analytics)
+drop policy if exists "playlist_tracks_select_artist_tracks" on public.playlist_tracks;
+create policy "playlist_tracks_select_artist_tracks"
+  on public.playlist_tracks for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.tracks t
+      where t.id = playlist_tracks.track_id
+        and t.artist_id = auth.uid()
+    )
+  );
 
 notify pgrst, 'reload schema';

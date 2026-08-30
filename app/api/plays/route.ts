@@ -90,6 +90,7 @@ export async function POST(request: Request) {
   let artist_earning_xof: number | null = null;
   let earnings_skipped: string | null = null;
   let earnings_error: string | null = null;
+  let earnings_ready = true;
   if (recorded.play_id) {
     const earned = await recordPlayEarning(
       supabase,
@@ -102,6 +103,7 @@ export async function POST(request: Request) {
       earnings_skipped = earned.skipped ?? null;
     } else {
       earnings_error = earned.error;
+      if (earned.code === "missing_table") earnings_ready = false;
     }
   }
 
@@ -112,5 +114,6 @@ export async function POST(request: Request) {
     artist_earning_xof,
     earnings_skipped,
     earnings_error,
+    earnings_ready,
   });
 }

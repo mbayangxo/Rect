@@ -43,7 +43,7 @@ export async function recordPlayEarning(
     if (isMissingRelation(error.message)) {
       return {
         ok: false,
-        error: "Run 20260811_artist_play_earnings.sql in Supabase.",
+        error: "Run npm run db:apply:artist-os or paste 20260830_artist_play_earnings_bootstrap.sql in Supabase.",
         code: "missing_table",
       };
     }

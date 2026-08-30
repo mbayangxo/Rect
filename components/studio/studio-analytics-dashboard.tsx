@@ -147,12 +147,15 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
 
       {!data.revenue.earningsReady ? (
         <div className="rounded-xl border border-[#F5A623]/30 bg-[#F5A623]/10 px-4 py-3 text-sm text-[#F5A623]">
-          Run{" "}
+          Stream revenue requires the play earnings migration. Run{" "}
+          <code className="text-[0.85em]">npm run db:apply:artist-os</code>{" "}
+          (with <code className="text-[0.85em]">SUPABASE_DB_URL</code> in{" "}
+          <code className="text-[0.85em]">.env.local</code>) or paste{" "}
           <code className="text-[0.85em]">
             supabase/migrations/20260830_artist_play_earnings_bootstrap.sql
           </code>{" "}
-          in Supabase SQL Editor to record stream revenue. Stream counts work
-          now; revenue shows 0 until that migration is applied.
+          in Supabase SQL Editor. Stream counts work; revenue shows 0 until
+          applied.
         </div>
       ) : null}
 
