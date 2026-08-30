@@ -199,6 +199,12 @@ export function PlaylistsClient({
       );
       return;
     }
+    if (nextPublic && (p.track_count ?? 0) < 1) {
+      setError(
+        "Add at least one track before making this mix public — open the playlist and add songs.",
+      );
+      return;
+    }
     const prev = playlists;
     setPrivacyId(p.id);
     setPlaylists((list) =>
@@ -452,6 +458,7 @@ export function PlaylistsClient({
                     name={p.name}
                     isPublic={p.is_public}
                     hasCover={Boolean(p.cover_art_url)}
+                    hasTracks={(p.track_count ?? 0) > 0}
                     isOwner
                     onBecamePublic={() => {
                       setPlaylists((list) =>

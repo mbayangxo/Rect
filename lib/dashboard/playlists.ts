@@ -435,7 +435,7 @@ export async function loadPublicPlaylistsByOwner(
         is_public: true,
         pinned_at: null,
       }))
-      .filter((p) => Boolean(p.cover_art_url));
+      .filter((p) => Boolean(p.cover_art_url) && p.track_count > 0);
 
     return { playlists, missingTable: false, error: null };
   } catch (e) {
@@ -1157,7 +1157,7 @@ export async function setPlaylistPublic(
   | {
       ok: false;
       error: string;
-      code?: "missing_table" | "not_found" | "failed" | "cover_required";
+      code?: "missing_table" | "not_found" | "failed" | "cover_required" | "tracks_required";
     }
   >
 {
@@ -1207,6 +1207,31 @@ export async function setPlaylistPublic(
         "Add a cover before making this mix public — Search and Home need artwork.",
       code: "cover_required",
     };
+  }
+
+  if (isPublic) {
+    const { count, error: countError } = await supabase
+      .from("playlist_tracks")
+      .select("track_id", { count: "exact", head: true })
+      .eq("playlist_id", playlistId);
+    if (countError) {
+      if (isMissingRelation(countError.message)) {
+        return {
+          ok: false,
+          error: "Run playlists SQL in Supabase first",
+          code: "missing_table",
+        };
+      }
+      return { ok: false, error: countError.message, code: "failed" };
+    }
+    if (!count || count < 1) {
+      return {
+        ok: false,
+        error:
+          "Add at least one track before making this mix public — empty mixes stay private.",
+        code: "tracks_required",
+      };
+    }
   }
 
   const wasPublic = Boolean(prev.data.is_public);

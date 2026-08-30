@@ -10,6 +10,8 @@ type Props = {
   isPublic: boolean;
   /** Owner cover art — required before Share can auto-publish. */
   hasCover?: boolean;
+  /** Mix has at least one track — required before Share can auto-publish. */
+  hasTracks?: boolean;
   /** When true, Share will make the playlist public first if needed. */
   isOwner?: boolean;
   compact?: boolean;
@@ -23,6 +25,7 @@ export function SharePlaylistButton({
   name,
   isPublic,
   hasCover = true,
+  hasTracks = true,
   isOwner = false,
   compact = false,
   dropUp = false,
@@ -44,9 +47,10 @@ export function SharePlaylistButton({
     if (!isOwner || publicNow) return true;
     if (!hasCover) {
       setFriendNote("Add a cover before sharing publicly.");
-      window.setTimeout(() => setFriendNote(null), 4000);
-      setStatus("error");
-      window.setTimeout(() => setStatus("idle"), 2500);
+      return false;
+    }
+    if (!hasTracks) {
+      setFriendNote("Add tracks before sharing publicly.");
       return false;
     }
     setStatus("pending");

@@ -132,7 +132,8 @@ export async function PATCH(request: Request, ctx: Ctx) {
           ? 503
           : result.code === "not_found"
             ? 404
-            : result.code === "cover_required"
+            : result.code === "cover_required" ||
+                result.code === "tracks_required"
               ? 400
               : 500;
       return NextResponse.json(

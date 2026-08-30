@@ -619,7 +619,7 @@ async function searchPublicPlaylists(
           track_count: countById.get(r.id as string) ?? 0,
         };
       })
-      .filter((p) => Boolean(p.cover_art_url));
+      .filter((p) => Boolean(p.cover_art_url) && p.track_count > 0);
   } catch {
     return [];
   }

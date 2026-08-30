@@ -303,6 +303,12 @@ export function PlaylistDetailClient({
       );
       return false;
     }
+    if (nextPublic && playlist.tracks.length < 1) {
+      setError(
+        "Add at least one track before making this mix public — empty mixes stay private.",
+      );
+      return false;
+    }
     setPrivacyPending(true);
     setError(null);
     setPublishNote(null);
@@ -760,20 +766,28 @@ export function PlaylistDetailClient({
             {isOwner && !playlist.is_public ? (
               <button
                 type="button"
-                disabled={privacyPending || !playlist.cover_art_url?.trim()}
+                disabled={
+                  privacyPending ||
+                  !playlist.cover_art_url?.trim() ||
+                  playlist.tracks.length < 1
+                }
                 onClick={() => void setPublic(true)}
                 className="rounded-full bg-[#1DB954] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
                 title={
-                  playlist.cover_art_url?.trim()
-                    ? undefined
-                    : "Add a cover before publishing"
+                  !playlist.cover_art_url?.trim()
+                    ? "Add a cover before publishing"
+                    : playlist.tracks.length < 1
+                      ? "Add tracks before publishing"
+                      : undefined
                 }
               >
                 {privacyPending
                   ? "…"
                   : !playlist.cover_art_url?.trim()
                     ? "Add cover to publish"
-                    : "Publish for friends"}
+                    : playlist.tracks.length < 1
+                      ? "Add tracks to publish"
+                      : "Publish for friends"}
               </button>
             ) : null}
             {isOwner && playlist.is_public ? (
