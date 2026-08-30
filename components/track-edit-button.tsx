@@ -9,6 +9,7 @@ import {
   matchCulturalLanguage,
   normalizeTrackGenre,
   normalizeTrackLanguage,
+  readAudioDurationSecs,
 } from "@/lib/cultural-options";
 
 type Props = {
@@ -39,6 +40,7 @@ export function TrackEditButton({
     matchCulturalLanguage(language) ?? language ?? "",
   );
   const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [removeCover, setRemoveCover] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export function TrackEditButton({
     setNextGenre(matchCulturalGenre(genre) ?? genre ?? "");
     setNextLanguage(matchCulturalLanguage(language) ?? language ?? "");
     setCoverFile(null);
+    setAudioFile(null);
     setRemoveCover(false);
     setError(null);
     setSaved(false);
@@ -93,6 +96,24 @@ export function TrackEditButton({
         }
       }
 
+      if (audioFile) {
+        const durationSecs = await readAudioDurationSecs(audioFile);
+        const form = new FormData();
+        form.append("audio", audioFile);
+        if (durationSecs != null) {
+          form.append("duration_secs", String(durationSecs));
+        }
+        const res = await fetch(`/api/tracks/${trackId}/audio`, {
+          method: "POST",
+          body: form,
+        });
+        const data = (await res.json()) as { error?: string };
+        if (!res.ok || data.error) {
+          setError(data.error || "Could not replace audio");
+          return;
+        }
+      }
+
       if (coverFile) {
         const form = new FormData();
         form.append("cover", coverFile);
@@ -125,6 +146,7 @@ export function TrackEditButton({
         !genreChanged &&
         !languageChanged &&
         !coverFile &&
+        !audioFile &&
         !removeCover
       ) {
         setOpen(false);
@@ -133,6 +155,7 @@ export function TrackEditButton({
 
       setSaved(true);
       setCoverFile(null);
+      setAudioFile(null);
       setRemoveCover(false);
       setOpen(false);
       router.refresh();
@@ -149,7 +172,7 @@ export function TrackEditButton({
     nextLanguage && !matchCulturalLanguage(nextLanguage) ? nextLanguage : null;
 
   return (
-    <div className="shrink-0 text-right">
+    <div className="relative shrink-0 text-right">
       <button
         type="button"
         onClick={() => (open ? setOpen(false) : openEditor())}
@@ -166,7 +189,7 @@ export function TrackEditButton({
       {open ? (
         <form
           onSubmit={(e) => void onSave(e)}
-          className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-white/15 bg-[#071208] p-3 text-left shadow-xl"
+          className="absolute right-0 z-20 mt-2 w-[min(100vw-2rem,20rem)] rounded-xl border border-white/15 bg-[#071208] p-3 text-left shadow-xl"
         >
           <label className="block text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
             Title
@@ -257,6 +280,20 @@ export function TrackEditButton({
               </p>
             ) : null}
           </fieldset>
+          <label className="mt-3 block text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
+            Replace audio
+            <input
+              type="file"
+              accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg"
+              onChange={(e) => setAudioFile(e.target.files?.[0] ?? null)}
+              className="mt-1 block w-full text-xs text-white/60 file:mr-2 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:text-white/80"
+            />
+          </label>
+          <p className="mt-1 text-[0.55rem] text-white/30">
+            {audioFile
+              ? `${audioFile.name} · keeps this track’s plays & likes`
+              : "Optional · swaps the file in place (same track id)"}
+          </p>
           <label className="mt-3 block text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
             Cover
             <input
