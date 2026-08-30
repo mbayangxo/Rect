@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AddToPlaylist } from "@/components/add-to-playlist";
 import { GenreFilterChips } from "@/components/genre-filter-chips";
 import { LanguageFilterChips } from "@/components/language-filter-chips";
@@ -12,6 +12,9 @@ import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { TrackCover } from "@/components/track-cover";
 import { TrackLikeButton } from "@/components/track-like-button";
+import {
+  subscribeCreditsRemaining,
+} from "@/lib/credits-live";
 import type { RadioStation } from "@/lib/dashboard/radio";
 import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
@@ -38,7 +41,15 @@ type Props = {
   placeChips?: { slug: string; name: string }[];
   likedTracks?: Record<string, boolean>;
   likesReady?: boolean;
+  initialStationId?: string | null;
+  creditBalance?: number;
+  creditsReady?: boolean;
 };
+
+function stationHasTrack(station: RadioStation, trackId: string | undefined) {
+  if (!trackId) return false;
+  return station.tracks.some((t) => t.id === trackId);
+}
 
 export function RadioClient({
   stations,
@@ -55,23 +66,48 @@ export function RadioClient({
   placeChips = [],
   likedTracks = {},
   likesReady = false,
+  initialStationId = null,
+  creditBalance = 0,
+  creditsReady = false,
 }: Props) {
   const player = usePlayer();
-  const [activeId, setActiveId] = useState<string | null>(
-    stations[0]?.id ?? null,
-  );
+  const [credits, setCredits] = useState(creditBalance);
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    if (initialStationId && stations.some((s) => s.id === initialStationId)) {
+      return initialStationId;
+    }
+    return stations[0]?.id ?? null;
+  });
 
   const active = useMemo(
     () => stations.find((s) => s.id === activeId) ?? stations[0] ?? null,
     [stations, activeId],
   );
 
+  useEffect(() => {
+    setCredits(creditBalance);
+  }, [creditBalance]);
+
+  useEffect(() => {
+    return subscribeCreditsRemaining(setCredits);
+  }, []);
+
+  // Keep the dial on the station that owns the track currently playing.
+  useEffect(() => {
+    const trackId = player.track?.id;
+    if (!trackId || stations.length === 0) return;
+    if (active && stationHasTrack(active, trackId)) return;
+    const match =
+      stations.find((s) => s.id === "station-wave" && stationHasTrack(s, trackId)) ??
+      stations.find((s) => stationHasTrack(s, trackId));
+    if (match) setActiveId(match.id);
+  }, [player.track?.id, stations, active]);
+
   function playStation(station: RadioStation, fromIndex = 0) {
     setActiveId(station.id);
     const playable = station.tracks.filter((t) => t.audio_url);
     if (playable.length === 0) return;
     const idx = Math.max(0, Math.min(fromIndex, playable.length - 1));
-    // Map from station index to playable index when clicking a row
     const start =
       fromIndex === 0
         ? 0
@@ -85,6 +121,12 @@ export function RadioClient({
       { repeat: true },
     );
   }
+
+  const nowOnAir =
+    active && player.track && stationHasTrack(active, player.track.id)
+      ? player.track
+      : null;
+  const waveLive = Boolean(nowOnAir && player.playing);
 
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
@@ -101,7 +143,7 @@ export function RadioClient({
               Search
             </Link>
             <Link href="/radio" className="text-[#1DB954]">
-              Radio
+              Wave
             </Link>
             <Link href="/charts" className="hover:text-white">
               Charts
@@ -113,16 +155,38 @@ export function RadioClient({
       <div className="mx-auto w-full max-w-5xl space-y-8 px-5 py-10 sm:px-8">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            RECT Radio
+            RECT Wave
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
-            Stations from the world
+            Stay on the Wave
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
             {personalized
-              ? "Stations tuned to your places, languages, listening times, and genres."
-              : "Place and genre stations from published catalog tracks."}
+              ? "A continuous station from your places, languages, listening times, and genres — plus dialed frequencies from the live catalog."
+              : "Continuous stations built from live catalog tracks. Set places and genres in onboarding to tune Your Wave."}
           </p>
+          {creditsReady ? (
+            <p className="mt-3 text-xs text-white/45">
+              {credits <= 0 ? (
+                <>
+                  No play credits left.{" "}
+                  <Link href="/dashboard" className="text-[#1DB954] hover:underline">
+                    Get a play pack on Home
+                  </Link>{" "}
+                  to keep the Wave going.
+                </>
+              ) : credits <= 5 ? (
+                <>
+                  {credits} play{credits === 1 ? "" : "s"} left ·{" "}
+                  <Link href="/dashboard" className="text-[#1DB954] hover:underline">
+                    Top up on Home
+                  </Link>
+                </>
+              ) : (
+                <>{credits} plays ready</>
+              )}
+            </p>
+          ) : null}
           <div className="mt-4 space-y-2">
             <PlaceFilterChips
               activeSlug={placeSlug}
@@ -130,6 +194,7 @@ export function RadioClient({
               keepParams={{
                 genre: genreSlug || undefined,
                 language: languageSlug || undefined,
+                station: initialStationId || undefined,
               }}
               places={placeChips}
             />
@@ -139,6 +204,7 @@ export function RadioClient({
               keepParams={{
                 language: languageSlug || undefined,
                 place: placeSlug || undefined,
+                station: initialStationId || undefined,
               }}
               genres={genreChips}
             />
@@ -148,6 +214,7 @@ export function RadioClient({
               keepParams={{
                 genre: genreSlug || undefined,
                 place: placeSlug || undefined,
+                station: initialStationId || undefined,
               }}
               languages={languageChips}
             />
@@ -164,17 +231,17 @@ export function RadioClient({
 
         {loadError ? (
           <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
-            Could not load radio. {loadError}
+            Could not load Wave. {loadError}
           </p>
         ) : stations.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
             <p className="text-base font-medium">
               {placeLabel || genreLabel || languageLabel
-                ? `No stations for ${[placeLabel, genreLabel, languageLabel].filter(Boolean).join(" · ")}`
-                : "No stations yet"}
+                ? `No Wave for ${[placeLabel, genreLabel, languageLabel].filter(Boolean).join(" · ")}`
+                : "Wave is quiet"}
             </p>
             <p className="mt-2 text-sm text-white/40">
-              Publish tracks with genres to light up the dial.
+              Publish live tracks with genres to light up the dial.
             </p>
           </div>
         ) : (
@@ -182,19 +249,49 @@ export function RadioClient({
             {active ? (
               <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-[#0a2e18] to-[#060908] p-6 sm:p-8">
                 <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[#1DB954]">
-                  {active.forYou ? "For you · On air" : "On air"}
+                  {waveLive
+                    ? "On air · Now playing"
+                    : active.forYou
+                      ? "For you · On air"
+                      : "On air"}
                 </p>
                 <h2 className="mt-2 font-[family-name:var(--font-syne)] text-2xl font-semibold sm:text-3xl">
                   {active.label}
                 </h2>
                 <p className="mt-1 text-sm text-white/45">{active.subtitle}</p>
+                {nowOnAir ? (
+                  <div className="mt-5 flex items-center gap-3">
+                    <TrackCover track={nowOnAir} size="md" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {trackTitle(nowOnAir)}
+                      </p>
+                      <p className="truncate text-xs text-white/45">
+                        {trackArtist(nowOnAir)}
+                        {player.playing ? " · playing" : " · paused"}
+                      </p>
+                    </div>
+                  </div>
+                ) : active.tracks[0] ? (
+                  <div className="mt-5 flex items-center gap-3 opacity-70">
+                    <TrackCover track={active.tracks[0]} size="md" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        Starts with {trackTitle(active.tracks[0])}
+                      </p>
+                      <p className="truncate text-xs text-white/45">
+                        {active.tracks.length} tracks in rotation
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-6 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => playStation(active)}
                     className="inline-flex items-center gap-2 rounded-full bg-[#1DB954] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349]"
                   >
-                    ▶ Play station
+                    ▶ {waveLive ? "Restart Wave" : "Play Wave"}
                   </button>
                   <button
                     type="button"
@@ -210,6 +307,15 @@ export function RadioClient({
                   >
                     ⇄ Shuffle
                   </button>
+                  {waveLive ? (
+                    <button
+                      type="button"
+                      onClick={() => player.next()}
+                      className="inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2.5 text-sm font-medium text-white/80 hover:bg-white/10"
+                    >
+                      Next →
+                    </button>
+                  ) : null}
                 </div>
               </section>
             ) : null}
@@ -219,41 +325,60 @@ export function RadioClient({
                 Frequencies
               </h2>
               <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-                {stations.map((s, i) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => playStation(s)}
-                    className={`w-[150px] shrink-0 overflow-hidden rounded-xl border text-left transition ${
-                      active?.id === s.id
-                        ? "border-[#1DB954]/50"
-                        : "border-white/10 hover:border-white/25"
-                    }`}
-                  >
-                    <div
-                      className={`flex h-20 items-end bg-gradient-to-br ${TONES[i % TONES.length]} p-3`}
+                {stations.map((s, i) => {
+                  const cover = s.tracks.find((t) => t.cover_art_url) ?? s.tracks[0];
+                  const isActive = active?.id === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => playStation(s)}
+                      className={`w-[150px] shrink-0 overflow-hidden rounded-xl border text-left transition ${
+                        isActive
+                          ? "border-[#1DB954]/50"
+                          : "border-white/10 hover:border-white/25"
+                      }`}
                     >
-                      {s.forYou ? (
-                        <span className="rounded bg-[#1DB954]/20 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-wide text-[#1DB954]">
-                          For you
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="bg-white/[0.03] p-3">
-                      <p className="truncate text-sm font-semibold">{s.label}</p>
-                      <p className="mt-0.5 truncate text-[0.65rem] text-white/40">
-                        {s.subtitle}
-                      </p>
-                    </div>
-                  </button>
-                ))}
+                      <div
+                        className={`relative flex h-20 items-end bg-gradient-to-br ${TONES[i % TONES.length]} p-3`}
+                      >
+                        {cover?.cover_art_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={cover.cover_art_url}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-cover opacity-55"
+                          />
+                        ) : null}
+                        <div className="relative z-[1] flex flex-wrap gap-1">
+                          {s.id === "station-wave" ? (
+                            <span className="rounded bg-black/50 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-wide text-[#1DB954]">
+                              Wave
+                            </span>
+                          ) : null}
+                          {s.forYou ? (
+                            <span className="rounded bg-[#1DB954]/20 px-1.5 py-0.5 text-[0.55rem] font-bold uppercase tracking-wide text-[#1DB954]">
+                              For you
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="bg-white/[0.03] p-3">
+                        <p className="truncate text-sm font-semibold">{s.label}</p>
+                        <p className="mt-0.5 truncate text-[0.65rem] text-white/40">
+                          {s.subtitle}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
             {active && active.tracks.length > 0 ? (
               <section>
                 <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
-                  Queue · {active.label}
+                  Rotation · {active.label}
                 </h2>
                 <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                   {active.tracks.map((t, i) => {

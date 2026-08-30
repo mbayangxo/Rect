@@ -35,7 +35,7 @@ export function GenresClient({ hubs, loadError, personalized }: Props) {
               Genres
             </Link>
             <Link href="/radio" className="hover:text-white">
-              Radio
+              Wave
             </Link>
           </nav>
         </div>

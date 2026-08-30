@@ -68,8 +68,9 @@ async function loadArtistCountriesMap(
 }
 
 /**
- * Build radio stations from published tracks.
+ * Build Wave stations from live catalog tracks.
  * Prefer listener taste places, languages, genres, and current daypart.
+ * Flagship station is always "Your Wave" / "The Wave".
  */
 export async function loadRadioStations(
   supabase: SupabaseClient,
@@ -369,16 +370,56 @@ export async function loadRadioStations(
       .slice(0, 8);
 
     if (tracks.length > 0) {
+      const hasTaste =
+        preferredGenres.length > 0 ||
+        preferredPlaces.length > 0 ||
+        preferredLanguages.length > 0 ||
+        Boolean(activeDaypart);
+
+      const waveTracks = [...tracks]
+        .sort((a, b) => {
+          const placeA = placeOverlapScore(
+            a.artist_id ? (countriesByArtist.get(a.artist_id) ?? []) : [],
+            preferredPlaces,
+          );
+          const placeB = placeOverlapScore(
+            b.artist_id ? (countriesByArtist.get(b.artist_id) ?? []) : [],
+            preferredPlaces,
+          );
+          const genreA = genreOverlapScore([a.genre], preferredGenres);
+          const genreB = genreOverlapScore([b.genre], preferredGenres);
+          const langA = languageOverlapScore(
+            [a.language],
+            preferredLanguages,
+          );
+          const langB = languageOverlapScore(
+            [b.language],
+            preferredLanguages,
+          );
+          const dayA = activeDaypart ? daypartSoftScore(activeDaypart, a) : 0;
+          const dayB = activeDaypart ? daypartSoftScore(activeDaypart, b) : 0;
+          return (
+            placeB - placeA ||
+            genreB - genreA ||
+            langB - langA ||
+            dayB - dayA ||
+            (b.created_at || "").localeCompare(a.created_at || "")
+          );
+        })
+        .slice(0, 24);
+
       stations.unshift({
-        id: "station-current",
-        label: "The Current",
-        subtitle: "Mixed published signal",
+        id: "station-wave",
+        label: hasTaste ? "Your Wave" : "The Wave",
+        subtitle: hasTaste
+          ? "Continuous mix from your places, languages, times & genres"
+          : "Live catalog signal · keep listening",
         genre: null,
         place: null,
         language: null,
-        daypart: null,
-        tracks: tracks.slice(0, 16),
-        forYou: false,
+        daypart: activeDaypart,
+        tracks: waveTracks,
+        forYou: hasTaste,
       });
     }
 
