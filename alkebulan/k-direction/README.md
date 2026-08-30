@@ -1,0 +1,38 @@
+# K-Direction
+
+First Kebu site on the Alkebulan platform. Brand: **K-DIRECTION / K-DIRECTION CORP.** Not Rect Sound.
+
+This folder is `alkebulan/k-direction` so it sits with other Kebu sites, not inside the Rect Sound app. GitHub is still the Rect repo until a Kebu repo exists — this cloud agent cannot create that repo.
+
+## Direct answers
+
+| Question | Answer |
+| --- | --- |
+| **Vercel?** | **Yes.** Separate Vercel project. **Root Directory:** `alkebulan/k-direction`. Do not use the repo-root `vercel.json` (that deploys Rect Sound). |
+| **Photos?** | **Yes.** Portal upload on artists, blog posts, and events. |
+| **Edit blogs?** | **Yes.** `/portal` → Blog. |
+| **Portal for artists and events?** | **Yes.** `/portal` — add or remove artists and events. |
+| **Job applications + resumes?** | **Yes.** Careers apply form. Staff view at `/portal/applications`. Resumes are portal-only. |
+| **Tickets?** | **Joko.** Each event stores a Joko ticket URL. Public button: “Buy tickets on Joko.” No checkout inside K-Direction. |
+| **Kebu?** | This *is* a Kebu site (first one). Settings and artists can also store a Kebu URL. |
+| **Contact form?** | **Always the portal inbox.** Settings: portal / personal email / both. Email send needs a provider on Vercel later. |
+| **Supabase migrations?** | **No, not applied.** Prisma + SQLite locally. SQL draft in `supabase/migrations/` for a future Kebu/K-Direction Supabase project. Do not use Rect Sound’s database. |
+
+SQLite on Vercel is ephemeral. Lasting portal data needs Supabase (or other Postgres) plus blob storage later.
+
+## Run locally
+
+```bash
+cd alkebulan/k-direction
+cp env.example .env
+npm install
+npm run db:setup
+npm run dev
+```
+
+- Site: [http://127.0.0.1:3100](http://127.0.0.1:3100)
+- Portal: [http://127.0.0.1:3100/portal](http://127.0.0.1:3100/portal) — `PORTAL_PASSWORD` in `.env`
+
+```bash
+npm run e2e
+```
