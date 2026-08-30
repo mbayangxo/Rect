@@ -56,8 +56,8 @@ export async function POST() {
         : [];
     const needsDiscoverability = places.length < 1 || genres.length < 1;
     const studioHref = needsDiscoverability
-      ? "/studio?setup=places"
-      : "/studio";
+      ? "/studio/portal?setup=places"
+      : "/studio/upload";
 
     if (alreadyArtist) {
       await supabase.auth.updateUser({

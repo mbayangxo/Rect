@@ -75,17 +75,17 @@ export default async function ForArtistsPage() {
         <div className="mt-12 flex flex-col gap-3">
           {isArtist ? (
             <Link
-              href="/studio"
+              href="/studio/upload"
               className="rounded-full bg-[#1DB954] py-3.5 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
             >
-              Open Studio
+              Open Artist OS
             </Link>
           ) : user ? (
             <>
               <BecomeArtistButton />
               <p className="text-center text-xs text-white/40">
-                Keeps your likes, journal, and follows on this account. Next:
-                set places &amp; genres so Charts can find you.
+                Keeps your likes, journal, and follows on this account. Upload
+                from Studio — TAALI registration is optional later.
               </p>
             </>
           ) : (

@@ -28,9 +28,14 @@ export async function recordPlayEarning(
   playId: string,
   amountXof: number = PLAY_EARNING_XOF,
 ): Promise<PlayEarningResult> {
+  const id = playId.trim();
+  if (!id) {
+    return { ok: false, error: "Invalid play id", code: "failed" };
+  }
+
   const { data, error } = await supabase.rpc("record_play_earning", {
     p_track_id: trackId,
-    p_play_id: playId,
+    p_play_id: id,
     p_amount_xof: amountXof,
   });
 

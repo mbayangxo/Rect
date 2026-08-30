@@ -82,6 +82,13 @@ with expected(kind, name, migration) as (
     -- Aug 10 Artist Studio
     ('table', 'track_writer_splits', '20260810_track_writer_splits.sql'),
     ('function', 'set_track_writer_splits', '20260810_track_writer_splits.sql'),
+    ('function', 'record_credited_play', '20260811_record_credited_play.sql'),
+    ('function', 'record_play_earning', '20260830_fix_play_earnings_play_id.sql'),
+    ('table', 'artist_play_earnings', '20260811_artist_play_earnings.sql'),
+    ('column', 'tracks.taali_registry_id', '20260830_tracks_taali_fields.sql'),
+    ('column', 'tracks.isrc_code', '20260830_tracks_taali_fields.sql'),
+    ('column', 'tracks.writer_splits', '20260830_tracks_taali_fields.sql'),
+    ('column', 'users.artist_banner_url', '20260830_users_artist_banner.sql'),
     ('function', 'toggle_playlist_comment_like', '20260809_playlist_comment_replies_likes.sql'),
     ('function', 'invite_playlist_collaborator', '20260809_playlist_collaborators.sql'),
     ('function', 'approve_playlist_collab_request', '20260809_collab_approve_from_request.sql'),

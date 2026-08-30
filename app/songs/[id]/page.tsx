@@ -298,7 +298,7 @@ export default async function SongPage({ params }: Props) {
 
           {isOwner && artistId ? (
             <p className="mt-4 text-sm text-white/45">
-              <Link href="/studio" className="text-[#1DB954] hover:underline">
+              <Link href="/studio/tracks" className="text-[#1DB954] hover:underline">
                 Open studio →
               </Link>
             </p>

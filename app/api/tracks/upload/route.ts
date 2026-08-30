@@ -163,39 +163,35 @@ export async function POST(request: Request) {
   if (writersRaw) {
     try {
       const parsed = JSON.parse(writersRaw) as unknown;
-      if (!Array.isArray(parsed) || parsed.length < 1) {
-        return NextResponse.json(
-          { error: "Writer splits are required." },
-          { status: 400 },
-        );
-      }
-      writers = [];
-      let total = 0;
-      for (const item of parsed) {
-        const row = item as { name?: unknown; percent?: unknown };
-        const name =
-          typeof row.name === "string" ? row.name.trim().slice(0, 120) : "";
-        const percent = Number(row.percent);
-        if (!name) {
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        writers = [];
+        let total = 0;
+        for (const item of parsed) {
+          const row = item as { name?: unknown; percent?: unknown };
+          const name =
+            typeof row.name === "string" ? row.name.trim().slice(0, 120) : "";
+          const percent = Number(row.percent);
+          if (!name) {
+            return NextResponse.json(
+              { error: "Each writer needs a name." },
+              { status: 400 },
+            );
+          }
+          if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+            return NextResponse.json(
+              { error: "Each split must be between 0 and 100%." },
+              { status: 400 },
+            );
+          }
+          writers.push({ name, percent: Math.round(percent * 100) / 100 });
+          total += percent;
+        }
+        if (Math.abs(total - 100) > 0.01) {
           return NextResponse.json(
-            { error: "Each writer needs a name." },
+            { error: "Writer splits must total 100%." },
             { status: 400 },
           );
         }
-        if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
-          return NextResponse.json(
-            { error: "Each split must be between 0 and 100%." },
-            { status: 400 },
-          );
-        }
-        writers.push({ name, percent: Math.round(percent * 100) / 100 });
-        total += percent;
-      }
-      if (Math.abs(total - 100) > 0.01) {
-        return NextResponse.json(
-          { error: "Writer splits must total 100%." },
-          { status: 400 },
-        );
       }
     } catch {
       return NextResponse.json(
@@ -205,6 +201,11 @@ export async function POST(request: Request) {
     }
   }
   const durationRaw = String(form.get("duration_secs") ?? "").trim();
+  const masterOwnerRaw = String(form.get("master_owner") ?? "").trim();
+  const territoryRaw = String(form.get("territory_of_origin") ?? "")
+    .trim()
+    .toUpperCase()
+    .slice(0, 2);
   const durationParsed = durationRaw ? Number(durationRaw) : NaN;
   const duration_secs =
     Number.isFinite(durationParsed) &&
@@ -418,6 +419,16 @@ export async function POST(request: Request) {
   if (cover_art_url) insertPayload.cover_art_url = cover_art_url;
   if (duration_secs != null) insertPayload.duration_secs = duration_secs;
   if (language) insertPayload.language = language;
+  if (masterOwnerRaw) insertPayload.master_owner = masterOwnerRaw.slice(0, 120);
+  if (territoryRaw && /^[A-Z]{2}$/.test(territoryRaw)) {
+    insertPayload.territory_of_origin = territoryRaw;
+  }
+  if (writers) {
+    insertPayload.writer_splits = writers.map((w) => ({
+      name: w.name,
+      percentage: w.percent,
+    }));
+  }
 
   let workingPayload = { ...insertPayload };
   const liveStatus = trackStatusForWrite("live");
@@ -460,6 +471,17 @@ export async function POST(request: Request) {
       /duration_secs|column .* does not exist/i.test(error.message)
     ) {
       delete workingPayload.duration_secs;
+      continue;
+    }
+    if (
+      error &&
+      /master_owner|territory_of_origin|writer_splits|column .* does not exist/i.test(
+        error.message,
+      )
+    ) {
+      delete workingPayload.master_owner;
+      delete workingPayload.territory_of_origin;
+      delete workingPayload.writer_splits;
       continue;
     }
   }

@@ -21,7 +21,7 @@ as $$
 declare
   v_uid uuid := auth.uid();
   v_new integer;
-  v_play_id bigint;
+  v_play_id uuid;
 begin
   if v_uid is null then
     raise exception 'not_authenticated';

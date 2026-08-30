@@ -318,6 +318,61 @@ export async function consumePlayCredit(
  * Consume one credit and insert the play in a single DB transaction.
  * Prefer this over consumePlayCredit + manual plays insert.
  */
+async function recordCreditedPlayFallback(
+  supabase: SupabaseClient,
+  trackId: string,
+  starter: number,
+): Promise<CreditedPlayResult> {
+  await supabase.rpc("ensure_play_balance", { p_starter: starter });
+
+  const consumed = await consumePlayCredit(supabase);
+  if (!consumed.ok) {
+    return {
+      ok: false,
+      error: consumed.error,
+      code:
+        consumed.code === "insufficient"
+          ? "insufficient"
+          : consumed.code === "missing_table"
+            ? "missing_table"
+            : "failed",
+    };
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return {
+      ok: false,
+      error: "Sign in required to record plays.",
+      code: "not_authenticated",
+    };
+  }
+
+  const { data: play, error: playError } = await supabase
+    .from("plays")
+    .insert({ track_id: trackId, listener_id: user.id })
+    .select("id")
+    .maybeSingle();
+
+  if (playError || !play?.id) {
+    return {
+      ok: false,
+      error: playError?.message || "Play not recorded",
+      code: "failed",
+    };
+  }
+
+  return {
+    ok: true,
+    play_id: String(play.id),
+    balance: consumed.balance,
+  };
+}
+
 export async function recordCreditedPlay(
   supabase: SupabaseClient,
   trackId: string,
@@ -335,12 +390,7 @@ export async function recordCreditedPlay(
 
   if (error) {
     if (isMissingRelation(error.message)) {
-      return {
-        ok: false,
-        error:
-          "Run 20260811_record_credited_play.sql in Supabase (record_credited_play).",
-        code: "missing_table",
-      };
+      return recordCreditedPlayFallback(supabase, id, starter);
     }
     if (/not_authenticated/i.test(error.message)) {
       return {
@@ -358,6 +408,10 @@ export async function recordCreditedPlay(
         error: "No play credits left. Buy a play pack to keep listening.",
         code: "insufficient",
       };
+    }
+    // Atomic RPC broken (e.g. play_id uuid/bigint drift) — two-step fallback.
+    if (/invalid input syntax for type bigint|invalid input syntax for type uuid/i.test(error.message)) {
+      return recordCreditedPlayFallback(supabase, id, starter);
     }
     return { ok: false, error: error.message, code: "failed" };
   }

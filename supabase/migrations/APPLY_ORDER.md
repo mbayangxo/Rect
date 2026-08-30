@@ -102,7 +102,11 @@ After applying, run `_probe_missing_aug08_09.sql` — every row should show `ok`
 86. `20260810_phase1_track_live_status.sql`
 87. `20260810_track_writer_splits.sql`
 88. `20260811_record_credited_play.sql`
-89. `20260811_exclude_own_plays_from_charts.sql`
+90. `20260811_artist_play_earnings.sql`
+91. `20260811_play_pack_purchase_pending.sql`
+92. `20260830_fix_play_earnings_play_id.sql` ← **fix if play earnings fail**
+93. `20260830_tracks_taali_fields.sql` ← optional nullable TAALI columns on tracks
+94. `20260830_users_artist_banner.sql` ← artist portal banner (optional)
 
 ## Verify
 
