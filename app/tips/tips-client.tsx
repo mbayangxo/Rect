@@ -51,9 +51,10 @@ export function TipsClient({
             Support sent
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Confirmed tips from your account
+            Demo tips from your account — recorded for artists, not real charges
+            or withdrawable payouts
             {!missingTable
-              ? ` · ${totalXof.toLocaleString()} XOF total`
+              ? ` · ${totalXof.toLocaleString()} XOF demo total`
               : ""}
             .
           </p>
@@ -80,7 +81,7 @@ export function TipsClient({
           <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
             <p className="text-base font-medium">No tips yet</p>
             <p className="mt-2 text-sm text-white/40">
-              Open an artist portal and send 100, 200, or 500 XOF.
+              Open an artist portal and send a demo tip (100, 200, or 500 XOF).
             </p>
             <Link
               href="/search"
@@ -110,7 +111,9 @@ export function TipsClient({
                       ? new Date(t.created_at).toLocaleString()
                       : "—"}
                     {" · "}
-                    {t.payment_method}
+                    {t.payment_method === "stub" || !t.payment_method
+                      ? "demo"
+                      : t.payment_method}
                     {t.track_id ? (
                       <>
                         {" · "}
@@ -140,8 +143,11 @@ export function TipsClient({
                     />
                   ) : null}
                 </div>
-                <span className="shrink-0 text-sm font-semibold text-[#1DB954]">
+                <span className="shrink-0 text-right text-sm font-semibold text-[#1DB954]">
                   {t.amount_xof.toLocaleString()} XOF
+                  <span className="mt-0.5 block text-[0.55rem] font-normal uppercase tracking-[0.12em] text-white/35">
+                    demo
+                  </span>
                 </span>
               </li>
             ))}
