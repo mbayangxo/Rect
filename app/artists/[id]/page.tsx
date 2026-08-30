@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArtistFollowButton } from "@/components/artist-follow-button";
+import { ArtistMerchGrid } from "@/components/artist-merch-grid";
 import { ArtistTipButton } from "@/components/artist-tip-button";
 import { PeopleBlockButton } from "@/components/people-block-button";
 import { PeopleSharedTracks } from "@/components/people-shared-tracks";
 import { RectLogo } from "@/components/rect-logo";
 import { TrackList } from "@/components/track-list";
 import { loadIsBlocked, loadUsersAreBlocked } from "@/lib/dashboard/blocks";
+import { loadArtistMerchItems } from "@/lib/dashboard/artist-merch";
 import {
   loadFollowerCount,
   loadIsFollowing,
@@ -249,7 +251,7 @@ export default async function ArtistPortalPage({ params }: Props) {
       return isOwner || isPublishedTrack(t);
     });
 
-  const [countRes, followRes, tipsReady, activity, mixesRes] =
+  const [countRes, followRes, tipsReady, activity, mixesRes, merchRes] =
     await Promise.all([
       loadFollowerCount(supabase, id),
       user && !isOwner
@@ -258,6 +260,7 @@ export default async function ArtistPortalPage({ params }: Props) {
       tipsTableReady(supabase),
       loadSharedListeningActivity(supabase, id, 6),
       loadPublicPlaylistsByOwner(supabase, id, 8),
+      loadArtistMerchItems(db, id, { publicOnly: true }),
     ]);
   const followsReady = !countRes.missingTable && !followRes.missingTable;
   const publicMixes = mixesRes.playlists;
@@ -445,6 +448,28 @@ export default async function ArtistPortalPage({ params }: Props) {
               className="mt-3 inline-block text-xs text-[#1DB954] hover:underline"
             >
               Open Your mixes →
+            </Link>
+          </section>
+        ) : null}
+
+        {!merchRes.missingTable && merchRes.items.length > 0 ? (
+          <ArtistMerchGrid
+            items={merchRes.items}
+            artistId={id}
+            isOwner={isOwner}
+            loginNext={`/artists/${id}`}
+          />
+        ) : isOwner && !merchRes.missingTable ? (
+          <section className="rounded-xl border border-dashed border-white/15 px-4 py-6 text-center">
+            <p className="text-sm text-white/45">No store items yet</p>
+            <p className="mt-1 text-xs text-white/30">
+              Add merch in Studio — active items appear here automatically.
+            </p>
+            <Link
+              href="/studio/store"
+              className="mt-3 inline-block text-xs text-[#1DB954] hover:underline"
+            >
+              Open Store →
             </Link>
           </section>
         ) : null}

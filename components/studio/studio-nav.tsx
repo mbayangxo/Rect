@@ -7,6 +7,7 @@ import { RectLogo } from "@/components/rect-logo";
 const NAV = [
   { href: "/studio/upload", label: "Upload", short: "Upload" },
   { href: "/studio/tracks", label: "Tracks", short: "Tracks" },
+  { href: "/studio/store", label: "Store", short: "Store" },
   { href: "/studio/analytics", label: "Analytics", short: "Stats" },
   { href: "/studio/portal", label: "Portal", short: "Portal" },
 ] as const;

@@ -107,6 +107,9 @@ After applying, run `_probe_missing_aug08_09.sql` — every row should show `ok`
 92. `20260830_fix_play_earnings_play_id.sql` ← **fix if play earnings fail**
 93. `20260830_tracks_taali_fields.sql` ← optional nullable TAALI columns on tracks
 94. `20260830_users_artist_banner.sql` ← artist portal banner (optional)
+95. `20260830_tracks_editorial_boost.sql` ← RECT SCORE editorial component (optional)
+96. `20260830_joko_play_pack_payment.sql` ← JOKO mobile money on play packs (optional)
+97. `20260830_artist_merch_store.sql` ← Artist merch store + JOKO purchases
 
 ## Verify
 
