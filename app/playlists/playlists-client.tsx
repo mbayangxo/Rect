@@ -267,7 +267,7 @@ export function PlaylistsClient({
               Home
             </Link>
             <Link href="/library" className="hover:text-white">
-              Liked
+              Library
             </Link>
             <Link href="/playlists" className="text-[#1DB954]">
               Playlists

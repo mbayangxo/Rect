@@ -284,7 +284,7 @@ export function DashboardShell({
           <SignOutButton />
         </div>
         <Link href="/library" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Liked songs</span>
+          <span>Library</span>
           <span>›</span>
         </Link>
         <Link href="/following" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
@@ -387,7 +387,7 @@ export function DashboardShell({
         <span className="dash-hub-label">RECT Hub</span>
         <div className="dash-hub-sep" />
         <Link href="/library" className="dash-hub-exit">
-          Liked <span className="dash-hub-arr">↗</span>
+          Library <span className="dash-hub-arr">↗</span>
         </Link>
         <Link href="/following" className="dash-hub-exit">
           Following <span className="dash-hub-arr">↗</span>
@@ -1041,7 +1041,7 @@ export function DashboardShell({
         </Link>
         <Link href="/library" className="dash-ni">
           <span className="dash-ni-ico">♥</span>
-          <span className="dash-ni-lbl">Liked</span>
+          <span className="dash-ni-lbl">Library</span>
         </Link>
         <Link href="/charts" className="dash-ni">
           <span className="dash-ni-ico">📊</span>
