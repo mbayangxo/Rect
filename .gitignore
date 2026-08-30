@@ -5,6 +5,9 @@
 k-direction/node_modules
 k-direction/.next
 k-direction/out
+k-direction/generated
+k-direction/prisma/*.db
+k-direction/prisma/*.db-journal
 /.pnp
 .pnp.*
 .yarn/*

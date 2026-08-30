@@ -9,6 +9,11 @@ import { Logo } from "@/components/logo";
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [openFor, setOpenFor] = useState(pathname);
+  if (openFor !== pathname) {
+    setOpenFor(pathname);
+    setOpen(false);
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-ink text-white">
@@ -23,7 +28,7 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 aria-current={current ? "page" : undefined}
-                className={`px-3 py-1.5 font-display text-lg tracking-[0.14em] uppercase transition-colors ${
+                className={`px-3 py-1.5 font-display text-lg tracking-[0.14em] uppercase transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime ${
                   current
                     ? "bg-pink text-ink"
                     : "bg-lime text-ink hover:bg-pink"
@@ -58,7 +63,6 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 aria-current={current ? "page" : undefined}
-                onClick={() => setOpen(false)}
                 className={`px-3 py-3 text-center font-display text-2xl tracking-[0.14em] uppercase ${
                   current ? "bg-pink text-ink" : "bg-lime text-ink"
                 }`}

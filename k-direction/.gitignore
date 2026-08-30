@@ -30,6 +30,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+/generated/
+/prisma/*.db
+/prisma/*.db-journal
+/prisma/*.db-wal
+
 # env files (can opt-in for committing if needed)
 .env*
 

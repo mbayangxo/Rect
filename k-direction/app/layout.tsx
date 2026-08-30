@@ -1,8 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Outfit } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { site } from "@/content/site";
+import { getSettings } from "@/lib/catalog";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -16,12 +16,21 @@ const bebas = Bebas_Neue({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: `${site.name}`,
-    template: `%s | ${site.name}`,
-  },
-  description: site.mission,
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  return {
+    title: {
+      default: settings.name,
+      template: `%s | ${settings.name}`,
+    },
+    description: settings.mission,
+  };
+}
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -30,7 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${outfit.variable} ${bebas.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col bg-ink font-sans text-white">
+      <body className="flex min-h-full flex-col overflow-x-hidden bg-ink font-sans text-white">
         <a
           href="#content"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:bg-lime focus:px-3 focus:py-2 focus:text-ink"

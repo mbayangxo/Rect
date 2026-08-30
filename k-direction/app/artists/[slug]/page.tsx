@@ -3,37 +3,31 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageFrame } from "@/components/page-frame";
-import { artists, getArtist } from "@/content/artists";
-import { news } from "@/content/news";
-import { site } from "@/content/site";
+import { getArtist, getNewsForArtist, getSettings } from "@/lib/catalog";
 
-export function generateStaticParams() {
-  return artists.map((artist) => ({ slug: artist.slug }));
-}
-
-export const dynamicParams = false;
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
 }: PageProps<"/artists/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const artist = getArtist(slug);
-  if (!artist) {
-    return { title: "Artist" };
-  }
-  return { title: artist.displayName };
+  const artist = await getArtist(slug);
+  return { title: artist?.displayName ?? "Artist" };
 }
 
 export default async function ArtistPage({
   params,
 }: PageProps<"/artists/[slug]">) {
   const { slug } = await params;
-  const artist = getArtist(slug);
+  const artist = await getArtist(slug);
   if (!artist) {
     notFound();
   }
 
-  const posts = news.filter((post) => post.artistSlug === artist.slug);
+  const [posts, settings] = await Promise.all([
+    getNewsForArtist(artist.id),
+    getSettings(),
+  ]);
 
   return (
     <PageFrame tone="lime">
@@ -72,8 +66,8 @@ export default async function ArtistPage({
           ) : null}
           <p className="mt-10 text-sm uppercase tracking-[0.16em]">
             Bookings{" "}
-            <a className="underline" href={`mailto:${site.emails.bookings}`}>
-              {site.emails.bookings}
+            <a className="underline" href={`mailto:${settings.bookingsEmail}`}>
+              {settings.bookingsEmail}
             </a>
           </p>
         </div>
