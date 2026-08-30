@@ -100,6 +100,10 @@ export function FollowingClient({
     initialMixes,
   ]);
 
+  const playableFresh = tracks.filter((t) => t.audio_url);
+  const playableFriendsListening = friends.filter((t) => t.audio_url);
+  const playableFriendsLikes = likes.filter((t) => t.audio_url);
+
   async function unfollow(artistId: string) {
     setPendingId(artistId);
     setError(null);
@@ -433,22 +437,63 @@ export function FollowingClient({
 
         {friends.length > 0 ? (
           <section>
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
-              Friends listening
-            </h2>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+                Friends listening
+              </h2>
+              {playableFriendsListening.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      player.playQueue(playableFriendsListening, 0)
+                    }
+                    className="rounded-full bg-[#1DB954] px-3 py-1 text-xs font-semibold text-black hover:bg-[#17a349]"
+                  >
+                    ▶ Play all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      player.playQueue(playableFriendsListening, 0, {
+                        shuffle: true,
+                        repeat: true,
+                      })
+                    }
+                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                  >
+                    ⇄ Shuffle
+                  </button>
+                </>
+              ) : null}
+            </div>
             <ul className="space-y-1 rounded-2xl border border-white/10 bg-white/[0.03] p-2 md:p-3">
-              {friends.map((t) => (
+              {friends.map((t) => {
+                const active = player.track?.id === t.id;
+                const canPlay = Boolean(t.audio_url);
+                const queueIdx = playableFriendsListening.findIndex(
+                  (x) => x.id === t.id,
+                );
+                return (
                 <li
                   key={`${t.listener_id}-${t.play_id}`}
-                  className="rounded-xl px-3 py-2.5 hover:bg-white/[0.06]"
+                  className={`rounded-xl px-3 py-2.5 hover:bg-white/[0.06] ${
+                    active ? "bg-[#1DB954]/10" : ""
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        if (t.audio_url) player.play(t);
+                        if (!canPlay) return;
+                        if (active) player.toggle();
+                        else
+                          player.playQueue(
+                            playableFriendsListening,
+                            Math.max(0, queueIdx),
+                          );
                       }}
-                      disabled={!t.audio_url}
+                      disabled={!canPlay}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-40"
                     >
                       <TrackCover track={t} size="sm" />
@@ -484,29 +529,69 @@ export function FollowingClient({
                     initialThanks={t.thanks_message}
                   />
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         ) : null}
 
         {likes.length > 0 ? (
           <section>
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
-              Friends liked
-            </h2>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+                Friends liked
+              </h2>
+              {playableFriendsLikes.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => player.playQueue(playableFriendsLikes, 0)}
+                    className="rounded-full bg-[#1DB954] px-3 py-1 text-xs font-semibold text-black hover:bg-[#17a349]"
+                  >
+                    ▶ Play all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      player.playQueue(playableFriendsLikes, 0, {
+                        shuffle: true,
+                        repeat: true,
+                      })
+                    }
+                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                  >
+                    ⇄ Shuffle
+                  </button>
+                </>
+              ) : null}
+            </div>
             <ul className="space-y-1 rounded-2xl border border-white/10 bg-white/[0.03] p-2 md:p-3">
-              {likes.map((t) => (
+              {likes.map((t) => {
+                const active = player.track?.id === t.id;
+                const canPlay = Boolean(t.audio_url);
+                const queueIdx = playableFriendsLikes.findIndex(
+                  (x) => x.id === t.id,
+                );
+                return (
                 <li
                   key={t.like_id}
-                  className="rounded-xl px-3 py-2.5 hover:bg-white/[0.06]"
+                  className={`rounded-xl px-3 py-2.5 hover:bg-white/[0.06] ${
+                    active ? "bg-[#1DB954]/10" : ""
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        if (t.audio_url) player.play(t);
+                        if (!canPlay) return;
+                        if (active) player.toggle();
+                        else
+                          player.playQueue(
+                            playableFriendsLikes,
+                            Math.max(0, queueIdx),
+                          );
                       }}
-                      disabled={!t.audio_url}
+                      disabled={!canPlay}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-40"
                     >
                       <TrackCover track={t} size="sm" />
@@ -543,7 +628,8 @@ export function FollowingClient({
                     initialThanks={t.thanks_message}
                   />
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         ) : null}
@@ -665,21 +751,55 @@ export function FollowingClient({
 
         {tracks.length > 0 ? (
           <section>
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
-              Fresh from artists
-            </h2>
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+                Fresh from artists
+              </h2>
+              {playableFresh.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => player.playQueue(playableFresh, 0)}
+                    className="rounded-full bg-[#1DB954] px-3 py-1 text-xs font-semibold text-black hover:bg-[#17a349]"
+                  >
+                    ▶ Play all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      player.playQueue(playableFresh, 0, {
+                        shuffle: true,
+                        repeat: true,
+                      })
+                    }
+                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/80 hover:bg-white/10"
+                  >
+                    ⇄ Shuffle
+                  </button>
+                </>
+              ) : null}
+            </div>
             <ul className="space-y-1 rounded-2xl border border-white/10 bg-white/[0.03] p-2 md:p-3">
-              {tracks.map((t) => (
+              {tracks.map((t) => {
+                const active = player.track?.id === t.id;
+                const canPlay = Boolean(t.audio_url);
+                const queueIdx = playableFresh.findIndex((x) => x.id === t.id);
+                return (
                 <li
                   key={t.id}
-                  className="flex items-center gap-2 rounded-xl px-3 py-2.5 hover:bg-white/[0.06]"
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2.5 hover:bg-white/[0.06] ${
+                    active ? "bg-[#1DB954]/10" : ""
+                  }`}
                 >
                   <button
                     type="button"
                     onClick={() => {
-                      if (t.audio_url) player.play(t);
+                      if (!canPlay) return;
+                      if (active) player.toggle();
+                      else
+                        player.playQueue(playableFresh, Math.max(0, queueIdx));
                     }}
-                    disabled={!t.audio_url}
+                    disabled={!canPlay}
                     className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-40"
                   >
                     <TrackCover track={t} size="sm" />
@@ -710,7 +830,8 @@ export function FollowingClient({
                   <QueueTrackButton track={t} compact />
                   <ShareTrackButton track={t} compact />
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         ) : null}
