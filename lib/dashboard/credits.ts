@@ -115,6 +115,23 @@ export type ConsumeResult =
       code: "insufficient" | "failed" | "missing_table";
     };
 
+export type CreditedPlayResult =
+  | {
+      ok: true;
+      play_id: string | null;
+      balance: number;
+    }
+  | {
+      ok: false;
+      error: string;
+      code:
+        | "insufficient"
+        | "track_not_found"
+        | "not_authenticated"
+        | "failed"
+        | "missing_table";
+    };
+
 /** Decrement one credit. Hard-fails if ledger RPCs are not migrated. */
 export async function consumePlayCredit(
   supabase: SupabaseClient,
@@ -142,4 +159,61 @@ export async function consumePlayCredit(
   }
 
   return { ok: true, balance: bal, skipped: false };
+}
+
+/**
+ * Consume one credit and insert the play in a single DB transaction.
+ * Prefer this over consumePlayCredit + manual plays insert.
+ */
+export async function recordCreditedPlay(
+  supabase: SupabaseClient,
+  trackId: string,
+  starter = 25,
+): Promise<CreditedPlayResult> {
+  const id = trackId.trim();
+  if (!id) {
+    return { ok: false, error: "Track not found", code: "track_not_found" };
+  }
+
+  const { data, error } = await supabase.rpc("record_credited_play", {
+    p_track_id: id,
+    p_starter: starter,
+  });
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return {
+        ok: false,
+        error:
+          "Run 20260811_record_credited_play.sql in Supabase (record_credited_play).",
+        code: "missing_table",
+      };
+    }
+    if (/not_authenticated/i.test(error.message)) {
+      return {
+        ok: false,
+        error: "Sign in required to record plays.",
+        code: "not_authenticated",
+      };
+    }
+    if (/track_not_found|track_required/i.test(error.message)) {
+      return { ok: false, error: "Track not found", code: "track_not_found" };
+    }
+    if (/insufficient_credits/i.test(error.message)) {
+      return {
+        ok: false,
+        error: "No play credits left. Buy a play pack to keep listening.",
+        code: "insufficient",
+      };
+    }
+    return { ok: false, error: error.message, code: "failed" };
+  }
+
+  const row = data as Record<string, unknown> | null;
+  const balance = Number(row?.credits_remaining);
+  return {
+    ok: true,
+    play_id: row?.play_id != null ? String(row.play_id) : null,
+    balance: Number.isFinite(balance) ? balance : 0,
+  };
 }
