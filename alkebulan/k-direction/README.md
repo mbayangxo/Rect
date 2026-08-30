@@ -2,7 +2,7 @@
 
 First Kebu site on the Alkebulan platform. Brand: **K-DIRECTION / K-DIRECTION CORP.** Not Rect Sound.
 
-This folder is `alkebulan/k-direction` so it sits with other Kebu sites, not inside the Rect Sound app. GitHub is still the Rect repo until a Kebu repo exists — this cloud agent cannot create that repo.
+This Cursor agent is tied to the Rect GitHub repo. It cannot become a separate Kebu project by itself. Create `github.com/mbayangxo/Kebu`, copy this app there, and open **that** repo in Cursor. See [`../README.md`](../README.md).
 
 ## Direct answers
 
