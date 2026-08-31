@@ -6,6 +6,7 @@ import {
   upsertUserProfile,
   type RectRole,
 } from "@/lib/profile";
+import { setRectOsCookie } from "@/lib/studio/surface";
 
 type Body = {
   email?: string;
@@ -163,7 +164,7 @@ export async function POST(request: Request) {
     profile_save = { ok: false, error: result.error };
   }
 
-  return NextResponse.json({
+  const payload = {
     ok: true,
     user_id: user.id,
     email,
@@ -177,5 +178,10 @@ export async function POST(request: Request) {
     has_session: !!session,
     email_confirmation_required: emailConfirmationRequired,
     profile_save,
-  });
+  };
+  const res = NextResponse.json(payload);
+  if (session) {
+    setRectOsCookie(res, isArtist ? "artist" : "sound");
+  }
+  return res;
 }

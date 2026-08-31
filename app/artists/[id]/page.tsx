@@ -345,7 +345,7 @@ export default async function ArtistPortalPage({ params }: Props) {
                 {countRes.count === 1 ? "follower" : "followers"}
               </p>
               <Link
-                href="/studio"
+                href="/artist/login?next=/studio"
                 className="text-sm text-[#1DB954] hover:underline"
               >
                 Open studio →
@@ -466,7 +466,7 @@ export default async function ArtistPortalPage({ params }: Props) {
               Add merch in Studio — active items appear here automatically.
             </p>
             <Link
-              href="/studio/store"
+              href="/artist/login?next=/studio/store"
               className="mt-3 inline-block text-xs text-[#1DB954] hover:underline"
             >
               Open Store →
@@ -494,7 +494,7 @@ export default async function ArtistPortalPage({ params }: Props) {
               </p>
               {isOwner ? (
                 <Link
-                  href="/studio"
+                  href="/artist/login?next=/studio"
                   className="mt-5 inline-block rounded-full bg-[#1DB954] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349]"
                 >
                   Open Studio

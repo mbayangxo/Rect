@@ -436,7 +436,7 @@ export function CulturalOnboarding({ mode = "signup", initial }: Props) {
             Already have an account?{" "}
             <Link href="/auth/login">Log in</Link>
             <br />
-            <Link href="/for-artists" style={{ opacity: 0.7 }}>
+            <Link href="/artist" style={{ opacity: 0.7 }}>
               Are you an artist?
             </Link>
           </p>

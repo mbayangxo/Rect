@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ProfileSettings } from "@/components/profile-settings";
 import { RectLogo } from "@/components/rect-logo";
+import { loadArtistLink } from "@/lib/dashboard/artist-links";
 import { loadBlockedPeople } from "@/lib/dashboard/blocks";
 import { createClient } from "@/lib/supabase/server";
 
@@ -130,6 +131,7 @@ export default async function ProfilePage() {
     meta.role === "artist";
 
   const blockedRes = await loadBlockedPeople(supabase, user.id);
+  const artistLink = await loadArtistLink(supabase, user.id);
 
   return (
     <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
@@ -157,6 +159,7 @@ export default async function ProfilePage() {
         publicProfileHref={`/people/${user.id}`}
         avatarUrl={avatarUrl}
         isArtist={isArtist}
+        linkedArtistName={artistLink.artistName}
         blockedPeople={blockedRes.people}
         blocksReady={!blockedRes.missingTable}
         blocksError={blockedRes.error}

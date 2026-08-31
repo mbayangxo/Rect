@@ -52,11 +52,7 @@ type Props = {
   pendingPackPurchases?: PendingPackPurchase[];
   likedTrackIds: string[];
   likesReady: boolean;
-  showArtistStudio?: boolean;
-  /** Unread release alerts for /inbox */
   inboxUnread?: number;
-  /** Unread studio activity for /artist/inbox */
-  artistInboxUnread?: number;
   continueListening: JournalEntry[];
   continueError: string | null;
   friendsListening?: FriendsListenItem[];
@@ -97,9 +93,7 @@ export function DashboardShell({
   pendingPackPurchases = [],
   likedTrackIds,
   likesReady,
-  showArtistStudio = false,
   inboxUnread = 0,
-  artistInboxUnread = 0,
   continueListening,
   continueError,
   friendsListening = [],
@@ -343,26 +337,10 @@ export function DashboardShell({
           <span>Tips</span>
           <span>›</span>
         </Link>
-        {showArtistStudio ? (
-          <Link href="/studio" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-            <span>Artist studio</span>
-            <span>›</span>
-          </Link>
-        ) : (
-          <Link href="/for-artists" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-            <span>For artists</span>
-            <span>›</span>
-          </Link>
-        )}
-        {showArtistStudio ? (
-          <Link href="/artist/inbox" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-            <span>
-              Artist inbox
-              {artistInboxUnread > 0 ? ` (${artistInboxUnread})` : ""}
-            </span>
-            <span>›</span>
-          </Link>
-        ) : null}
+        <Link href="/artist" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
+          <span>Artist OS</span>
+          <span>›</span>
+        </Link>
       </aside>
 
       <header className="dash-topbar mx-auto w-full max-w-7xl px-4 sm:px-8">

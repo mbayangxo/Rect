@@ -191,7 +191,7 @@ export default async function HomePage() {
                 Log in
               </Link>
               <Link
-                href="/for-artists"
+                href="/artist"
                 className="pt-1 text-center text-xs text-white/40 hover:text-white/70"
               >
                 Are you an artist?
@@ -226,7 +226,7 @@ export default async function HomePage() {
                 </Link>
               </div>
               <Link
-                href="/for-artists"
+                href="/artist"
                 className="text-xs text-white/40 hover:text-white/70"
               >
                 Are you an artist? Upload on RECT for Artists →

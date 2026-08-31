@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RectLogo } from "@/components/rect-logo";
+import { SignOutButton } from "@/components/sign-out-button";
 
 const NAV = [
   { href: "/studio/upload", label: "Upload", short: "Upload" },
@@ -34,6 +35,9 @@ export function StudioNav({ displayName }: Props) {
             Artist OS
           </p>
           <p className="mt-1 truncate text-sm text-white/50">{displayName}</p>
+          <div className="mt-3">
+            <SignOutButton afterHref="/artist/login" />
+          </div>
         </div>
         <nav className="flex flex-1 flex-col gap-1 p-3">
           {NAV.map((item) => {
@@ -53,10 +57,16 @@ export function StudioNav({ displayName }: Props) {
             );
           })}
           <Link
-            href="/dashboard"
+            href="/artist"
             className="mt-auto rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white/45 hover:border-white/20 hover:text-white"
           >
-            ← Back to RECT SOUND
+            Artist OS home
+          </Link>
+          <Link
+            href="/"
+            className="rounded-lg px-3 py-2 text-sm text-white/35 hover:text-white"
+          >
+            Listen on RECT SOUND
           </Link>
         </nav>
       </aside>
@@ -80,10 +90,10 @@ export function StudioNav({ displayName }: Props) {
           );
         })}
         <Link
-          href="/dashboard"
+          href="/artist"
           className="flex flex-1 flex-col items-center py-2.5 text-[0.65rem] font-medium text-white/35"
         >
-          <span>RECT</span>
+          <span>OS</span>
         </Link>
       </nav>
     </>
