@@ -35,17 +35,10 @@ import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 const BROWSE = [
   { href: "/charts", label: "Charts", tone: "from-[#0F2B1A] to-[#060908]" },
   { href: "/new", label: "New", tone: "from-[#1a2b14] to-[#060908]" },
-  { href: "/places", label: "Places", tone: "from-[#1a2410] to-[#060908]" },
-  { href: "/genres", label: "Genres", tone: "from-[#142b0f] to-[#060908]" },
-  { href: "/languages", label: "Languages", tone: "from-[#0f1a2b] to-[#06080a]" },
   { href: "/radio", label: "Wave", tone: "from-[#0a2e18] to-[#060908]" },
-  { href: "/following", label: "Following", tone: "from-[#1a2b0f] to-[#060908]" },
-  { href: "/inbox", label: "Inbox", tone: "from-[#0f1a14] to-[#060908]" },
-  { href: "/playlists", label: "Playlists", tone: "from-[#1a1f0f] to-[#060908]" },
-  { href: "/tips", label: "Tips", tone: "from-[#2b1f0f] to-[#090806]" },
-  { href: "/studio", label: "Studio", tone: "from-[#0f2b1a] to-[#060908]" },
+  { href: "/genres", label: "Genres", tone: "from-[#142b0f] to-[#060908]" },
+  { href: "/places", label: "Places", tone: "from-[#1a2410] to-[#060908]" },
   { href: "/library", label: "Library", tone: "from-[#2B0F1A] to-[#090608]" },
-  { href: "/journal", label: "Journal", tone: "from-[#0F1A2B] to-[#06080A]" },
 ] as const;
 
 type Props = {
