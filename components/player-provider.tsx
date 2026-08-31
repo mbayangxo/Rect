@@ -12,6 +12,7 @@ import {
 } from "react";
 import { AddToPlaylist } from "@/components/add-to-playlist";
 import { ArtistTipButton } from "@/components/artist-tip-button";
+import { ImmersiveStage } from "@/components/immersive-stage";
 import { PlayerFollowButton } from "@/components/player-follow-button";
 import { PlayerLikeButton } from "@/components/player-like-button";
 import { ShareTrackButton } from "@/components/share-track-button";
@@ -143,6 +144,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<TrackRow[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [immersiveOpen, setImmersiveOpen] = useState(false);
   const [savingQueue, setSavingQueue] = useState(false);
   const recordedFor = useRef<string | null>(null);
   const recordPlayRef = useRef<(trackId: string) => Promise<void>>(
@@ -428,6 +430,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         audio.src = playbackSrc;
         try {
           await audio.play();
+          if (gen === startGenRef.current) {
+            setQueueOpen(false);
+            setImmersiveOpen(true);
+          }
         } catch {
           setPlaying(false);
           setCreditNotice(
@@ -460,7 +466,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           setCreditNotice("Preview ended — sign in to keep listening.");
           return;
         }
-        void audio.play().catch(() => setPlaying(false));
+        void audio
+          .play()
+          .then(() => setImmersiveOpen(true))
+          .catch(() => setPlaying(false));
         return;
       }
 
@@ -735,7 +744,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setCreditNotice("Preview ended — sign in to keep listening.");
         return;
       }
-      void audio.play().catch(() => setPlaying(false));
+      void audio
+        .play()
+        .then(() => setImmersiveOpen(true))
+        .catch(() => setPlaying(false));
     } else {
       audio.pause();
     }
@@ -917,12 +929,33 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       ) : null}
-      {track ? (
+      {track && immersiveOpen ? (
+        <ImmersiveStage
+          track={track}
+          playing={playing}
+          currentTime={currentTime}
+          duration={duration}
+          canPrev={canPrev}
+          canNext={canNext}
+          onClose={() => setImmersiveOpen(false)}
+          onToggle={toggle}
+          onPrev={prev}
+          onNext={next}
+          onSeek={seek}
+        />
+      ) : null}
+      {track && !immersiveOpen ? (
         <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#071208]/95 backdrop-blur-md">
           <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-8 lg:px-10">
-            <Link href={`/songs/${track.id}`} className="shrink-0">
+            <button
+              type="button"
+              onClick={() => setImmersiveOpen(true)}
+              className="shrink-0 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1DB954]"
+              aria-label="Open immersive player"
+              title="Immerse"
+            >
               <TrackCover track={track} size="sm" />
-            </Link>
+            </button>
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
@@ -1093,6 +1126,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               loginNext={`/songs/${track.id}`}
             />
             <ShareTrackButton track={track} compact dropUp />
+            <button
+              type="button"
+              onClick={() => setImmersiveOpen(true)}
+              className="hidden shrink-0 rounded-full border border-[#1DB954]/45 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-[#1DB954] hover:bg-[#1DB954]/15 sm:inline-flex"
+              aria-label="Open immersive player"
+            >
+              Immerse
+            </button>
           </div>
         </div>
       ) : null}
