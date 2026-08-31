@@ -15,7 +15,7 @@ Each site has:
 - A Kebu portal at `/portal` (edit artists, events, blog, jobs, inquiries)
 - Photos uploaded in the portal
 - Event tickets sold on **Joko** (this site never checkouts)
-- Its own Vercel project (Root Directory = `alkebulan/sites/<name>`)
+- Its own Vercel project (on **Kebu**, Root Directory = `sites/<name>`)
 - Its own database later (Supabase). Local is Prisma + SQLite.
 
 ## Add another site
@@ -39,4 +39,4 @@ Open [http://127.0.0.1:3100](http://127.0.0.1:3100) and the portal at [http://12
 
 ## Cursor / GitHub
 
-**https://github.com/mbayangxo/Kebu** is public. It is Alkebulan-platform renamed. This Rect agent cannot push there. Start a new Cloud Agent on Kebu to add K-Direction as `sites/k-direction`.
+**https://github.com/mbayangxo/Kebu** is public. It is Alkebulan-platform renamed. This Rect agent cannot push there. Follow [`../kebu-import/KEBU_IMPORT.md`](../kebu-import/KEBU_IMPORT.md) to copy K-Direction, then delete it from Rect.

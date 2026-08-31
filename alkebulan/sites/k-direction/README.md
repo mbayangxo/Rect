@@ -7,11 +7,13 @@ First site built with **Kebu** on the Alkebulan platform. Brand: **K-DIRECTION /
 
 The `/portal` on this site is this brand’s Kebu dashboard.
 
+This copy is **temporary on Rect**. Canonical home: `sites/k-direction` on https://github.com/mbayangxo/Kebu. See [`../../kebu-import/KEBU_IMPORT.md`](../../kebu-import/KEBU_IMPORT.md).
+
 ## Direct answers
 
 | Question | Answer |
 | --- | --- |
-| **Vercel?** | **Yes.** Separate project. **Root Directory:** `alkebulan/sites/k-direction`. |
+| **Vercel?** | **Yes — after it is on Kebu.** Import the **Kebu** repo. **Root Directory:** `sites/k-direction`. Do not import Rect. |
 | **Photos?** | **Yes.** Portal upload on artists, blog posts, and events. |
 | **Edit blogs?** | **Yes.** `/portal` → Blog. |
 | **Portal?** | **Yes.** `/portal` — add or remove artists and events. |

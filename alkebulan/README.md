@@ -20,6 +20,8 @@ How to add the next site: [`kebu/README.md`](kebu/README.md).
 
 **Alkebulan-platform and Kebu are already one GitHub repo.** https://github.com/mbayangxo/Alkebulan-platform redirects to https://github.com/mbayangxo/Kebu.
 
-K-Direction is ready to live at `sites/k-direction` on Kebu. This Rect agent prepared that merge but **cannot push** (`cursor[bot]` has no write access to Kebu).
+K-Direction must live at `sites/k-direction` on **Kebu**, not in this Rect repo. This folder is a temporary holding copy.
 
-Grant Cursor write access to Kebu: GitHub → Settings → Applications → Cursor → Configure → add **Kebu**. Then start a Cloud Agent **on the Kebu repo** and tell it to add `sites/k-direction` from Rect branch `cursor/k-direction-label-site-c1e4`.
+**How to send it:** [`kebu-import/KEBU_IMPORT.md`](kebu-import/KEBU_IMPORT.md)
+
+This Rect agent cannot push to Kebu (`cursor[bot]` has no write). After it is on Kebu, delete this copy from Rect. Do not merge this into Rect `main`.
