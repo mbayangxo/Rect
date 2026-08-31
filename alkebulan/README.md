@@ -16,13 +16,10 @@ alkebulan/
 
 How to add the next site: [`kebu/README.md`](kebu/README.md).
 
-## GitHub (31 Aug 2026)
+## GitHub merge
 
-**https://github.com/mbayangxo/Kebu is public.** It is the real Alkebulan platform (the repo used to be Alkebulan-platform; `package.json` name is still `alkebulan`). It already has the website builder (`/create`, `/sites/{subdomain}`).
+**Alkebulan-platform and Kebu are already one GitHub repo.** https://github.com/mbayangxo/Alkebulan-platform redirects to https://github.com/mbayangxo/Kebu.
 
-This Rect agent can **read** Kebu but **cannot push** to it. To put K-Direction on Kebu, start a **new Cursor Cloud Agent on the Kebu repo** and tell it:
+K-Direction is ready to live at `sites/k-direction` on Kebu. This Rect agent prepared that merge but **cannot push** (`cursor[bot]` has no write access to Kebu).
 
-- Copy `alkebulan/sites/k-direction` from Rect branch `cursor/k-direction-label-site-c1e4`
-- Keep it as the first Alkebulan site; do not overwrite the Kebu builder
-
-Do not merge the label site into JOKO.
+Grant Cursor write access to Kebu: GitHub → Settings → Applications → Cursor → Configure → add **Kebu**. Then start a Cloud Agent **on the Kebu repo** and tell it to add `sites/k-direction` from Rect branch `cursor/k-direction-label-site-c1e4`.
