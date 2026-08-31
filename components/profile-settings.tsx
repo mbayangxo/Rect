@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { BecomeArtistButton } from "@/components/become-artist-button";
+import { ConnectArtistAccount } from "@/components/connect-artist-account";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { BlockedPerson } from "@/lib/dashboard/blocks";
 
@@ -26,6 +26,7 @@ type Props = {
   publicProfileHref: string;
   avatarUrl: string | null;
   isArtist?: boolean;
+  linkedArtistName?: string | null;
   blockedPeople?: BlockedPerson[];
   blocksReady?: boolean;
   blocksError?: string | null;
@@ -39,7 +40,8 @@ export function ProfileSettings({
   privacy: initial,
   publicProfileHref,
   avatarUrl: initialAvatar,
-  isArtist = false,
+  isArtist: _isArtist = false,
+  linkedArtistName = null,
   blockedPeople: initialBlocked = [],
   blocksReady = false,
   blocksError = null,
@@ -534,26 +536,7 @@ export function ProfileSettings({
           Account
         </h2>
         <div className="mt-4 space-y-3">
-          {isArtist ? (
-            <Link
-              href="/studio"
-              className="flex items-center justify-between rounded-xl border border-[#1DB954]/35 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954] hover:border-[#1DB954]/60"
-            >
-              <span>Artist Studio</span>
-              <span className="text-[#1DB954]/70">›</span>
-            </Link>
-          ) : (
-            <div className="rounded-xl border border-white/10 px-4 py-4">
-              <p className="text-sm font-medium text-white/85">
-                Make music on RECT
-              </p>
-              <p className="mt-1 text-xs text-white/40">
-                Open Studio on this account — keep your likes, journal, and
-                follows.
-              </p>
-              <BecomeArtistButton className="mt-3" />
-            </div>
-          )}
+          <ConnectArtistAccount linkedArtistName={linkedArtistName} />
           <Link
             href="/dashboard"
             className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3 text-sm text-white/80 hover:border-[#1DB954]/40"

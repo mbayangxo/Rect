@@ -2,17 +2,23 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
-export function SignOutButton() {
+type Props = {
+  afterHref?: string;
+};
+
+export function SignOutButton({ afterHref = "/auth/login" }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
 
   async function signOut() {
     setPending(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth/login");
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      /* still leave */
+    }
+    router.push(afterHref);
     router.refresh();
     setPending(false);
   }

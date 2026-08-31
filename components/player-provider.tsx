@@ -1070,7 +1070,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             ) : null}
             {track.artist_id &&
             trackArtist(track) !== PRIVATE_ARTIST_LABEL ? (
-              <>
+              <div className="hidden items-center gap-1 sm:flex">
                 <PlayerFollowButton
                   artistId={track.artist_id}
                   loginNext={`/songs/${track.id}`}
@@ -1083,16 +1083,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   trackId={track.id}
                   trackTitle={trackTitle(track)}
                 />
-              </>
+              </div>
             ) : null}
             <PlayerLikeButton trackId={track.id} />
-            <AddToPlaylist
-              trackId={track.id}
-              compact
-              dropUp
-              loginNext={`/songs/${track.id}`}
-            />
-            <ShareTrackButton track={track} compact dropUp />
+            <div className="hidden items-center gap-1 sm:flex">
+              <AddToPlaylist
+                trackId={track.id}
+                compact
+                dropUp
+                loginNext={`/songs/${track.id}`}
+              />
+              <ShareTrackButton track={track} compact dropUp />
+            </div>
           </div>
         </div>
       ) : null}

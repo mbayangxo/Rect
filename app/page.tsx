@@ -1,6 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { RectLogo } from "@/components/rect-logo";
-import { SignOutButton } from "@/components/sign-out-button";
 import { TrackList } from "@/components/track-list";
 import { searchCatalog, type SearchPlaylist } from "@/lib/dashboard/search";
 import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
@@ -120,27 +120,9 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let profile: {
-    display_name?: string | null;
-    role?: string | null;
-  } | null = null;
-
   if (user) {
-    const full = await supabase
-      .from("users")
-      .select("display_name, role")
-      .eq("id", user.id)
-      .maybeSingle();
-    profile = full.data;
+    redirect("/dashboard");
   }
-
-  const displayName =
-    profile?.display_name ||
-    (typeof user?.user_metadata?.display_name === "string"
-      ? user.user_metadata.display_name
-      : null) ||
-    user?.email ||
-    null;
 
   const [featured, catalog] = await Promise.all([
     loadFeaturedTracks(supabase),
@@ -170,44 +152,18 @@ export default async function HomePage() {
             <RectLogo size={36} showWordmark />
           </Link>
           <nav className="flex items-center gap-3 text-sm">
-            {user ? (
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/charts"
-                  className="hidden text-white/70 transition hover:text-white sm:inline"
-                >
-                  Charts
-                </Link>
-                <Link
-                  href="/search"
-                  className="hidden text-white/70 transition hover:text-white sm:inline"
-                >
-                  Search
-                </Link>
-                <Link
-                  href="/dashboard"
-                  className="text-white/70 transition hover:text-white"
-                >
-                  {displayName}
-                </Link>
-                <SignOutButton />
-              </div>
-            ) : (
-              <>
-                <Link
-                  href="/auth/login"
-                  className="text-white/70 transition hover:text-white"
-                >
-                  Log In
-                </Link>
-                <Link
-                  href="/auth/signup"
-                  className="rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#17a349]"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
+            <Link
+              href="/auth/login"
+              className="text-white/70 transition hover:text-white"
+            >
+              Log In
+            </Link>
+            <Link
+              href="/auth/signup"
+              className="rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#17a349]"
+            >
+              Sign Up
+            </Link>
           </nav>
         </header>
 
@@ -221,35 +177,26 @@ export default async function HomePage() {
               <li>Support artists directly</li>
               <li>Charts, portals, and culture — connected</li>
             </ul>
-            {!user ? (
-              <div className="mt-8 flex flex-col gap-3">
-                <Link
-                  href="/auth/signup"
-                  className="rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
-                >
-                  Sign up free
-                </Link>
-                <Link
-                  href="/auth/login"
-                  className="rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
-                >
-                  Log in
-                </Link>
-                <Link
-                  href="/for-artists"
-                  className="pt-1 text-center text-xs text-white/40 hover:text-white/70"
-                >
-                  Are you an artist?
-                </Link>
-              </div>
-            ) : profile?.role === "artist" ? (
+            <div className="mt-8 flex flex-col gap-3">
               <Link
-                href="/studio"
-                className="mt-8 block rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
+                href="/auth/signup"
+                className="rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
               >
-                Artist library
+                Sign up free
               </Link>
-            ) : null}
+              <Link
+                href="/auth/login"
+                className="rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/artist"
+                className="pt-1 text-center text-xs text-white/40 hover:text-white/70"
+              >
+                Are you an artist?
+              </Link>
+            </div>
           </section>
           <FeaturedPanel tracks={tracks} playlists={playlists} error={error} />
         </div>
@@ -263,37 +210,28 @@ export default async function HomePage() {
               Not a feed. A world — where listening, artists, and culture meet
               with intention.
             </p>
-            {!user ? (
-              <div className="mt-10 flex flex-col items-start gap-3">
-                <div className="flex flex-wrap gap-3">
-                  <Link
-                    href="/auth/signup"
-                    className="rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
-                  >
-                    Sign up free
-                  </Link>
-                  <Link
-                    href="/auth/login"
-                    className="rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
-                  >
-                    Log in
-                  </Link>
-                </div>
+            <div className="mt-10 flex flex-col items-start gap-3">
+              <div className="flex flex-wrap gap-3">
                 <Link
-                  href="/for-artists"
-                  className="text-xs text-white/40 hover:text-white/70"
+                  href="/auth/signup"
+                  className="rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
                 >
-                  Are you an artist? Upload on RECT for Artists →
+                  Sign up free
+                </Link>
+                <Link
+                  href="/auth/login"
+                  className="rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
+                >
+                  Log in
                 </Link>
               </div>
-            ) : profile?.role === "artist" ? (
               <Link
-                href="/studio"
-                className="mt-10 inline-block rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
+                href="/artist"
+                className="text-xs text-white/40 hover:text-white/70"
               >
-                Artist library
+                Are you an artist? Upload on RECT for Artists →
               </Link>
-            ) : null}
+            </div>
           </section>
 
           <FeaturedPanel tracks={tracks} playlists={playlists} error={error} />

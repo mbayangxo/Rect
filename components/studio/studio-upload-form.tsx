@@ -119,7 +119,7 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
       const data = (await res.json()) as { error?: string; track?: { id?: string } };
 
       if (res.status === 401) {
-        window.location.href = "/auth/login?next=/studio/upload";
+        window.location.href = "/artist/login?next=/studio/upload";
         return;
       }
       if (!res.ok || data.error) {

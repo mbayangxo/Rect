@@ -5,10 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { RectLogo } from "@/components/rect-logo";
 
-function LoginForm() {
+function ArtistLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/dashboard";
+  const nextPath = searchParams.get("next") || "/studio";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -25,7 +25,7 @@ function LoginForm() {
         body: JSON.stringify({
           email: email.trim(),
           password,
-          surface: "sound",
+          surface: "artist",
         }),
       });
       const data = (await res.json()) as { error?: string };
@@ -34,12 +34,9 @@ function LoginForm() {
         return;
       }
       const safeNext =
-        nextPath.startsWith("/") &&
-        !nextPath.startsWith("//") &&
-        !nextPath.startsWith("/studio") &&
-        !nextPath.startsWith("/artist")
+        nextPath.startsWith("/") && !nextPath.startsWith("//")
           ? nextPath
-          : "/dashboard";
+          : "/studio";
       router.push(safeNext);
       router.refresh();
     } catch (err) {
@@ -55,12 +52,18 @@ function LoginForm() {
         onSubmit={(e) => void onSubmit(e)}
         className="mx-auto w-full max-w-[400px] space-y-4"
       >
-        <div className="mb-6 flex justify-center">
+        <div className="mb-2 flex justify-center">
           <RectLogo size={48} />
         </div>
+        <p className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-[#1DB954]">
+          Artist OS
+        </p>
         <h1 className="text-center text-2xl font-semibold tracking-tight">
-          Log in
+          Artist login
         </h1>
+        <p className="text-center text-sm text-white/45">
+          Separate from RECT SOUND. This does not open your listener account.
+        </p>
         <label className="block space-y-1.5">
           <span className="text-xs text-white/45">Email</span>
           <input
@@ -69,7 +72,7 @@ function LoginForm() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@email.com"
+            placeholder="artist@email.com"
             className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-sm outline-none focus:border-[#1DB954]"
           />
         </label>
@@ -81,7 +84,7 @@ function LoginForm() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Your password"
+            placeholder="Your artist password"
             className="w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-sm outline-none focus:border-[#1DB954]"
           />
         </label>
@@ -95,18 +98,21 @@ function LoginForm() {
           disabled={pending}
           className="w-full rounded-full bg-[#1DB954] py-3 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-60"
         >
-          {pending ? "Signing in…" : "Log in"}
+          {pending ? "Signing in…" : "Log in to Artist OS"}
         </button>
         <p className="text-center text-sm text-white/45">
-          New here?{" "}
-          <Link href="/auth/signup" className="text-[#1DB954] hover:underline">
-            Create account
+          New artist?{" "}
+          <Link href="/artist/signup" className="text-[#1DB954] hover:underline">
+            Create artist account
           </Link>
         </p>
         <p className="text-center text-sm text-white/35">
-          Artist?{" "}
-          <Link href="/artist/login" className="hover:text-white/70">
-            Log in to Artist OS
+          <Link href="/artist" className="hover:text-white/60">
+            ← Artist OS
+          </Link>
+          {" · "}
+          <Link href="/auth/login" className="hover:text-white/60">
+            Listener login
           </Link>
         </p>
       </form>
@@ -114,7 +120,7 @@ function LoginForm() {
   );
 }
 
-export default function LoginPage() {
+export default function ArtistLoginPage() {
   return (
     <Suspense
       fallback={
@@ -123,7 +129,7 @@ export default function LoginPage() {
         </main>
       }
     >
-      <LoginForm />
+      <ArtistLoginForm />
     </Suspense>
   );
 }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { isArtistAccount } from "@/lib/dashboard/artist-access";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { createClient } from "@/lib/supabase/server";
+import { readRectOsSurface } from "@/lib/studio/surface";
 
 export type StudioArtistContext = {
   supabase: Awaited<ReturnType<typeof createClient>>;
@@ -10,19 +11,25 @@ export type StudioArtistContext = {
   email: string | null;
 };
 
-/** Gate Artist OS — listeners redirect to /dashboard. */
+/** Gate Artist OS — listeners must log in at /artist, not RECT SOUND. */
 export async function requireStudioArtist(
   loginNext = "/studio",
 ): Promise<StudioArtistContext> {
   const supabase = await createClient();
   const current = await getDashboardCurrentUser(supabase);
+  const artistLogin = `/artist/login?next=${encodeURIComponent(loginNext)}`;
 
   if (!current.ok || !current.user) {
-    redirect(`/auth/login?next=${encodeURIComponent(loginNext)}`);
+    redirect(artistLogin);
   }
 
   if (!isArtistAccount(current.profile, current.user)) {
-    redirect("/dashboard");
+    redirect("/artist");
+  }
+
+  const surface = await readRectOsSurface();
+  if (surface !== "artist") {
+    redirect(artistLogin);
   }
 
   const user = current.user;
