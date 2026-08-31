@@ -92,15 +92,6 @@
   .dash-packs {
     grid-template-columns: repeat(3, 1fr);
   }
-
-  .dash-nav {
-    max-width: 1200px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    border-left: 1px solid var(--line);
-    border-right: 1px solid var(--line);
-  }
 }
 
 @media (min-width: 1024px) {
@@ -157,10 +148,6 @@
   .dash-topbar,
   .dash-hub,
   .dash-page {
-    max-width: 1280px;
-  }
-
-  .dash-nav {
     max-width: 1280px;
   }
 }
@@ -841,7 +828,7 @@
 }
 
 .dash-nav {
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
@@ -851,7 +838,7 @@
   border-top: 1px solid var(--line);
   display: flex;
   align-items: center;
-  z-index: 100;
+  z-index: 60;
 }
 
 .dash-nav.lifted {
@@ -870,15 +857,15 @@
 
 .dash-ni-ico {
   font-size: 0.95rem;
-  color: var(--w3);
+  color: var(--w2);
 }
 
 .dash-ni-lbl {
   font-weight: 700;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--w3);
+  color: var(--w2);
 }
 
 .dash-ni.on .dash-ni-ico {
@@ -972,7 +959,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--w3);
+  color: var(--g);
 }
 
 .dash-dmi {
