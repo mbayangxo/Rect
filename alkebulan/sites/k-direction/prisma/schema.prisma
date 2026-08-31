@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model SiteSettings {
+  id                 String   @id @default("default")
+  name               String
+  legal              String
+  mission            String
+  bookingsEmail      String
+  inquiriesEmail     String
+  inquiryDestination String   @default("portal")
+  kebuUrl            String?
+  jokoUrl            String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Artist {
+  id          String     @id @default(cuid())
+  slug        String     @unique
+  name        String
+  displayName String
+  portrait    String
+  portraitAlt String
+  debut       String
+  bio         String     @default("")
+  kebuUrl     String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  posts       NewsPost[]
+
+  @@index([slug])
+}
+
+model NewsPost {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  publishedAt DateTime
+  excerpt     String
+  body        String
+  coverImage  String?
+  published   Boolean  @default(true)
+  artistId    String?
+  artist      Artist?  @relation(fields: [artistId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([publishedAt])
+  @@index([artistId])
+  @@index([published])
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  venue       String?
+  city        String?
+  startsAt    DateTime
+  description String   @default("")
+  image       String?
+  ticketUrl   String?
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([startsAt])
+  @@index([published])
+  @@index([slug])
+}
+
+model Job {
+  id           String           @id @default(cuid())
+  slug         String           @unique
+  title        String
+  description  String
+  location     String           @default("")
+  published    Boolean          @default(true)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  applications JobApplication[]
+
+  @@index([published])
+  @@index([slug])
+}
+
+model JobApplication {
+  id         String   @id @default(cuid())
+  jobId      String
+  job        Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  firstName  String
+  lastName   String
+  email      String
+  note       String   @default("")
+  resumePath String
+  createdAt  DateTime @default(now())
+
+  @@index([jobId])
+  @@index([createdAt])
+  @@index([email])
+}
+
+model Inquiry {
+  id        String    @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  message   String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([email])
+}

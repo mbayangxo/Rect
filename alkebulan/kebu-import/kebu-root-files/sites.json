@@ -1,0 +1,16 @@
+{
+  "platform": "Alkebulan",
+  "builder": "Kebu",
+  "repo": "https://github.com/mbayangxo/Kebu",
+  "sites": [
+    {
+      "id": "k-direction",
+      "name": "K-DIRECTION",
+      "legal": "K-DIRECTION CORP.",
+      "path": "sites/k-direction",
+      "port": 3100,
+      "tickets": "joko",
+      "firstSite": true
+    }
+  ]
+}

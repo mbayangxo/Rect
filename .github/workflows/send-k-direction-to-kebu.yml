@@ -1,0 +1,37 @@
+name: Send K-Direction to Kebu
+
+on:
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout Rect
+        uses: actions/checkout@v4
+
+      - name: Require KEBU_PUSH_TOKEN
+        env:
+          KEBU_PUSH_TOKEN: ${{ secrets.KEBU_PUSH_TOKEN }}
+        run: |
+          if [ -z "$KEBU_PUSH_TOKEN" ]; then
+            echo "Add a Rect Actions secret named KEBU_PUSH_TOKEN."
+            echo "Use a GitHub token that can push to https://github.com/mbayangxo/Kebu"
+            exit 1
+          fi
+
+      - name: Copy site into Kebu and push a branch
+        env:
+          KEBU_PUSH_TOKEN: ${{ secrets.KEBU_PUSH_TOKEN }}
+          GH_TOKEN: ${{ secrets.KEBU_PUSH_TOKEN }}
+        run: |
+          chmod +x alkebulan/kebu-import/send-to-kebu.sh
+          alkebulan/kebu-import/send-to-kebu.sh
+          gh pr create --repo mbayangxo/Kebu \
+            --base main \
+            --head cursor/k-direction-first-site-c1e4 \
+            --title "Add K-Direction as the first Kebu site" \
+            --body "Copies the K-Direction label site to \`sites/k-direction\`. Does not replace the Kebu builder. Tickets stay on Joko. After this lands, delete the copy from Rect." \
+            || true
