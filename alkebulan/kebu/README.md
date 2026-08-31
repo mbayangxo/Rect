@@ -39,6 +39,4 @@ Open [http://127.0.0.1:3100](http://127.0.0.1:3100) and the portal at [http://12
 
 ## Cursor / GitHub
 
-Checked `mbayangxo`: **Kebu** and **alkebulan-platform** GitHub repos are not there. **Keit** was renamed to **[JOKO](https://github.com/mbayangxo/JOKO)** (payments). Alkebulan-platform is this `alkebulan/` folder inside Rect.
-
-Do not merge K-Direction into JOKO. When a real Kebu repo URL exists, copy `alkebulan/` to that repo root and open it in a new Cursor project.
+**https://github.com/mbayangxo/Kebu** is public. It is Alkebulan-platform renamed. This Rect agent cannot push there. Start a new Cloud Agent on Kebu to add K-Direction as `sites/k-direction`.

@@ -16,17 +16,13 @@ alkebulan/
 
 How to add the next site: [`kebu/README.md`](kebu/README.md).
 
-## GitHub check (31 Aug 2026)
+## GitHub (31 Aug 2026)
 
-This agent can see four public repos on `mbayangxo`:
+**https://github.com/mbayangxo/Kebu is public.** It is the real Alkebulan platform (the repo used to be Alkebulan-platform; `package.json` name is still `alkebulan`). It already has the website builder (`/create`, `/sites/{subdomain}`).
 
-| Repo | What it is |
-| --- | --- |
-| [Rect](https://github.com/mbayangxo/Rect) | This Cursor chat. Alkebulan/Kebu folders live here for now. |
-| [JOKO](https://github.com/mbayangxo/JOKO) | Renamed from **Keit**. Payments app. Not the site builder. |
-| [Fekk](https://github.com/mbayangxo/Fekk) | Separate product. |
-| [Bloombay](https://github.com/mbayangxo/Bloombay) | Separate product. |
+This Rect agent can **read** Kebu but **cannot push** to it. To put K-Direction on Kebu, start a **new Cursor Cloud Agent on the Kebu repo** and tell it:
 
-There is **no** `mbayangxo/Kebu` and **no** `mbayangxo/alkebulan-platform`. Renaming Keit turned it into JOKO; it did not become Kebu. Alkebulan-platform is this folder (`alkebulan/`), not its own GitHub repo yet.
+- Copy `alkebulan/sites/k-direction` from Rect branch `cursor/k-direction-label-site-c1e4`
+- Keep it as the first Alkebulan site; do not overwrite the Kebu builder
 
-If a new empty Kebu repo exists on another account, paste the full `github.com/...` URL. This agent cannot merge into a repo it cannot see, and it must not put the label site inside JOKO.
+Do not merge the label site into JOKO.
