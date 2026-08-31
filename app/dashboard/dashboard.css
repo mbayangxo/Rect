@@ -42,10 +42,8 @@
 .dash-hub {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.1rem 1.1rem 0.8rem;
-  overflow-x: auto;
-  scrollbar-width: none;
+  gap: 0.45rem;
+  padding: 0.15rem 1.1rem 0.85rem;
   flex-shrink: 0;
   width: 100%;
   max-width: 1200px;
@@ -86,19 +84,6 @@
     font-size: 0.85rem;
   }
 
-  .dash-ni-art {
-    height: 260px;
-  }
-
-  .dash-ni-vinyl {
-    width: 140px;
-    height: 140px;
-  }
-
-  .dash-ni-artist {
-    font-size: 2.25rem;
-  }
-
   .dash-scroll {
     flex-wrap: wrap;
     overflow: visible;
@@ -106,13 +91,6 @@
 
   .dash-packs {
     grid-template-columns: repeat(3, 1fr);
-  }
-
-  .dash-mini {
-    left: max(0.75rem, calc(50% - 600px + 0.75rem));
-    right: max(0.75rem, calc(50% - 600px + 0.75rem));
-    max-width: 1200px;
-    margin: 0 auto;
   }
 
   .dash-nav {
@@ -143,17 +121,6 @@
 
   .dash-now {
     margin: 0;
-    position: sticky;
-    top: 0.5rem;
-  }
-
-  .dash-ni-art {
-    height: 320px;
-  }
-
-  .dash-ni-vinyl {
-    width: 160px;
-    height: 160px;
   }
 
   .dash-side .dash-empty {
@@ -190,12 +157,6 @@
   .dash-topbar,
   .dash-hub,
   .dash-page {
-    max-width: 1280px;
-  }
-
-  .dash-mini {
-    left: max(0.75rem, calc(50% - 640px + 0.75rem));
-    right: max(0.75rem, calc(50% - 640px + 0.75rem));
     max-width: 1280px;
   }
 
@@ -288,18 +249,22 @@
 }
 
 .dash-hub-exit {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 0.3rem 0.75rem;
+  padding: 0.38rem 0.85rem;
   border-radius: 100px;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--line);
   font-weight: 600;
-  font-size: 0.56rem;
-  color: var(--w2);
+  font-size: 0.72rem;
+  color: var(--w1);
   white-space: nowrap;
   text-decoration: none;
+}
+
+.dash-hub-exit:hover {
+  border-color: rgba(29, 185, 84, 0.45);
+  color: var(--w);
 }
 
 .dash-hub-arr {
@@ -312,115 +277,79 @@
 }
 
 .dash-now {
-  margin: 0 1.1rem 1rem;
+  margin: 0 0 1rem;
 }
 
-.dash-ni-glass {
-  border-radius: 18px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.dash-ni-art {
-  height: 190px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-.dash-ni-grad {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(160deg, #0b2b18 0%, #060606 100%);
-}
-
-.dash-ni-vinyl {
-  position: relative;
-  z-index: 1;
-  width: 110px;
-  height: 110px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgba(0, 0, 0, 0.9) 0%,
-    rgba(0, 0, 0, 0.9) 15%,
-    #1db954 16%,
-    rgba(0, 0, 0, 0.7) 20%,
-    rgba(0, 0, 0, 0.85) 60%,
-    rgba(0, 0, 0, 0.9) 100%
-  );
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
-  animation: dash-spin 8s linear infinite;
-  animation-play-state: paused;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dash-ni-vinyl.playing {
-  animation-play-state: running;
-}
-
-@keyframes dash-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.dash-ni-vinyl-center {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #080808;
-  border: 3px solid #1db954;
-}
-
-.dash-ni-social {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 2;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
-  padding: 0.3rem 0.7rem;
-  border-radius: 100px;
+.dash-listen {
+  border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1rem 1rem 0.5rem;
 }
 
-.dash-ns-count {
-  font-size: 0.5rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
+.dash-listen-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.85rem;
 }
 
-.dash-ni-identity {
-  position: absolute;
-  bottom: 10px;
-  left: 14px;
-  right: 14px;
-  z-index: 2;
-}
-
-.dash-ni-artist {
+.dash-listen-title {
   font-family: var(--font-syne), sans-serif;
-  font-weight: 700;
-  font-size: 1.75rem;
-  letter-spacing: -0.02em;
-  line-height: 0.95;
-  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin: 0;
 }
 
-.dash-ni-track {
-  font-size: 0.7rem;
+.dash-listen-taste {
+  font-size: 0.72rem;
   color: var(--w2);
-  margin-top: 3px;
-  font-style: italic;
+  margin: 0;
+}
+
+.dash-listen-taste a {
+  color: var(--w1);
+  text-decoration: none;
+}
+
+.dash-listen-taste a:hover {
+  color: var(--g);
+}
+
+.dash-listen-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.dash-listen-meta {
+  min-width: 0;
+}
+
+.dash-listen-song {
+  font-family: var(--font-syne), sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-listen-artist,
+.dash-listen-plays {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  color: var(--w2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-listen-plays {
+  color: var(--w3);
+  font-size: 0.65rem;
 }
 
 .dash-now-controls {
@@ -518,33 +447,48 @@
 }
 
 .dash-featured-list {
+  list-style: none;
+  margin: 0.75rem -0.35rem 0;
+  padding: 0.2rem 0 0.35rem;
   border-top: 1px solid var(--line);
-  margin: 0.4rem -1.1rem 0;
-  padding: 0.35rem 0.4rem 0.2rem;
 }
 
 .dash-feat-row {
   width: 100%;
   display: grid;
-  grid-template-columns: 1.2rem 1fr auto;
-  gap: 0.5rem;
+  grid-template-columns: 1.6rem minmax(0, 1fr) auto;
+  gap: 0.65rem;
   align-items: center;
   background: none;
   border: none;
   color: inherit;
   text-align: left;
-  padding: 0.4rem 0.7rem;
-  border-radius: 8px;
+  padding: 0.55rem 0.5rem;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 0.7rem;
 }
 
 .dash-feat-row.on {
   background: rgba(29, 185, 84, 0.1);
 }
 
+.dash-feat-rank {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--w3);
+  text-align: center;
+}
+
+.dash-feat-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
 .dash-feat-title {
   font-weight: 600;
+  font-size: 0.82rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -552,7 +496,17 @@
 
 .dash-feat-artist {
   color: var(--w3);
-  font-size: 0.58rem;
+  font-size: 0.7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-feat-time {
+  font-size: 0.68rem;
+  color: var(--w3);
+  tabular-nums: true;
+  font-variant-numeric: tabular-nums;
 }
 
 .dash-sh {
@@ -882,61 +836,8 @@
   height: 4.5rem;
 }
 
-.dash-mini {
-  position: absolute;
-  bottom: 3.5rem;
-  left: 0.75rem;
-  right: 0.75rem;
-  background: rgba(4, 13, 6, 0.92);
-  backdrop-filter: blur(24px);
-  border-radius: 14px;
-  border: 1px solid rgba(29, 185, 84, 0.15);
-  z-index: 80;
-  overflow: hidden;
-}
-
-.dash-mp-prog {
-  height: 2px;
-}
-
-.dash-mp-fill {
-  height: 100%;
-  background: var(--g);
-}
-
-.dash-mp-row {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.55rem 0.85rem;
-}
-
-.dash-mp-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.dash-mp-song {
-  font-weight: 600;
-  font-size: 0.78rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dash-mp-artist {
-  font-size: 0.54rem;
-  color: var(--w2);
-}
-
-.dash-mp-play {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--g);
-  color: #040d06;
-  border: none;
-  cursor: pointer;
+.dash-bottom-pad.playing {
+  height: 9.25rem;
 }
 
 .dash-nav {
@@ -951,6 +852,10 @@
   display: flex;
   align-items: center;
   z-index: 100;
+}
+
+.dash-nav.lifted {
+  bottom: 4.85rem;
 }
 
 .dash-ni {
@@ -970,8 +875,8 @@
 
 .dash-ni-lbl {
   font-weight: 700;
-  font-size: 0.31rem;
-  letter-spacing: 0.14em;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--w3);
 }
@@ -1059,6 +964,15 @@
   font-weight: 700;
   font-size: 0.9rem;
   margin: 0;
+}
+
+.dash-dr-group {
+  margin: 0.85rem 1rem 0.15rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--w3);
 }
 
 .dash-dmi {

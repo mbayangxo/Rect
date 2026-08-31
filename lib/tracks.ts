@@ -12,7 +12,7 @@ export type TrackRow = {
   artist_name?: string | null;
 };
 
-/** Seed / fixture demos — never show on public landing or charts. */
+/** Seed / fixture / QA tracks — never show on public landing or charts. */
 export function isDemoTrack(t: TrackRow) {
   const title = t.title?.trim() || "";
   const artist = t.artist_name?.trim() || "";
@@ -20,6 +20,8 @@ export function isDemoTrack(t: TrackRow) {
     /SoundHelix/i.test(title) ||
     /^SoundHelix(\s+Demo)?$/i.test(title.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim()) ||
     /Demo\s*Track/i.test(title) ||
+    /\bE2E\b/i.test(title) ||
+    /\bE2E\b/i.test(artist) ||
     /^RECT(\s+Demo)?$/i.test(artist) ||
     /^SoundHelix$/i.test(artist)
   );
