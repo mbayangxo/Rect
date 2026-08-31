@@ -39,4 +39,6 @@ Open [http://127.0.0.1:3100](http://127.0.0.1:3100) and the portal at [http://12
 
 ## Cursor / GitHub
 
-This Cloud Agent can only write to the Rect repo. To have Kebu as its own Cursor project: create `github.com/mbayangxo/Kebu`, copy `alkebulan/` to that repo root, and open **that** repo in Cursor.
+Checked `mbayangxo`: **Kebu** and **alkebulan-platform** GitHub repos are not there. **Keit** was renamed to **[JOKO](https://github.com/mbayangxo/JOKO)** (payments). Alkebulan-platform is this `alkebulan/` folder inside Rect.
+
+Do not merge K-Direction into JOKO. When a real Kebu repo URL exists, copy `alkebulan/` to that repo root and open it in a new Cursor project.
