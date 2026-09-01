@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AddToPlaylist } from "@/components/add-to-playlist";
+import { AppBottomNav } from "@/components/app-bottom-nav";
 import { DownloadTrackButton } from "@/components/download-track-button";
 import { usePlayer } from "@/components/player-provider";
 import { RectLogo } from "@/components/rect-logo";
@@ -64,7 +65,7 @@ function MixCard({
           />
         ) : preview ? (
           <div className="flex h-full items-center justify-center p-4">
-            <TrackCover track={preview} size="md" />
+            <TrackCover track={preview} size="md" href={`/songs/${preview.id}`} />
           </div>
         ) : (
           <div className="flex h-full items-end p-3">
@@ -225,58 +226,34 @@ export function LibraryClient({
           <Link href="/dashboard">
             <RectLogo size={34} showWordmark />
           </Link>
-          <nav className="flex gap-4 text-sm text-white/55">
-            <Link href="/dashboard" className="hover:text-white">
-              Home
-            </Link>
-            <Link href="/search" className="hover:text-white">
-              Search
-            </Link>
-            <Link href="/library" className="text-[#1DB954]">
-              Library
-            </Link>
-            <Link href="/playlists" className="hover:text-white">
-              Playlists
-            </Link>
-          </nav>
+          <p className="text-sm font-medium text-[#1DB954]">Library</p>
         </div>
       </header>
 
       <div className="mx-auto w-full max-w-5xl space-y-10 px-5 py-10 sm:px-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            Your music
-          </p>
-          <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
-            Library
+          <h1 className="font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+            Your library
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
-            Liked songs, mixes you own, and mixes you’ve saved — one place.
+            Saved songs, mixes, journal, and people you follow.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs">
-            <a
-              href="#liked"
-              className="rounded-full border border-white/15 px-3 py-1.5 text-white/60 hover:border-[#1DB954]/40 hover:text-[#1DB954]"
-            >
-              Liked · {missingTable ? "—" : tracks.length}
-            </a>
-            <a
-              href="#your-mixes"
-              className="rounded-full border border-white/15 px-3 py-1.5 text-white/60 hover:border-[#1DB954]/40 hover:text-[#1DB954]"
-            >
-              Your mixes · {ownedMissing ? "—" : ownedPlaylists.length}
-            </a>
-            <a
-              href="#saved-mixes"
-              className="rounded-full border border-white/15 px-3 py-1.5 text-white/60 hover:border-[#1DB954]/40 hover:text-[#1DB954]"
-            >
-              Saved · {savedMissing ? "—" : savedPlaylists.length}
-            </a>
-            <Link
-              href="/playlists"
-              className="rounded-full border border-[#1DB954]/35 px-3 py-1.5 text-[#1DB954] hover:bg-[#1DB954]/10"
-            >
-              Manage playlists →
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Link href="#liked" className="app-hub-tile">
+              <span className="app-hub-tile-k">Saved</span>
+              <span className="app-hub-tile-t">Liked songs</span>
+            </Link>
+            <Link href="/playlists" className="app-hub-tile">
+              <span className="app-hub-tile-k">Curate</span>
+              <span className="app-hub-tile-t">Your mixes</span>
+            </Link>
+            <Link href="/journal" className="app-hub-tile">
+              <span className="app-hub-tile-k">History</span>
+              <span className="app-hub-tile-t">Journal</span>
+            </Link>
+            <Link href="/following" className="app-hub-tile">
+              <span className="app-hub-tile-k">People</span>
+              <span className="app-hub-tile-t">Following</span>
             </Link>
           </div>
         </div>
@@ -550,7 +527,7 @@ export function LibraryClient({
                       <span className="w-6 shrink-0 text-center text-xs tabular-nums text-white/35">
                         {i + 1}
                       </span>
-                      <TrackCover track={t} size="sm" />
+                      <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                       <button
                         type="button"
                         disabled={!canPlay}
@@ -584,6 +561,7 @@ export function LibraryClient({
                       <DownloadTrackButton
                         track={t}
                         compact
+                        useEntitlementApi
                         onChange={() => {
                           void listOfflineTracks().then(setOfflineTracks);
                         }}
@@ -623,6 +601,7 @@ export function LibraryClient({
           )}
         </section>
       </div>
+      <AppBottomNav />
     </main>
   );
 }

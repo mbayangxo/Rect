@@ -21,6 +21,23 @@ const { Client } = pg;
 
 const ARTIST_OS_MIGRATIONS = [
   "20260830_artist_play_earnings_bootstrap.sql",
+  "20260830_plays_listened_secs.sql",
+  "20260830_tracks_taali_fields.sql",
+  "20260830_monetization_stack.sql",
+  "20260830_joko_play_pack_payment.sql",
+  "20260830_artist_merch_store.sql",
+  "20260830_merch_wallet_credit.sql",
+  "20260830_rect_score_music_purchases.sql",
+  "20260830_tour_demand_fekk.sql",
+  "20260830_hardening_monetization.sql",
+  "20260830_track_lyrics.sql",
+  "20260830_play_pack_prices.sql",
+  "20260830_live_rooms.sql",
+  "20260830_live_rooms_hardening.sql",
+  "20260830_rect_live.sql",
+  "20260830_discovery_trending.sql",
+  "20260831_artist_os_delivery_suite.sql",
+  "20260831_joko_tips.sql",
 ];
 
 function projectRefFromUrl(url) {

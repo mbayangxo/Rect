@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type MerchCategory = "clothing" | "digital" | "physical";
 
+export type MerchMusicFormat = "album" | "cd" | "vinyl";
+
 export type ArtistMerchItem = {
   id: string;
   artist_id: string;
@@ -10,6 +12,8 @@ export type ArtistMerchItem = {
   price_xof: number;
   image_urls: string[];
   category: MerchCategory;
+  music_format: MerchMusicFormat | null;
+  track_id: string | null;
   quantity_available: number | null;
   sales_count: number;
   active: boolean;
@@ -29,6 +33,11 @@ function parseImageUrls(value: unknown): string[] {
   return value.filter((u): u is string => typeof u === "string" && u.trim().length > 0);
 }
 
+function parseMusicFormat(value: unknown): MerchMusicFormat | null {
+  if (value === "album" || value === "cd" || value === "vinyl") return value;
+  return null;
+}
+
 function rowToItem(row: Record<string, unknown>): ArtistMerchItem {
   return {
     id: String(row.id),
@@ -39,6 +48,11 @@ function rowToItem(row: Record<string, unknown>): ArtistMerchItem {
     price_xof: Number(row.price_xof) || 0,
     image_urls: parseImageUrls(row.image_urls),
     category: (row.category as MerchCategory) || "physical",
+    music_format: parseMusicFormat(row.music_format),
+    track_id:
+      typeof row.track_id === "string" && row.track_id.trim()
+        ? row.track_id.trim()
+        : null,
     quantity_available:
       row.quantity_available == null ? null : Number(row.quantity_available),
     sales_count: Number(row.sales_count) || 0,
@@ -47,6 +61,16 @@ function rowToItem(row: Record<string, unknown>): ArtistMerchItem {
     created_at: typeof row.created_at === "string" ? row.created_at : null,
     updated_at: typeof row.updated_at === "string" ? row.updated_at : null,
   };
+}
+
+const MERCH_SELECT =
+  "id, artist_id, title, description, price_xof, image_urls, category, music_format, track_id, quantity_available, sales_count, active, sort_order, created_at, updated_at";
+
+const MERCH_SELECT_LEAN =
+  "id, artist_id, title, description, price_xof, image_urls, category, quantity_available, sales_count, active, sort_order, created_at, updated_at";
+
+function isMissingMusicColumns(message: string) {
+  return /music_format|track_id|column .* does not exist/i.test(message);
 }
 
 export async function loadArtistMerchItems(
@@ -61,9 +85,7 @@ export async function loadArtistMerchItems(
   try {
     let query = supabase
       .from("artist_merch_items")
-      .select(
-        "id, artist_id, title, description, price_xof, image_urls, category, quantity_available, sales_count, active, sort_order, created_at, updated_at",
-      )
+      .select(MERCH_SELECT)
       .eq("artist_id", artistId)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: false });
@@ -74,7 +96,23 @@ export async function loadArtistMerchItems(
       // studio view: all items including drafts
     }
 
-    const { data, error } = await query;
+    let { data: rawData, error } = await query;
+    let data = rawData as Record<string, unknown>[] | null;
+
+    if (error && isMissingMusicColumns(error.message)) {
+      let leanQuery = supabase
+        .from("artist_merch_items")
+        .select(MERCH_SELECT_LEAN)
+        .eq("artist_id", artistId)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: false });
+      if (options?.publicOnly) {
+        leanQuery = leanQuery.eq("active", true);
+      }
+      const lean = await leanQuery;
+      data = (lean.data ?? []) as Record<string, unknown>[];
+      error = lean.error;
+    }
 
     if (error) {
       if (isMissingRelation(error.message)) {
@@ -103,6 +141,8 @@ export type MerchWriteInput = {
   description?: string | null;
   price_xof: number;
   category: MerchCategory;
+  music_format?: MerchMusicFormat | null;
+  track_id?: string | null;
   quantity_available?: number | null;
   active?: boolean;
   image_urls?: string[];
@@ -121,23 +161,46 @@ export async function createMerchItem(
     return { ok: false, error: "Title is required." };
   }
 
-  const { data, error } = await supabase
+  const insertPayload: Record<string, unknown> = {
+    artist_id: artistId,
+    title,
+    description: input.description?.trim() || null,
+    price_xof: Math.max(0, Math.round(input.price_xof)),
+    category: input.category,
+    quantity_available: input.quantity_available ?? null,
+    active: input.active !== false,
+    image_urls: input.image_urls ?? [],
+    updated_at: new Date().toISOString(),
+  };
+  if (input.music_format) {
+    insertPayload.music_format = input.music_format;
+    insertPayload.track_id = input.track_id?.trim() || null;
+  } else if (input.music_format === null) {
+    insertPayload.music_format = null;
+    insertPayload.track_id = null;
+  }
+
+  const insertRes = await supabase
     .from("artist_merch_items")
-    .insert({
-      artist_id: artistId,
-      title,
-      description: input.description?.trim() || null,
-      price_xof: Math.max(0, Math.round(input.price_xof)),
-      category: input.category,
-      quantity_available: input.quantity_available ?? null,
-      active: input.active !== false,
-      image_urls: input.image_urls ?? [],
-      updated_at: new Date().toISOString(),
-    })
-    .select(
-      "id, artist_id, title, description, price_xof, image_urls, category, quantity_available, sales_count, active, sort_order, created_at, updated_at",
-    )
+    .insert(insertPayload)
+    .select(MERCH_SELECT)
     .maybeSingle();
+
+  let error = insertRes.error;
+  let data: Record<string, unknown> | null =
+    (insertRes.data as Record<string, unknown> | null) ?? null;
+
+  if (error && isMissingMusicColumns(error.message)) {
+    delete insertPayload.music_format;
+    delete insertPayload.track_id;
+    const retry = await supabase
+      .from("artist_merch_items")
+      .insert(insertPayload)
+      .select(MERCH_SELECT_LEAN)
+      .maybeSingle();
+    data = retry.data as Record<string, unknown> | null;
+    error = retry.error;
+  }
 
   if (error) {
     if (isMissingRelation(error.message)) {
@@ -182,21 +245,47 @@ export async function updateMerchItem(
     patch.price_xof = Math.max(0, Math.round(input.price_xof));
   }
   if (input.category !== undefined) patch.category = input.category;
+  if (input.music_format !== undefined) {
+    patch.music_format = input.music_format;
+    patch.track_id =
+      input.music_format && input.track_id?.trim()
+        ? input.track_id.trim()
+        : null;
+  }
+  if (input.track_id !== undefined && input.music_format === undefined) {
+    patch.track_id = input.track_id?.trim() || null;
+  }
   if (input.quantity_available !== undefined) {
     patch.quantity_available = input.quantity_available;
   }
   if (input.active !== undefined) patch.active = input.active;
   if (input.image_urls !== undefined) patch.image_urls = input.image_urls;
 
-  const { data, error } = await supabase
+  const updateRes = await supabase
     .from("artist_merch_items")
     .update(patch)
     .eq("id", itemId)
     .eq("artist_id", artistId)
-    .select(
-      "id, artist_id, title, description, price_xof, image_urls, category, quantity_available, sales_count, active, sort_order, created_at, updated_at",
-    )
+    .select(MERCH_SELECT)
     .maybeSingle();
+
+  let error = updateRes.error;
+  let data: Record<string, unknown> | null =
+    (updateRes.data as Record<string, unknown> | null) ?? null;
+
+  if (error && isMissingMusicColumns(error.message)) {
+    delete patch.music_format;
+    delete patch.track_id;
+    const retry = await supabase
+      .from("artist_merch_items")
+      .update(patch)
+      .eq("id", itemId)
+      .eq("artist_id", artistId)
+      .select(MERCH_SELECT_LEAN)
+      .maybeSingle();
+    data = retry.data as Record<string, unknown> | null;
+    error = retry.error;
+  }
 
   if (error) {
     if (isMissingRelation(error.message)) {

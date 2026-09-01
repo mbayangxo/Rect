@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import type { ArtistMerchItem, MerchCategory } from "@/lib/dashboard/artist-merch";
+import type { ArtistMerchItem, MerchCategory, MerchMusicFormat } from "@/lib/dashboard/artist-merch";
 import { formatMerchPriceXof } from "@/lib/dashboard/artist-merch";
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
   storeReady: boolean;
   storeError: string | null;
   artistPortalHref: string;
+  catalogTracks?: { id: string; title: string }[];
 };
 
 const CATEGORIES: { id: MerchCategory; label: string }[] = [
@@ -18,11 +19,18 @@ const CATEGORIES: { id: MerchCategory; label: string }[] = [
   { id: "physical", label: "Physical" },
 ];
 
+const MUSIC_FORMATS: { id: MerchMusicFormat; label: string }[] = [
+  { id: "album", label: "Album (digital)" },
+  { id: "cd", label: "CD" },
+  { id: "vinyl", label: "Vinyl" },
+];
+
 export function StudioMerchManager({
   initialItems,
   storeReady,
   storeError,
   artistPortalHref,
+  catalogTracks = [],
 }: Props) {
   const router = useRouter();
   const photoRef = useRef<HTMLInputElement>(null);
@@ -33,6 +41,8 @@ export function StudioMerchManager({
   const [description, setDescription] = useState("");
   const [priceXof, setPriceXof] = useState("");
   const [category, setCategory] = useState<MerchCategory>("physical");
+  const [musicFormat, setMusicFormat] = useState<MerchMusicFormat | "">("");
+  const [trackId, setTrackId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [photoItemId, setPhotoItemId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -45,6 +55,8 @@ export function StudioMerchManager({
     setDescription("");
     setPriceXof("");
     setCategory("physical");
+    setMusicFormat("");
+    setTrackId("");
     setQuantity("");
     setEditingId(null);
     setShowForm(false);
@@ -56,6 +68,8 @@ export function StudioMerchManager({
     setDescription(item.description ?? "");
     setPriceXof(String(item.price_xof));
     setCategory(item.category);
+    setMusicFormat(item.music_format ?? "");
+    setTrackId(item.track_id ?? "");
     setQuantity(
       item.quantity_available == null ? "" : String(item.quantity_available),
     );
@@ -76,9 +90,17 @@ export function StudioMerchManager({
       description: description.trim() || null,
       price_xof: Number(priceXof),
       category,
+      music_format: musicFormat || null,
+      track_id: musicFormat ? trackId.trim() || null : null,
       quantity_available:
         quantity.trim() === "" ? null : Math.max(0, Math.round(Number(quantity))),
     };
+
+    if (musicFormat && !trackId.trim()) {
+      setError("Select a track for album, CD, or vinyl — it counts toward RECT SCORE.");
+      setSaving(false);
+      return;
+    }
 
     try {
       const res = await fetch(
@@ -246,7 +268,8 @@ export function StudioMerchManager({
           <a href={artistPortalHref} className="text-[#1DB954] hover:underline">
             your portal
           </a>
-          . Fans pay through JOKO mobile money.
+          . Fans pay through JOKO mobile money. Album, CD, and vinyl sales boost
+          RECT SCORE for the linked track.
         </p>
         {storeReady && !showForm ? (
           <button
@@ -325,6 +348,47 @@ export function StudioMerchManager({
               />
             </label>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="text-xs text-white/45">
+                Music format (optional — counts toward RECT SCORE)
+              </span>
+              <select
+                value={musicFormat}
+                onChange={(e) => {
+                  const v = e.target.value as MerchMusicFormat | "";
+                  setMusicFormat(v);
+                  if (!v) setTrackId("");
+                }}
+                className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[#1DB954]/50"
+              >
+                <option value="">Regular merch</option>
+                {MUSIC_FORMATS.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {musicFormat ? (
+              <label className="block">
+                <span className="text-xs text-white/45">Linked track</span>
+                <select
+                  required
+                  value={trackId}
+                  onChange={(e) => setTrackId(e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[#1DB954]/50"
+                >
+                  <option value="">Select track…</option>
+                  {catalogTracks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="submit"
@@ -386,6 +450,9 @@ export function StudioMerchManager({
                     <p className="font-semibold">{item.title}</p>
                     <p className="text-xs text-white/40 capitalize">
                       {item.category}
+                      {item.music_format
+                        ? ` · ${item.music_format} → RECT SCORE`
+                        : ""}
                       {soldOut ? " · Sold out" : ""}
                     </p>
                   </div>

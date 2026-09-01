@@ -1,10 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { countTrackDownloadSales } from "@/lib/dashboard/track-downloads-paid";
 import { isDemoTrack, isPublishedTrack, type TrackRow } from "@/lib/tracks";
 
 export type ArtistStatTrack = TrackRow & {
   play_count: number;
   plays_this_month: number;
+  download_price_xof: number | null;
+  download_sales: number;
 };
 
 export type ArtistRecentListener = {
@@ -69,7 +72,7 @@ export async function loadArtistStudioStats(
     const { data: trackData, error: trackError } = await db
       .from("tracks")
       .select(
-        "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at",
+        "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code",
       )
       .eq("artist_id", artistId)
       .order("created_at", { ascending: false });
@@ -78,7 +81,7 @@ export async function loadArtistStudioStats(
     let rowsError = trackError;
     if (
       trackError &&
-      /language|column .* does not exist/i.test(trackError.message)
+      /download_price_xof|lyrics|language|launch_at|isrc_code|upc_code|column .* does not exist/i.test(trackError.message)
     ) {
       const lean = await db
         .from("tracks")
@@ -114,6 +117,7 @@ export async function loadArtistStudioStats(
 
     const ids = rows.map((r) => r.id);
     const monthStart = startOfMonthIso();
+    const downloadSalesByTrack = await countTrackDownloadSales(db, artistId, ids);
 
     type PlayRow = {
       id?: string | number | null;
@@ -143,6 +147,12 @@ export async function loadArtistStudioStats(
               ...r,
               play_count: 0,
               plays_this_month: 0,
+              download_price_xof:
+                typeof r.download_price_xof === "number"
+                  ? r.download_price_xof
+                  : null,
+              lyrics: typeof r.lyrics === "string" ? r.lyrics : null,
+              download_sales: 0,
             })),
             publishedCount,
             draftCount,
@@ -181,6 +191,10 @@ export async function loadArtistStudioStats(
       ...r,
       play_count: totalByTrack.get(r.id) ?? 0,
       plays_this_month: monthByTrack.get(r.id) ?? 0,
+      download_price_xof:
+        typeof r.download_price_xof === "number" ? r.download_price_xof : null,
+      lyrics: typeof r.lyrics === "string" ? r.lyrics : null,
+      download_sales: downloadSalesByTrack.get(r.id) ?? 0,
     }));
 
     const totalPlays = tracks.reduce((s, t) => s + t.play_count, 0);

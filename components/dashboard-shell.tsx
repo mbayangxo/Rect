@@ -4,14 +4,24 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityThanksButton } from "@/components/activity-thanks-button";
+import { AddToPlaylist } from "@/components/add-to-playlist";
+import { AppBottomNav } from "@/components/app-bottom-nav";
+import { AppDrawerNav } from "@/components/app-drawer-nav";
+import { HearthHero } from "@/components/hearth/hearth-hero";
+import { HearthPulse } from "@/components/hearth/hearth-pulse";
+import { HearthTrackGrid } from "@/components/hearth/hearth-track-grid";
 import { InboxPlaylistActions } from "@/components/inbox-playlist-actions";
 import { InboxTrackPlay } from "@/components/inbox-track-play";
 import { usePlayer } from "@/components/player-provider";
 import { PlayPacksPanel } from "@/components/play-packs-panel";
-import { SignOutButton } from "@/components/sign-out-button";
 import { TrackCover } from "@/components/track-cover";
 import { TrackLikeButton } from "@/components/track-like-button";
+import type {
+  TrendingPortal,
+  TrendingTrack,
+} from "@/lib/dashboard/trending";
 import type { ArtistPortal } from "@/lib/dashboard/artists";
+import type { LiveRoom } from "@/lib/dashboard/live-rooms";
 import {
   formatPlayedAt,
   type JournalEntry,
@@ -24,8 +34,6 @@ import type {
 import { personProfileHref } from "@/lib/dashboard/people";
 import type { PlayPack } from "@/lib/dashboard/play-packs";
 import type { PendingPackPurchase } from "@/lib/dashboard/credits";
-import { genreToSlug } from "@/lib/dashboard/genres";
-import { placeToSlug } from "@/lib/dashboard/places";
 import {
   formatPlayCount,
   trackArtist,
@@ -68,6 +76,9 @@ type Props = {
   followingPlaylists?: Record<string, boolean>;
   playlistFollowsReady?: boolean;
   playlistPreviewTracks?: Record<string, TrackRow>;
+  liveNow?: LiveRoom[];
+  trendingTracks?: TrendingTrack[];
+  trendingPortals?: TrendingPortal[];
 };
 
 function formatTime(secs: number) {
@@ -111,6 +122,9 @@ export function DashboardShell({
   followingPlaylists = {},
   playlistFollowsReady = false,
   playlistPreviewTracks = {},
+  liveNow = [],
+  trendingTracks = [],
+  trendingPortals = [],
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -176,17 +190,17 @@ export function DashboardShell({
     }
   }
 
-  const active = useMemo(() => {
-    if (player.track) {
-      const match = featured.find((t) => t.id === player.track?.id);
-      return match ?? {
+  const nowPlaying = useMemo(() => {
+    if (!player.track) return null;
+    const match = featured.find((t) => t.id === player.track?.id);
+    return (
+      match ?? {
         ...player.track,
         play_count: 0,
         like_count: 0,
         artist_name: player.track.artist_name ?? null,
-      };
-    }
-    return featured[0] ?? null;
+      }
+    );
   }, [player.track, featured]);
 
   const pct =
@@ -200,21 +214,17 @@ export function DashboardShell({
   }
 
   function toggleHero() {
-    if (!active?.audio_url) return;
-    if (player.track?.id === active.id) {
-      player.toggle();
-      return;
-    }
-    player.play(active);
+    if (!nowPlaying?.audio_url) return;
+    player.toggle();
   }
 
-  const liked = active ? likedIds.has(active.id) : false;
+  const liked = nowPlaying ? likedIds.has(nowPlaying.id) : false;
 
   async function toggleLike() {
-    if (!active || !likesReady || likePending) return;
+    if (!nowPlaying || !likesReady || likePending) return;
     setLikeError(null);
     setLikePending(true);
-    const trackId = active.id;
+    const trackId = nowPlaying.id;
     const prev = likedIds.has(trackId);
     setLikedIds((set) => {
       const next = new Set(set);
@@ -270,7 +280,7 @@ export function DashboardShell({
       />
       <aside className={`dash-drawer ${drawerOpen ? "open" : ""}`}>
         <div className="dash-dr-head">
-          <span className="dash-dr-title">RECT Sound</span>
+          <span className="dash-dr-title">Menu</span>
           <button
             type="button"
             className="dash-dr-close"
@@ -279,85 +289,13 @@ export function DashboardShell({
             ✕
           </button>
         </div>
-        <div className="dash-dr-user">
-          <p className="dash-dr-name">{displayName}</p>
-          <SignOutButton />
-        </div>
-        <Link href="/library" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Library</span>
-          <span>›</span>
-        </Link>
-        <Link href="/following" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Following</span>
-          <span>›</span>
-        </Link>
-        <Link href="/inbox" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Inbox{inboxUnread > 0 ? ` (${inboxUnread})` : ""}</span>
-          <span>›</span>
-        </Link>
-        <Link href="/playlists" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Playlists</span>
-          <span>›</span>
-        </Link>
-        <Link href="/tips" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>My tips</span>
-          <span>›</span>
-        </Link>
-        {showArtistStudio ? (
-          <Link href="/studio" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-            <span>Artist studio</span>
-            <span>›</span>
-          </Link>
-        ) : (
-          <Link href="/for-artists" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-            <span>Become an artist</span>
-            <span>›</span>
-          </Link>
-        )}
-        {showArtistStudio ? (
-          <Link href="/artist/inbox" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-            <span>
-              Artist inbox
-              {artistInboxUnread > 0 ? ` (${artistInboxUnread})` : ""}
-            </span>
-            <span>›</span>
-          </Link>
-        ) : null}
-        <Link href="/journal" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Listening journal</span>
-          <span>›</span>
-        </Link>
-        <Link href="/radio" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Wave</span>
-          <span>›</span>
-        </Link>
-        <Link href="/genres" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Genres</span>
-          <span>›</span>
-        </Link>
-        <Link href="/languages" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Languages</span>
-          <span>›</span>
-        </Link>
-        <Link href="/new" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>New releases</span>
-          <span>›</span>
-        </Link>
-        <Link href="/places" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Places</span>
-          <span>›</span>
-        </Link>
-        <Link href="/charts" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Charts</span>
-          <span>›</span>
-        </Link>        <Link href="/profile" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Profile</span>
-          <span>›</span>
-        </Link>
-        <Link href="/" className="dash-dmi" onClick={() => setDrawerOpen(false)}>
-          <span>Landing</span>
-          <span>›</span>
-        </Link>
+        <AppDrawerNav
+          displayName={displayName}
+          showArtistStudio={showArtistStudio}
+          inboxUnread={inboxUnread}
+          artistInboxUnread={artistInboxUnread}
+          onNavigate={() => setDrawerOpen(false)}
+        />
       </aside>
 
       <header className="dash-topbar mx-auto w-full max-w-7xl px-4 sm:px-8">
@@ -383,75 +321,28 @@ export function DashboardShell({
         </div>
       </header>
 
-      <div className="dash-hub mx-auto w-full max-w-7xl px-4 sm:px-8">
-        <span className="dash-hub-label">RECT Hub</span>
-        <div className="dash-hub-sep" />
-        <Link href="/library" className="dash-hub-exit">
-          Library <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/following" className="dash-hub-exit">
-          Following <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/inbox" className="dash-hub-exit">
-          Inbox
-          {inboxUnread > 0 ? ` (${inboxUnread})` : ""}{" "}
-          <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/playlists" className="dash-hub-exit">
-          Playlists <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/tips" className="dash-hub-exit">
-          Tips <span className="dash-hub-arr">↗</span>
-        </Link>
-        {showArtistStudio ? (
-          <Link href="/studio" className="dash-hub-exit">
-            Studio <span className="dash-hub-arr">↗</span>
-          </Link>
-        ) : (
-          <Link href="/for-artists" className="dash-hub-exit">
-            For artists <span className="dash-hub-arr">↗</span>
-          </Link>
-        )}
-        {showArtistStudio ? (
-          <Link href="/artist/inbox" className="dash-hub-exit">
-            Studio inbox
-            {artistInboxUnread > 0 ? ` (${artistInboxUnread})` : ""}{" "}
-            <span className="dash-hub-arr">↗</span>
-          </Link>
-        ) : null}
-        <Link href="/journal" className="dash-hub-exit">
-          Journal <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/radio" className="dash-hub-exit">
-          Wave <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/genres" className="dash-hub-exit">
-          Genres <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/languages" className="dash-hub-exit">
-          Languages <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/new" className="dash-hub-exit">
-          New <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/places" className="dash-hub-exit">
-          Places <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/charts" className="dash-hub-exit">
-          Charts <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/search" className="dash-hub-exit">
-          Search <span className="dash-hub-arr">↗</span>
-        </Link>
-        <Link href="/profile" className="dash-hub-exit">
-          You <span className="dash-hub-arr">↗</span>
-        </Link>
-      </div>
-
       <div className="dash-page mx-auto w-full max-w-7xl px-4 pb-28 sm:px-8">
+        <HearthHero
+          displayName={displayName}
+          liveCount={liveNow.length}
+          inboxUnread={inboxUnread}
+          creditBalance={creditBalance}
+          creditsReady={creditsReady}
+        />
+
+        <HearthPulse
+          rooms={liveNow}
+          trendingTracks={trendingTracks}
+          trendingPortals={trendingPortals}
+          featured={featured}
+        />
+
         <div className="dash-layout flex flex-col gap-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-10">
-        {/* CONNECTION 2 — Featured / vinyl now-playing */}
-        <section className="dash-now lg:col-span-7 lg:sticky lg:top-4 lg:m-0" aria-label="Now playing">
+        {/* Featured — browse when idle; hero only while something is loaded */}
+        <section
+          className="dash-now lg:col-span-7 lg:sticky lg:top-4 lg:m-0"
+          aria-label={nowPlaying ? "Now playing" : "For you"}
+        >
           {featuredError ? (
             <div className="dash-empty" role="alert">
               <p className="dash-empty-title">Could not load tracks</p>
@@ -461,14 +352,14 @@ export function DashboardShell({
             <div className="dash-empty">
               <p className="dash-empty-title">No tracks yet. Artists are uploading.</p>
             </div>
-          ) : active ? (
+          ) : nowPlaying ? (
             <div className="dash-ni-glass">
               <div
                 className="dash-ni-art min-h-[190px] sm:min-h-[280px] lg:min-h-[340px]"
                 style={
-                  active.cover_art_url
+                  nowPlaying.cover_art_url
                     ? {
-                        backgroundImage: `linear-gradient(to top, rgba(4,13,6,0.92) 0%, rgba(4,13,6,0.35) 45%, rgba(4,13,6,0.55) 100%), url(${active.cover_art_url})`,
+                        backgroundImage: `linear-gradient(to top, rgba(4,13,6,0.92) 0%, rgba(4,13,6,0.35) 45%, rgba(4,13,6,0.55) 100%), url(${nowPlaying.cover_art_url})`,
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                       }
@@ -477,11 +368,11 @@ export function DashboardShell({
               >
                 <div className="dash-ni-grad" />
                 <div
-                  className={`dash-ni-vinyl h-[110px] w-[110px] sm:h-[150px] sm:w-[150px] lg:h-[170px] lg:w-[170px] ${player.playing && player.track?.id === active.id ? "playing" : ""}`}
+                  className={`dash-ni-vinyl h-[110px] w-[110px] sm:h-[150px] sm:w-[150px] lg:h-[170px] lg:w-[170px] ${player.playing ? "playing" : ""}`}
                   style={
-                    active.cover_art_url
+                    nowPlaying.cover_art_url
                       ? {
-                          backgroundImage: `url(${active.cover_art_url})`,
+                          backgroundImage: `url(${nowPlaying.cover_art_url})`,
                           backgroundSize: "cover",
                           backgroundPosition: "center",
                         }
@@ -493,53 +384,62 @@ export function DashboardShell({
                 <div className="dash-ni-social">
                   <span className="dash-ns-count">
                     {personalized ? "For you · " : ""}
-                    {formatPlayCount(active.play_count)} plays
-                    {(active.like_count ?? 0) > 0
-                      ? ` · ${formatPlayCount(active.like_count)} likes`
+                    {formatPlayCount(nowPlaying.play_count)} plays
+                    {(nowPlaying.like_count ?? 0) > 0
+                      ? ` · ${formatPlayCount(nowPlaying.like_count)} likes`
                       : ""}
                   </span>
                 </div>
                 <div className="dash-ni-identity">
-                  <div className="dash-ni-artist text-3xl sm:text-4xl lg:text-5xl">{trackArtist(active)}</div>
+                  <div className="dash-ni-artist text-3xl sm:text-4xl lg:text-5xl">
+                    {trackArtist(nowPlaying)}
+                  </div>
                   <div className="dash-ni-track">
-                    {trackTitle(active)}
-                    {active.genre ? ` · ${active.genre}` : ""}
+                    {trackTitle(nowPlaying)}
+                    {nowPlaying.genre ? ` · ${nowPlaying.genre}` : ""}
                   </div>
                 </div>
               </div>
               <div className="dash-now-controls">
                 <div className="dash-ctrl-row">
                   <div className="dash-ctrl-meta">
-                    <div className="dash-ctrl-song">{trackTitle(active)}</div>
+                    <div className="dash-ctrl-song">{trackTitle(nowPlaying)}</div>
                     <div className="dash-ctrl-info">
-                      {trackArtist(active)} · {formatPlayCount(active.play_count)}{" "}
-                      plays
+                      {trackArtist(nowPlaying)} ·{" "}
+                      {formatPlayCount(nowPlaying.play_count)} plays
                     </div>
                   </div>
                   <button
                     type="button"
                     className={`dash-act-btn ${liked ? "liked" : ""}`}
                     onClick={() => void toggleLike()}
-                    disabled={!active || !likesReady || likePending}
+                    disabled={!likesReady || likePending}
                     aria-label={liked ? "Unlike" : "Like"}
                     title={
                       likesReady
                         ? liked
                           ? "Unlike"
-                          : "Like"
+                          : "Save"
                         : "Run track likes SQL in Supabase"
                     }
                   >
                     {liked ? "♥" : "♡"}
                   </button>
+                  <div className="hidden sm:flex sm:items-center">
+                    <AddToPlaylist
+                      trackId={nowPlaying.id}
+                      compact
+                      loginNext="/dashboard"
+                    />
+                  </div>
                   <button
                     type="button"
-                    className={`dash-play-big ${player.playing && player.track?.id === active.id ? "playing" : ""}`}
+                    className={`dash-play-big ${player.playing ? "playing" : ""}`}
                     onClick={toggleHero}
-                    disabled={!active.audio_url}
+                    disabled={!nowPlaying.audio_url}
                     aria-label={player.playing ? "Pause" : "Play"}
                   >
-                    {player.playing && player.track?.id === active.id ? "⏸" : "▶"}
+                    {player.playing ? "⏸" : "▶"}
                   </button>
                 </div>
                 <div className="dash-prog-zone">
@@ -557,89 +457,32 @@ export function DashboardShell({
                 {likeError ? (
                   <p className="mt-2 text-xs text-[#F5A623]">{likeError}</p>
                 ) : null}
-                {featured.length > 1 ? (
-                  <div className="dash-featured-list">
-                    {personalized &&
-                    (tasteGenres.length > 0 ||
-                      tasteCountries.length > 0 ||
-                      tasteDaypart) ? (
-                      <p className="mb-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 px-1 text-[0.58rem] uppercase tracking-[0.12em] text-white/35">
-                        <span>Tuned to</span>
-                        {tasteGenres.map((g, i) => {
-                          const slug = genreToSlug(g);
-                          return (
-                            <span key={`g-${g}`} className="inline-flex items-center gap-1.5">
-                              {i > 0 ? <span aria-hidden>·</span> : null}
-                              {slug ? (
-                                <Link
-                                  href={`/genres/${slug}`}
-                                  className="text-white/55 hover:text-[#1DB954]"
-                                >
-                                  {g}
-                                </Link>
-                              ) : (
-                                <span>{g}</span>
-                              )}
-                            </span>
-                          );
-                        })}
-                        {tasteGenres.length > 0 && tasteCountries.length > 0 ? (
-                          <span aria-hidden>·</span>
-                        ) : null}
-                        {tasteCountries.map((c, i) => {
-                          const slug = placeToSlug(c);
-                          return (
-                            <span key={`c-${c}`} className="inline-flex items-center gap-1.5">
-                              {i > 0 ? <span aria-hidden>·</span> : null}
-                              {slug ? (
-                                <Link
-                                  href={`/places/${slug}`}
-                                  className="text-white/55 hover:text-[#1DB954]"
-                                >
-                                  {c}
-                                </Link>
-                              ) : (
-                                <span>{c}</span>
-                              )}
-                            </span>
-                          );
-                        })}
-                        {tasteDaypart ? (
-                          <>
-                            {(tasteGenres.length > 0 ||
-                              tasteCountries.length > 0) && (
-                              <span aria-hidden>·</span>
-                            )}
-                            <span className="text-white/55">{tasteDaypart}</span>
-                          </>
-                        ) : null}
-                      </p>
-                    ) : null}
-                    {featured.slice(0, 6).map((t, i) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        className={`dash-feat-row ${active.id === t.id ? "on" : ""}`}
-                        onClick={() => playFeatured(t)}
-                      >
-                        <span>{i + 1}</span>
-                        <span className="dash-feat-title">{trackTitle(t)}</span>
-                        <span className="dash-feat-artist">
-                          {trackArtist(t)}
-                          {formatTrackDuration(t.duration_secs)
-                            ? ` · ${formatTrackDuration(t.duration_secs)}`
-                            : ""}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
               </div>
             </div>
-          ) : null}
+          ) : (
+            <HearthTrackGrid
+              tracks={featured}
+              personalized={personalized}
+              tasteGenres={tasteGenres}
+              tasteCountries={tasteCountries}
+              tasteDaypart={tasteDaypart}
+              likedTrackIds={likedIds}
+              likesReady={likesReady}
+              onPlay={playFeatured}
+            />
+          )}
         </section>
 
-        <div className="dash-side lg:col-span-5">
+        <aside className="hearth-orbit dash-side lg:col-span-5">
+        <div className="hearth-zone-head hearth-zone-head-orbit">
+          <div>
+            <p className="hearth-zone-kicker">Around you</p>
+            <h2 className="hearth-zone-title">Your orbit</h2>
+          </div>
+          <Link href="/following" className="hearth-zone-link">
+            Following →
+          </Link>
+        </div>
         {(continueItems.length > 0 || continueError || continueDismissError) && (
           <>
             <div className="dash-sh px-0">
@@ -676,7 +519,7 @@ export function DashboardShell({
                         }
                         className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-white/[0.05]"
                       >
-                        <TrackCover track={t} size="sm" />
+                        <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-white">
                             {trackTitle(t)}
@@ -739,7 +582,7 @@ export function DashboardShell({
                         }
                         className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-0 py-1 text-left"
                       >
-                        <TrackCover track={t} size="sm" />
+                        <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-white">
                             {trackTitle(t)}
@@ -810,7 +653,7 @@ export function DashboardShell({
                         }
                         className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-0 py-1 text-left"
                       >
-                        <TrackCover track={t} size="sm" />
+                        <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-white">
                             {trackTitle(t)}
@@ -1002,56 +845,13 @@ export function DashboardShell({
           </div>
         )}
         </div>
-        </div>
+        </aside>
         </div>
 
         <div className="dash-bottom-pad" />
       </div>
 
-      {/* Mini player when something is loaded */}
-      {player.track ? (
-        <div className="dash-mini">
-          <div className="dash-mp-prog">
-            <div className="dash-mp-fill" style={{ width: `${pct}%` }} />
-          </div>
-          <div className="dash-mp-row">
-            <div className="dash-mp-info">
-              <div className="dash-mp-song">{trackTitle(player.track)}</div>
-              <div className="dash-mp-artist">{trackArtist(player.track)}</div>
-            </div>
-            <button
-              type="button"
-              className="dash-mp-play"
-              onClick={() => player.toggle()}
-            >
-              {player.playing ? "⏸" : "▶"}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      <nav className="dash-nav">
-        <Link href="/dashboard" className="dash-ni on">
-          <span className="dash-ni-ico">🏠</span>
-          <span className="dash-ni-lbl">Home</span>
-        </Link>
-        <Link href="/search" className="dash-ni">
-          <span className="dash-ni-ico">🔍</span>
-          <span className="dash-ni-lbl">Search</span>
-        </Link>
-        <Link href="/library" className="dash-ni">
-          <span className="dash-ni-ico">♥</span>
-          <span className="dash-ni-lbl">Library</span>
-        </Link>
-        <Link href="/charts" className="dash-ni">
-          <span className="dash-ni-ico">📊</span>
-          <span className="dash-ni-lbl">Charts</span>
-        </Link>
-        <Link href="/profile" className="dash-ni">
-          <span className="dash-ni-ico">👤</span>
-          <span className="dash-ni-lbl">You</span>
-        </Link>
-      </nav>
+      <AppBottomNav />
     </div>
   );
 }

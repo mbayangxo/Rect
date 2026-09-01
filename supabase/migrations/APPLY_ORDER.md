@@ -121,10 +121,30 @@ Run in order if probe shows gaps:
 3. **`20260830_artist_play_earnings_bootstrap.sql`** — play earnings + credited play fix
 4. **`20260830_plays_listened_secs.sql`** — completion rate (`listened_secs` on plays)
 5. `20260830_tracks_taali_fields.sql` — optional nullable track fields only
+6. `20260830_track_lyrics.sql` — lyrics
+7. Live / Discover (if those pages are live): `20260830_live_rooms.sql`, `20260830_live_rooms_hardening.sql`, `20260830_rect_live.sql`, `20260830_discovery_trending.sql`
+8. **`20260831_artist_os_delivery_suite.sql`** — DSP Delivery + `launch_at` + tip→wallet
+9. **`20260831_joko_tips.sql`** — JOKO tip pay (pending → confirm)
+
+## Artist OS Delivery — what to paste in Supabase
+
+**Do not paste** `scripts/apply-supabase-sql.mjs` into the SQL Editor. That file is Node/JavaScript and causes:
+
+`ERROR: syntax error at or near "{"` / `import { readFileSync...`
+
+Paste only SQL from `supabase/migrations/*.sql` (open the file, copy contents, Run).
+
+Fast path for Delivery + New Wave + tips:
+
+1. `20260831_artist_os_delivery_suite.sql`
+2. `20260831_joko_tips.sql`
+
+Or: `npm run db:apply:artist-os` with `SUPABASE_DB_URL` in `.env.local`.
 
 ## Verify
 
 Run `_probe_missing_aug08_09.sql`. Fix any `MISSING` row using the file named in that row.
+Also: `node --env-file=.env.local scripts/probe-artist-os.mjs`
 
 ### playlist_copy_related (common gap)
 

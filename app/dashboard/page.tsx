@@ -26,6 +26,11 @@ import {
   tasteFromProfile,
 } from "@/lib/dashboard/taste";
 import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
+import { loadPublicLiveNow } from "@/lib/dashboard/live-rooms";
+import {
+  loadTrendingPortals,
+  loadTrendingTracks,
+} from "@/lib/dashboard/trending";
 import { createClient } from "@/lib/supabase/server";
 import type { TrackRow } from "@/lib/tracks";
 import "./dashboard.css";
@@ -96,6 +101,9 @@ export default async function DashboardPage() {
     friendsRes,
     friendsLikesRes,
     friendsMixesRes,
+    liveNowRes,
+    trendingTracksRes,
+    trendingPortalsRes,
   ] = await Promise.all([
     loadFeaturedTracks(supabase, taste),
     loadArtistPortals(supabase, taste),
@@ -108,6 +116,9 @@ export default async function DashboardPage() {
     loadFriendsListening(supabase, current.user.id, 8),
     loadFriendsLikes(supabase, current.user.id, 8),
     loadFriendsMixes(supabase, current.user.id, 6),
+    loadPublicLiveNow(supabase, 16),
+    loadTrendingTracks(supabase, 10),
+    loadTrendingPortals(supabase, 8),
   ]);
 
   const releaseUnread = inboxRes.notifications.filter(
@@ -253,6 +264,9 @@ export default async function DashboardPage() {
       followingPlaylists={followingPlaylists}
       playlistFollowsReady={!playlistAmong.missingTable}
       playlistPreviewTracks={playlistPreviewTracks}
+      liveNow={liveNowRes.rooms}
+      trendingTracks={trendingTracksRes.tracks}
+      trendingPortals={trendingPortalsRes.portals}
     />
   );
 }

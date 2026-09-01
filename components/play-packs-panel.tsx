@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { PlayPack } from "@/lib/dashboard/play-packs";
@@ -26,7 +27,6 @@ export function PlayPacksPanel({
 }: Props) {
   const router = useRouter();
   const [credits, setCredits] = useState(initialCredits);
-  const [buyingId, setBuyingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<number | null>(null);
   const [pending, setPending] = useState(initialPending);
   const [message, setMessage] = useState<string | null>(null);
@@ -49,65 +49,6 @@ export function PlayPacksPanel({
   useEffect(() => {
     return subscribeCreditsRemaining(setCredits);
   }, []);
-
-  async function buy(pack: PlayPack) {
-    setBuyingId(pack.id);
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/play-packs/purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack_id: pack.id }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        status?: string;
-        purchase_id?: number;
-        credits_granted?: number;
-        credits_pending?: number;
-        balance?: number | null;
-        pack_name?: string;
-        pack_code?: string;
-        price_label?: string | null;
-      };
-      if (!res.ok || data.error) {
-        setError(data.error || "Could not start pack purchase");
-        return;
-      }
-
-      if (data.status === "confirmed") {
-        if (typeof data.balance === "number") {
-          setCredits(data.balance);
-          publishCreditsRemaining(data.balance);
-        }
-        setMessage(
-          `Added ${data.credits_granted ?? 0} plays${
-            data.pack_name ? ` from ${data.pack_name}` : ""
-          }.`,
-        );
-      } else if (data.purchase_id != null) {
-        const row: PendingPackPurchase = {
-          id: data.purchase_id,
-          pack_id: Number(pack.id),
-          credits_pending: data.credits_pending ?? pack.play_credits ?? 0,
-          pack_code: data.pack_code ?? pack.code,
-          pack_name: data.pack_name ?? pack.name,
-          price_label: data.price_label ?? pack.price_label,
-          created_at: new Date().toISOString(),
-        };
-        setPending((list) => [row, ...list.filter((p) => p.id !== row.id)]);
-        setMessage(
-          `Payment pending for ${data.pack_name || pack.name}. Confirm demo payment to add credits.`,
-        );
-      }
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setBuyingId(null);
-    }
-  }
 
   async function confirm(purchaseId: number) {
     setConfirmingId(purchaseId);
@@ -185,9 +126,16 @@ export function PlayPacksPanel({
       </div>
 
       <p className="mb-3 px-0 text-xs text-white/40">
-        Buy starts a pending purchase. Confirm demo payment to add credits — no
-        real charge yet.
+        Pay with Wave, Orange Money, MTN MoMo, or local mobile money through JOKO
+        — no bank account or card needed.
       </p>
+
+      <Link
+        href="/profile/credits"
+        className="mb-4 inline-flex rounded-full bg-[#1DB954] px-4 py-2 text-xs font-semibold text-black hover:bg-[#17a349]"
+      >
+        Add credits · Get play pack
+      </Link>
 
       {!creditsReady ? (
         <p className="mb-3 px-0 text-xs text-white/40">
@@ -216,17 +164,23 @@ export function PlayPacksPanel({
                   </p>
                   <p className="text-xs text-white/45">
                     {p.credits_pending} plays
-                    {p.price_label ? ` · ${p.price_label}` : ""} · demo payment
+                    {p.price_label ? ` · ${p.price_label}` : ""} · awaiting JOKO
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  <Link
+                    href="/profile/credits"
+                    className="rounded-full bg-[#1DB954] px-3 py-1.5 text-xs font-semibold text-black"
+                  >
+                    Complete pay
+                  </Link>
                   <button
                     type="button"
                     disabled={confirmingId === p.id}
                     onClick={() => void confirm(p.id)}
-                    className="rounded-full bg-[#1DB954] px-3 py-1.5 text-xs font-semibold text-black disabled:opacity-50"
+                    className="rounded-full border border-white/20 px-3 py-1.5 text-xs text-white/70 disabled:opacity-50"
                   >
-                    {confirmingId === p.id ? "…" : "Confirm demo pay"}
+                    {confirmingId === p.id ? "…" : "Demo confirm"}
                   </button>
                   <button
                     type="button"
@@ -257,14 +211,12 @@ export function PlayPacksPanel({
                 <span>{p.play_credits} plays</span>
               ) : null}
             </div>
-            <button
-              type="button"
-              disabled={!creditsReady || buyingId === p.id}
-              onClick={() => void buy(p)}
-              className="dash-pack-buy"
+            <Link
+              href="/profile/credits"
+              className="dash-pack-buy inline-flex items-center justify-center"
             >
-              {buyingId === p.id ? "Starting…" : "Buy pack"}
-            </button>
+              Get pack
+            </Link>
           </div>
         ))}
       </div>

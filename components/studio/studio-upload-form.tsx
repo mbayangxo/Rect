@@ -27,6 +27,11 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
   const [masterOwner, setMasterOwner] = useState("");
   const [territory, setTerritory] = useState("");
   const [publishLive, setPublishLive] = useState(true);
+  const [downloadPriceXof, setDownloadPriceXof] = useState("");
+  const [lyrics, setLyrics] = useState("");
+  const [isrc, setIsrc] = useState("");
+  const [upc, setUpc] = useState("");
+  const [launchAt, setLaunchAt] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [cover, setCover] = useState<File | null>(null);
   const [writers, setWriters] = useState<WriterRow[]>([
@@ -102,6 +107,20 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
       if (territory.trim()) {
         body.set("territory_of_origin", territory.trim().toUpperCase().slice(0, 2));
       }
+      const price = Number(downloadPriceXof);
+      if (Number.isFinite(price) && price > 0) {
+        body.set("download_price_xof", String(Math.round(price)));
+      }
+      const lyricsTrim = lyrics.trim();
+      if (lyricsTrim) body.set("lyrics", lyricsTrim);
+      if (isrc.trim()) body.set("isrc_code", isrc.trim().toUpperCase());
+      if (upc.trim()) body.set("upc_code", upc.trim());
+      if (launchAt.trim()) {
+        const iso = new Date(launchAt).toISOString();
+        if (!Number.isNaN(new Date(launchAt).getTime())) {
+          body.set("launch_at", iso);
+        }
+      }
       body.set(
         "writers",
         JSON.stringify(
@@ -116,7 +135,11 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
         method: "POST",
         body,
       });
-      const data = (await res.json()) as { error?: string; track?: { id?: string } };
+      const data = (await res.json()) as {
+        error?: string;
+        track?: { id?: string };
+        warnings?: string[];
+      };
 
       if (res.status === 401) {
         window.location.href = "/auth/login?next=/studio/upload";
@@ -125,6 +148,9 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
       if (!res.ok || data.error) {
         setError(data.error || "Upload failed.");
         return;
+      }
+      if (data.warnings?.length) {
+        window.alert(data.warnings.join("\n"));
       }
 
       router.push("/studio/tracks");
@@ -194,6 +220,71 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
           className="mt-1.5 block w-full text-sm text-white/70 file:mr-3 file:rounded-full file:border-0 file:bg-[#1DB954] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-black"
         />
       </label>
+
+      <label className="block">
+        <span className="text-xs text-white/45">Download price (XOF)</span>
+        <input
+          type="number"
+          min={0}
+          step={50}
+          value={downloadPriceXof}
+          onChange={(e) => setDownloadPriceXof(e.target.value)}
+          placeholder="Leave empty for streaming only"
+          className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-[#1DB954]"
+        />
+        <span className="mt-1 block text-[0.65rem] text-white/30">
+          Fans buy the file through JOKO mobile money. Revenue shows in Wallet and Analytics.
+        </span>
+      </label>
+
+      <label className="block">
+        <span className="text-xs text-white/45">Lyrics (optional)</span>
+        <textarea
+          value={lyrics}
+          onChange={(e) => setLyrics(e.target.value)}
+          rows={6}
+          maxLength={20000}
+          placeholder="Paste lyrics — fans see them on the song page. You can edit anytime in Studio → Tracks."
+          className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-[#1DB954]"
+        />
+        <span className="mt-1 block text-[0.65rem] text-white/30">
+          {lyrics.length.toLocaleString()} / 20,000 characters
+        </span>
+      </label>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <label className="block">
+          <span className="text-xs text-white/45">ISRC (optional)</span>
+          <input
+            value={isrc}
+            onChange={(e) => setIsrc(e.target.value.toUpperCase())}
+            maxLength={15}
+            placeholder="QZ…"
+            className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm uppercase outline-none focus:border-[#1DB954]"
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs text-white/45">UPC (optional)</span>
+          <input
+            value={upc}
+            onChange={(e) => setUpc(e.target.value)}
+            maxLength={14}
+            className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-[#1DB954]"
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs text-white/45">RECT launch date</span>
+          <input
+            type="datetime-local"
+            value={launchAt}
+            onChange={(e) => setLaunchAt(e.target.value)}
+            className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-[#1DB954]"
+          />
+          <span className="mt-1 block text-[0.65rem] text-white/30">
+            When it appears on New &amp; New Wave. Empty = as soon as published.
+          </span>
+        </label>
+      </div>
 
       <label className="block">
         <span className="text-xs text-white/45">
@@ -297,7 +388,7 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
             onChange={() => setPublishLive(true)}
             className="accent-[#1DB954]"
           />
-          Publish live — appears on Home &amp; Charts
+          Publish live — on RECT when launch date hits (New / New Wave / Charts)
         </label>
         <label className="mt-2 flex cursor-pointer items-center gap-3 text-sm">
           <input

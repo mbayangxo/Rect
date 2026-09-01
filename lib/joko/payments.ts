@@ -8,7 +8,9 @@ export type JokoPaymentMethodId =
   | "wave"
   | "orange_money"
   | "mtn_momo"
-  | "mobile_money";
+  | "mobile_money"
+  | "joko_wallet"
+  | "debit";
 
 export type JokoPaymentMethod = {
   id: JokoPaymentMethodId;
@@ -35,6 +37,18 @@ export const JOKO_PAYMENT_METHODS: JokoPaymentMethod[] = [
     label: "MTN MoMo",
     shortLabel: "MTN",
     description: "MTN Mobile Money",
+  },
+  {
+    id: "joko_wallet",
+    label: "JOKO Wallet",
+    shortLabel: "JOKO",
+    description: "Pay from your JOKO wallet balance",
+  },
+  {
+    id: "debit",
+    label: "Debit via JOKO",
+    shortLabel: "Debit",
+    description: "Debit card through JOKO",
   },
   {
     id: "mobile_money",
@@ -66,6 +80,7 @@ export type JokoInitiateInput = {
   packName: string;
   userId: string;
   product?: string;
+  referencePrefix?: string;
 };
 
 export type JokoInitiateResult =
@@ -90,9 +105,23 @@ export async function initiateJokoPayment(
     return { ok: false, error: "Enter a valid mobile money number." };
   }
 
-  const reference = `joko-${input.purchaseId}-${Date.now()}`;
+  const reference = input.referencePrefix
+    ? `${input.referencePrefix}-${Date.now()}`
+    : `joko-${input.purchaseId}-${Date.now()}`;
+
+  const product = input.product ?? "rect_play_pack";
 
   if (!isJokoLive()) {
+    const allowDemo =
+      process.env.NODE_ENV !== "production" ||
+      process.env.ALLOW_DEMO_PAYMENTS === "true";
+    if (!allowDemo) {
+      return {
+        ok: false,
+        error:
+          "JOKO payments are not configured. Set JOKO_API_URL and JOKO_API_KEY.",
+      };
+    }
     return {
       ok: true,
       mode: "demo",
@@ -117,11 +146,14 @@ export async function initiateJokoPayment(
         amount_xof: input.amountXof,
         method: input.paymentMethod,
         phone,
-        description: `RECT play pack · ${input.packName}`,
+        description: `RECT · ${input.packName}`,
         metadata: {
           purchase_id: input.purchaseId,
+          ...(product === "rect_fan_club"
+            ? { member_id: input.purchaseId }
+            : {}),
           user_id: input.userId,
-          product: input.product ?? "rect_play_pack",
+          product,
         },
       }),
     });

@@ -51,7 +51,8 @@ export function TipsClient({
             Support sent
           </h1>
           <p className="mt-2 text-sm text-white/45">
-            Demo tips from your account — recorded for artists, not real charges
+            Demo tips from your account — paid via JOKO (Wave / Orange / MTN /
+            wallet / debit); artists see credits after confirmation
             or withdrawable payouts
             {!missingTable
               ? ` · ${totalXof.toLocaleString()} XOF demo total`

@@ -9,13 +9,18 @@ import {
   type AnalyticsRangeId,
   type AnalyticsTimeWindow,
 } from "@/lib/dashboard/analytics-time";
+import { countFanClubMembers, loadFanClubGrowth } from "@/lib/dashboard/fan-club";
 import { loadLikeCountMap } from "@/lib/dashboard/likes";
+import { countTrackDownloadSales } from "@/lib/dashboard/track-downloads-paid";
 import { loadArtistPlayEarnings } from "@/lib/dashboard/play-earnings";
+import { loadCityDemandForArtist } from "@/lib/dashboard/tour-demand";
 import {
   loadArtistChartPositions,
   type ArtistChartPosition,
 } from "@/lib/dashboard/standings";
 import { tipsTableReady } from "@/lib/dashboard/tips";
+import { listDistributionReleases } from "@/lib/dashboard/distribution";
+import { isTaaliLive } from "@/lib/taali/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isDemoTrack, isPublishedTrack, trackTitle, type TrackRow } from "@/lib/tracks";
 
@@ -75,6 +80,8 @@ export type StudioAnalytics = {
     cities: { name: string; count: number }[];
     neighborhoods: { name: string; count: number }[];
     languages: { name: string; count: number; pct: number }[];
+    tourDemand: { city: string; place: string | null; requestCount: number; uniqueFans: number }[];
+    followerCities: { name: string; count: number }[];
     devices: {
       mobile: number;
       desktop: number;
@@ -94,6 +101,8 @@ export type StudioAnalytics = {
     fanClubXof: number;
     tipsXof: number;
     tipsInRangeXof: number;
+    ticketsXof: number;
+    ticketsInRangeXof: number;
     monthTotalXof: number;
     allTimeXof: number;
     payouts: { date: string; amountXof: number; reference: string; status: string }[];
@@ -127,6 +136,21 @@ export type StudioAnalytics = {
       score: number;
     }[];
     fanClubGrowth: PlaysByDay[];
+    followerGrowth: PlaysByDay[];
+  };
+  delivery: {
+    ready: boolean;
+    taaliLive: boolean;
+    total: number;
+    byStatus: Record<string, number>;
+    liveCount: number;
+    releases: {
+      id: string;
+      title: string;
+      status: string;
+      smartLinkSlug: string | null;
+      releaseDate: string | null;
+    }[];
   };
   errors: string[];
 };
@@ -212,6 +236,8 @@ function emptyAnalytics(window: AnalyticsTimeWindow): StudioAnalytics {
       cities: [],
       neighborhoods: [],
       languages: [],
+      tourDemand: [],
+      followerCities: [],
       devices: { mobile: 0, desktop: 0, unknown: 0, tracked: false },
       newListeners: 0,
       returningListeners: 0,
@@ -226,6 +252,8 @@ function emptyAnalytics(window: AnalyticsTimeWindow): StudioAnalytics {
       fanClubXof: 0,
       tipsXof: 0,
       tipsInRangeXof: 0,
+      ticketsXof: 0,
+      ticketsInRangeXof: 0,
       monthTotalXof: 0,
       allTimeXof: 0,
       payouts: [],
@@ -243,6 +271,15 @@ function emptyAnalytics(window: AnalyticsTimeWindow): StudioAnalytics {
       totalShares: 0,
       topFans: [],
       fanClubGrowth: [],
+      followerGrowth: [],
+    },
+    delivery: {
+      ready: false,
+      taaliLive: false,
+      total: 0,
+      byStatus: {},
+      liveCount: 0,
+      releases: [],
     },
     errors: [],
   };
@@ -484,6 +521,8 @@ export async function loadStudioAnalytics(
       }
     }
 
+    const downloadSalesByTrack = await countTrackDownloadSales(db, artistId, trackIds);
+
     const sharesByTrack = new Map<string, number>();
     if (trackIds.length > 0) {
       const { data: shares, error: sErr } = await db
@@ -586,7 +625,7 @@ export async function loadStudioAnalytics(
         chartPosition: chart?.position ?? null,
         chartBoard: chart?.board ?? null,
         revenueXof: earningsByTrack.get(t.id) ?? 0,
-        downloadSales: 0,
+        downloadSales: downloadSalesByTrack.get(t.id) ?? 0,
         completionRate: completionByTrack.get(t.id) ?? null,
         skipRate: null,
         likes: likesMap.get(t.id) ?? 0,
@@ -646,14 +685,18 @@ export async function loadStudioAnalytics(
 
     const cities = [...cityCounts.entries()]
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      .slice(0, 12)
       .map(([name, count]) => ({ name, count }));
 
-    const dakarNeighborhoods = cities.filter((c) =>
-      /dakar|almadies|plateau|medina|pikine|guediawaye|ouakam|mermoz|fann|yoff/i.test(
-        c.name,
-      ),
-    );
+    const dakarNeighborhoods = [...cityCounts.entries()]
+      .filter(([name]) =>
+        /dakar|almadies|plateau|medina|pikine|guediawaye|ouakam|mermoz|fann|yoff/i.test(
+          name,
+        ),
+      )
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, count]) => ({ name, count }));
 
     const languages = [...langCounts.entries()]
       .sort((a, b) => b[1] - a[1])
@@ -692,12 +735,29 @@ export async function loadStudioAnalytics(
       }
     }
 
+    if (trackIds.length > 0) {
+      const { data: likeRows } = await db
+        .from("track_likes")
+        .select("user_id, track_id, created_at")
+        .in("track_id", trackIds)
+        .limit(5000);
+      for (const row of likeRows ?? []) {
+        const uid = row.user_id as string | null;
+        if (!uid || uid === artistId) continue;
+        if (!inTimeWindow(row.created_at as string, window)) continue;
+        const cur = fanScores.get(uid) ?? { plays: 0, likes: 0, tipsXof: 0 };
+        cur.likes += 1;
+        fanScores.set(uid, cur);
+      }
+    }
+
     const topFanIds = [...fanScores.entries()]
       .sort(
         (a, b) =>
           b[1].plays * 10 +
+          b[1].likes * 5 +
           b[1].tipsXof / 100 -
-          (a[1].plays * 10 + a[1].tipsXof / 100),
+          (a[1].plays * 10 + a[1].likes * 5 + a[1].tipsXof / 100),
       )
       .slice(0, 8)
       .map(([id]) => id);
@@ -726,7 +786,7 @@ export async function loadStudioAnalytics(
         plays: s.plays,
         likes: s.likes,
         tipsXof: s.tipsXof,
-        score: s.plays * 10 + Math.round(s.tipsXof / 50),
+        score: s.plays * 10 + s.likes * 5 + Math.round(s.tipsXof / 50),
       };
     });
 
@@ -793,6 +853,171 @@ export async function loadStudioAnalytics(
       errors.push(`Followers: ${followersRes.error.message}`);
     }
 
+    const fanClubMembers = await countFanClubMembers(db, artistId);
+    const tierProbe = await db
+      .from("fan_club_tiers")
+      .select("id")
+      .eq("artist_id", artistId)
+      .limit(1);
+    const fanClubReady =
+      !tierProbe.error || !isMissingRelation(tierProbe.error.message);
+
+    let downloadsXof = 0;
+    let downloadsInRangeXof = 0;
+    let downloadSalesTotal = 0;
+    let downloadSalesInRange = 0;
+    const { data: dlPurchases } = await db
+      .from("track_download_purchases")
+      .select("price_xof, created_at, track_id")
+      .eq("artist_id", artistId)
+      .eq("status", "confirmed");
+    if (dlPurchases) {
+      for (const row of dlPurchases) {
+        const amt = Number(row.price_xof) || 0;
+        downloadsXof += amt;
+        downloadSalesTotal += 1;
+        if (inTimeWindow(row.created_at as string, window)) {
+          downloadsInRangeXof += amt;
+          downloadSalesInRange += 1;
+        }
+      }
+    }
+
+    let fanClubXof = 0;
+    let fanClubInRangeXof = 0;
+    const { data: fcMembers } = await db
+      .from("fan_club_members")
+      .select("price_xof, created_at, started_at")
+      .eq("artist_id", artistId)
+      .eq("status", "active");
+    for (const row of fcMembers ?? []) {
+      const amt = Number(row.price_xof) || 0;
+      fanClubXof += amt;
+      const at =
+        (typeof row.started_at === "string" && row.started_at) ||
+        (row.created_at as string);
+      if (inTimeWindow(at, window)) fanClubInRangeXof += amt;
+    }
+
+    const fanClubGrowthRaw = await loadFanClubGrowth(db, artistId);
+    const fanClubGrowth: PlaysByDay[] = fanClubGrowthRaw.map((d) => ({
+      date: d.date,
+      label: formatDayLabel(d.date),
+      count: d.count,
+    }));
+
+    const followerGrowth: PlaysByDay[] = [];
+    const { data: followRows } = await db
+      .from("artist_follows")
+      .select("created_at")
+      .eq("artist_id", artistId)
+      .order("created_at", { ascending: true });
+    const followByDay = new Map<string, number>();
+    for (const row of followRows ?? []) {
+      const at = row.created_at as string | null;
+      if (!at) continue;
+      const k = dayKey(at);
+      followByDay.set(k, (followByDay.get(k) ?? 0) + 1);
+    }
+    for (const [date, count] of [...followByDay.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      followerGrowth.push({ date, label: formatDayLabel(date), count });
+    }
+
+    let ticketsXof = 0;
+    let ticketsInRangeXof = 0;
+    let ticketSalesTotal = 0;
+    let ticketSalesInRange = 0;
+    const { data: ticketRows, error: ticketErr } = await db
+      .from("tour_ticket_purchases")
+      .select("price_xof, created_at, quantity")
+      .eq("artist_id", artistId)
+      .eq("status", "confirmed");
+    if (!ticketErr && ticketRows) {
+      for (const row of ticketRows) {
+        const amt = Number(row.price_xof) || 0;
+        ticketsXof += amt;
+        ticketSalesTotal += Number(row.quantity) || 1;
+        if (inTimeWindow(row.created_at as string, window)) {
+          ticketsInRangeXof += amt;
+          ticketSalesInRange += Number(row.quantity) || 1;
+        }
+      }
+    }
+
+    const demandRes = await loadCityDemandForArtist(db, artistId);
+    const tourDemand = demandRes.rows.slice(0, 15);
+
+    const followerCities: { name: string; count: number }[] = [];
+    const { data: followIds } = await db
+      .from("artist_follows")
+      .select("follower_id")
+      .eq("artist_id", artistId)
+      .limit(500);
+    const followerIdList = [
+      ...new Set(
+        (followIds ?? [])
+          .map((r) => r.follower_id as string | null)
+          .filter(Boolean) as string[],
+      ),
+    ];
+    if (followerIdList.length > 0) {
+      const followerCityCounts = new Map<string, number>();
+      for (let i = 0; i < followerIdList.length; i += 100) {
+        const chunk = followerIdList.slice(i, i + 100);
+        const { data: fu } = await db
+          .from("users")
+          .select("city")
+          .in("id", chunk);
+        for (const u of fu ?? []) {
+          const city =
+            typeof u.city === "string" && u.city.trim() ? u.city.trim() : null;
+          if (!city) continue;
+          followerCityCounts.set(
+            city,
+            (followerCityCounts.get(city) ?? 0) + 1,
+          );
+        }
+      }
+      followerCities.push(
+        ...[...followerCityCounts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 12)
+          .map(([name, count]) => ({ name, count })),
+      );
+    }
+
+    const payouts: { date: string; amountXof: number; reference: string; status: string }[] = [];
+    const { data: payoutRows } = await db
+      .from("artist_joko_payouts")
+      .select("amount_xof, status, joko_reference, created_at")
+      .eq("artist_id", artistId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    for (const row of payoutRows ?? []) {
+      payouts.push({
+        date: String(row.created_at ?? ""),
+        amountXof: Number(row.amount_xof) || 0,
+        reference: String(row.joko_reference ?? ""),
+        status: String(row.status ?? ""),
+      });
+    }
+
+    const allTimeXofFinal =
+      streamsXof + tipsXof + merchXof + downloadsXof + fanClubXof + ticketsXof;
+    const revenueInRangeFinal =
+      streamsInRangeXof +
+      tipsInRangeXof +
+      merchInRangeXof +
+      downloadsInRangeXof +
+      fanClubInRangeXof +
+      ticketsInRangeXof;
+
+    const deliveryRes = await listDistributionReleases(db, artistId);
+    const byStatus: Record<string, number> = {};
+    for (const r of deliveryRes.releases) {
+      byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+    }
+
     return {
       window,
       overview: {
@@ -800,13 +1025,13 @@ export async function loadStudioAnalytics(
         streamsInRange,
         streamsToday,
         streamsThisWeek,
-        totalRevenueXof: allTimeXof,
-        revenueInRangeXof,
-        totalSalesCount: merchSalesTotal,
-        salesInRange: merchSalesInRange,
+        totalRevenueXof: allTimeXofFinal,
+        revenueInRangeXof: revenueInRangeFinal,
+        totalSalesCount: merchSalesTotal + downloadSalesTotal + ticketSalesTotal,
+        salesInRange: merchSalesInRange + downloadSalesInRange + ticketSalesInRange,
         followers: followersRes.count ?? 0,
-        fanClubMembers: 0,
-        fanClubReady: false,
+        fanClubMembers,
+        fanClubReady: Boolean(fanClubReady),
         followsReady,
       },
       songs,
@@ -815,6 +1040,8 @@ export async function loadStudioAnalytics(
         cities,
         neighborhoods: dakarNeighborhoods,
         languages,
+        tourDemand,
+        followerCities,
         devices: { mobile: 0, desktop: 0, unknown: listenersInRange.size, tracked: false },
         newListeners,
         returningListeners,
@@ -823,15 +1050,32 @@ export async function loadStudioAnalytics(
       revenue: {
         streamsXof,
         streamsInRangeXof,
-        downloadsXof: 0,
+        downloadsXof,
         merchXof,
         merchInRangeXof,
-        fanClubXof: 0,
+        fanClubXof,
         tipsXof,
         tipsInRangeXof,
-        monthTotalXof,
-        allTimeXof,
-        payouts: [],
+        ticketsXof,
+        ticketsInRangeXof,
+        monthTotalXof:
+          monthTotalXof +
+          (dlPurchases ?? [])
+            .filter((r) => (r.created_at as string) >= monthStart)
+            .reduce((s, r) => s + (Number(r.price_xof) || 0), 0) +
+          (fcMembers ?? [])
+            .filter((r) => {
+              const started =
+                typeof r.started_at === "string" ? r.started_at : null;
+              const at = started ?? (r.created_at as string);
+              return Boolean(at && at >= monthStart);
+            })
+            .reduce((s, r) => s + (Number(r.price_xof) || 0), 0) +
+          (ticketRows ?? [])
+            .filter((r) => (r.created_at as string) >= monthStart)
+            .reduce((s, r) => s + (Number(r.price_xof) || 0), 0),
+        allTimeXof: allTimeXofFinal,
+        payouts,
         merchReady,
         tipsReady,
         earningsReady: !earnings.missingTable,
@@ -845,7 +1089,22 @@ export async function loadStudioAnalytics(
         totalComments: [...commentsByTrack.values()].reduce((a, b) => a + b, 0),
         totalShares: [...sharesByTrack.values()].reduce((a, b) => a + b, 0),
         topFans,
-        fanClubGrowth: [],
+        fanClubGrowth,
+        followerGrowth,
+      },
+      delivery: {
+        ready: !deliveryRes.missingTable,
+        taaliLive: deliveryRes.taaliLive || isTaaliLive(),
+        total: deliveryRes.releases.length,
+        byStatus,
+        liveCount: byStatus.live ?? 0,
+        releases: deliveryRes.releases.slice(0, 12).map((r) => ({
+          id: r.id,
+          title: r.title,
+          status: r.status,
+          smartLinkSlug: r.smart_link_slug,
+          releaseDate: r.release_date,
+        })),
       },
       errors: [...errors, ...(chartRes.error ? [chartRes.error] : [])],
     };

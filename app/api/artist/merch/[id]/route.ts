@@ -4,6 +4,7 @@ import {
   deleteMerchItem,
   updateMerchItem,
   type MerchCategory,
+  type MerchMusicFormat,
 } from "@/lib/dashboard/artist-merch";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { createRouteClient } from "@/lib/supabase/route";
@@ -17,6 +18,12 @@ function parseCategory(value: unknown): MerchCategory | undefined {
   if (value === "clothing" || value === "digital" || value === "physical") {
     return value;
   }
+  return undefined;
+}
+
+function parseMusicFormat(value: unknown): MerchMusicFormat | null | undefined {
+  if (value === "album" || value === "cd" || value === "vinyl") return value;
+  if (value === null || value === "") return null;
   return undefined;
 }
 
@@ -46,6 +53,19 @@ export async function PATCH(request: Request, ctx: Ctx) {
   if (body.price_xof != null) patch.price_xof = Number(body.price_xof);
   const cat = parseCategory(body.category);
   if (cat) patch.category = cat;
+  const musicFormat = parseMusicFormat(body.music_format);
+  if (musicFormat !== undefined) {
+    patch.music_format = musicFormat;
+    if (musicFormat === null) {
+      patch.track_id = null;
+    }
+  }
+  if (typeof body.track_id === "string" || body.track_id === null) {
+    patch.track_id =
+      typeof body.track_id === "string" && body.track_id.trim()
+        ? body.track_id.trim()
+        : null;
+  }
   if (body.quantity_available !== undefined) {
     patch.quantity_available =
       body.quantity_available == null || body.quantity_available === ""

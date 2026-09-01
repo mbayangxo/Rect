@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { MessagePersonButton } from "@/components/message-person-button";
 import { PeopleBlockButton } from "@/components/people-block-button";
 import { PeopleFollowButton } from "@/components/people-follow-button";
 import { PeopleSharedCollections } from "@/components/people-shared-collections";
@@ -404,16 +405,25 @@ export default async function PeopleProfilePage({ params }: Props) {
             {!isOwner ? (
               <>
                 {!blockState.blocked ? (
-                  <PeopleFollowButton
-                    personId={id}
-                    initialFollowing={followRelation.following}
-                    initialCount={
-                      showFollowGraph ? followGraph.followerCount : 0
-                    }
-                    followsReady={!followGraph.missingTable}
-                    followsYou={followRelation.follows_you}
-                    loginNext={`/people/${id}`}
-                  />
+                  <>
+                    <PeopleFollowButton
+                      personId={id}
+                      initialFollowing={followRelation.following}
+                      initialCount={
+                        showFollowGraph ? followGraph.followerCount : 0
+                      }
+                      followsReady={!followGraph.missingTable}
+                      followsYou={followRelation.follows_you}
+                      loginNext={`/people/${id}`}
+                    />
+                    {user ? (
+                      <MessagePersonButton
+                        personId={id}
+                        dmsReady
+                        loginNext={`/people/${id}`}
+                      />
+                    ) : null}
+                  </>
                 ) : (
                   <p className="mt-4 text-sm text-white/45">You’ve blocked this person</p>
                 )}
@@ -447,7 +457,7 @@ export default async function PeopleProfilePage({ params }: Props) {
                 href={`/artists/${id}`}
                 className="mt-4 inline-block text-sm text-[#1DB954] hover:underline"
               >
-                Open artist portal →
+                Open artist world →
               </Link>
             ) : null}
             {isOwner ? (

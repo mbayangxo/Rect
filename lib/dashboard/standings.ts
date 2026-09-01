@@ -204,6 +204,7 @@ async function rankStandingsCohort(
       const breakdown = scores.get(t.id) ?? {
         streams: 0,
         engagement: 0,
+        purchases: 0,
         editorial: 0,
         cultural: 0,
         total: 0,

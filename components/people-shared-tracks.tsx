@@ -89,7 +89,7 @@ function SharedTrackRow({
         className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-40"
         title={canPlay ? (playing ? "Pause" : "Play") : "No audio"}
       >
-        <TrackCover track={track} size="md" />
+        <TrackCover track={track} size="md" href={`/songs/${track.id}`} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium hover:text-[#1DB954]">
             {trackTitle(track)}

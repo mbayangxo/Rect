@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AddToFanChart } from "@/components/add-to-fan-chart";
 import { AddToPlaylist } from "@/components/add-to-playlist";
+import { DownloadTrackButton } from "@/components/download-track-button";
+import { PaidDownloadButton } from "@/components/paid-download-button";
 import { ArtistFollowButton } from "@/components/artist-follow-button";
 import { ArtistTipButton } from "@/components/artist-tip-button";
 import { PeopleFollowButton } from "@/components/people-follow-button";
@@ -8,8 +11,11 @@ import { QueueTrackButton } from "@/components/queue-track-button";
 import { ShareTrackButton } from "@/components/share-track-button";
 import { SongComments } from "@/components/song-comments";
 import { SongLikeControl } from "@/components/song-like-control";
+import { SongLyrics } from "@/components/song-lyrics";
 import { TrackCover } from "@/components/track-cover";
 import { TrackPlayButton } from "@/components/track-play-button";
+import { TrackLyricsEditor } from "@/components/studio/track-lyrics-editor";
+import { TrackWritersEditor } from "@/components/track-writers-editor";
 import { loadArtistCreditMap } from "@/lib/dashboard/artist-names";
 import { loadTrackComments } from "@/lib/dashboard/comments";
 import {
@@ -31,6 +37,7 @@ import { tipsTableReady } from "@/lib/dashboard/tips";
 import {
   loadTrackWriterSplits,
 } from "@/lib/dashboard/writer-splits";
+import { userOwnsTrackDownload } from "@/lib/dashboard/track-downloads-paid";
 import { createClient } from "@/lib/supabase/server";
 import {
   formatTrackDuration,
@@ -39,7 +46,6 @@ import {
   trackTitle,
   type TrackRow,
 } from "@/lib/tracks";
-import { TrackWritersEditor } from "@/components/track-writers-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +61,7 @@ export default async function SongPage({ params }: Props) {
   const full = await supabase
     .from("tracks")
     .select(
-      "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at",
+      "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics",
     )
     .eq("id", id)
     .maybeSingle();
@@ -64,7 +70,7 @@ export default async function SongPage({ params }: Props) {
   let error = full.error;
   if (
     error &&
-    /language|column .* does not exist/i.test(error.message)
+    /download_price_xof|lyrics|language|column .* does not exist/i.test(error.message)
   ) {
     const lean = await supabase
       .from("tracks")
@@ -99,7 +105,12 @@ export default async function SongPage({ params }: Props) {
   const languageSlug = track.language ? languageToSlug(track.language) : "";
   const loginNext = `/songs/${id}`;
 
-  const [likeCountRes, likesRes, countRes, followRes, tipsReady, commentsRes, likersRes, friendsLikedRes, writersRes] =
+  const downloadPrice =
+    typeof data.download_price_xof === "number" && data.download_price_xof > 0
+      ? data.download_price_xof
+      : 0;
+
+  const [likeCountRes, likesRes, countRes, followRes, tipsReady, commentsRes, likersRes, friendsLikedRes, writersRes, ownsDownload] =
     await Promise.all([
       loadTrackLikeCount(supabase, id),
       user
@@ -138,6 +149,9 @@ export default async function SongPage({ params }: Props) {
             error: null as string | null,
           }),
       loadTrackWriterSplits(supabase, id),
+      user && downloadPrice > 0 && !isOwner
+        ? userOwnsTrackDownload(supabase, user.id, id)
+        : Promise.resolve(false),
     ]);
 
   const likerIds = [
@@ -241,9 +255,35 @@ export default async function SongPage({ params }: Props) {
             </div>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <TrackPlayButton track={track} />
+            {downloadPrice > 0 && !isOwner && !ownsDownload ? (
+              <PaidDownloadButton
+                track={track}
+                priceXof={downloadPrice}
+                owned={ownsDownload}
+              />
+            ) : null}
+            {(downloadPrice <= 0 || isOwner || ownsDownload) && track.audio_url ? (
+              <DownloadTrackButton
+                track={track}
+                useEntitlementApi={downloadPrice > 0}
+              />
+            ) : null}
           </div>
+
+          {isOwner ? (
+            <section className="mt-6 border-t border-white/[0.08] pt-5">
+              <TrackLyricsEditor
+                trackId={track.id}
+                initialLyrics={
+                  typeof track.lyrics === "string" ? track.lyrics : null
+                }
+              />
+            </section>
+          ) : typeof track.lyrics === "string" && track.lyrics.trim() ? (
+            <SongLyrics lyrics={track.lyrics} />
+          ) : null}
 
           {!writersRes.missingTable ? (
             <section className="mt-6 border-t border-white/[0.08] pt-5">
@@ -444,6 +484,8 @@ export default async function SongPage({ params }: Props) {
           <ShareTrackButton track={track} />
 
           <AddToPlaylist trackId={track.id} />
+
+          <AddToFanChart trackId={track.id} loginNext={loginNext} />
 
           <SongComments
             trackId={track.id}

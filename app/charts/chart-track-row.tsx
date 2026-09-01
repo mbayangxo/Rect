@@ -55,15 +55,13 @@ export function ChartTrackRow({
       >
         {rank}
       </span>
-      <button
-        type="button"
-        disabled={!canPlay}
-        onClick={playFromBoard}
-        className="shrink-0 transition hover:opacity-90 disabled:opacity-40"
-        aria-label={`Play ${trackTitle(track)}`}
+      <Link
+        href={`/songs/${track.id}`}
+        className="shrink-0 transition hover:opacity-90"
+        aria-label={`Open ${trackTitle(track)}`}
       >
         <TrackCover track={track} size="sm" />
-      </button>
+      </Link>
       <span className="min-w-0 flex-1">
         <Link
           href={`/songs/${track.id}`}

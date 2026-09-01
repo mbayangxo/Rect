@@ -16,6 +16,7 @@ import { trackMatchesLanguage } from "@/lib/dashboard/languages";
 import {
   isDemoTrack,
   isPublishedTrack,
+  isTrackLaunched,
   withLiveCatalogTracks,
   type TrackRow,
 } from "@/lib/tracks";
@@ -72,7 +73,7 @@ export async function loadNewReleases(
       db
         .from("tracks")
         .select(
-          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at",
+          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at",
         ),
     )
       .order("created_at", { ascending: false })
@@ -82,7 +83,7 @@ export async function loadNewReleases(
     let trackError = error;
     if (
       error &&
-      /language|column .* does not exist/i.test(error.message)
+      /language|launch_at|column .* does not exist/i.test(error.message)
     ) {
       const lean = await withLiveCatalogTracks(
         db
@@ -104,6 +105,7 @@ export async function loadNewReleases(
     let rows = ((trackData ?? []) as TrackRow[]).filter(
       (t) =>
         isPublishedTrack(t) &&
+        isTrackLaunched(t) &&
         !isDemoTrack(t) &&
         trackMatchesLanguage(t.language, languageFilter) &&
         trackMatchesGenre(t.genre, genreFilter),

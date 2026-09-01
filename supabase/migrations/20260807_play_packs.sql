@@ -80,9 +80,9 @@ insert into public.play_packs (
   updated_at
 )
 values
-  ('SN', 'micro', 'Micro', 'Quick listens for the day', '500 CFA', 500, 50, 50, 1, true, now()),
-  ('SN', 'standard', 'Standard', 'Your weekly sound diet', '1 500 CFA', 1500, 200, 200, 2, true, now()),
-  ('SN', 'mega', 'Mega', 'Deep catalog access', '4 000 CFA', 4000, 600, 600, 3, true, now())
+  ('SN', 'micro', 'Micro', 'Quick listens for the day', '100 XOF', 100, 50, 50, 1, true, now()),
+  ('SN', 'standard', 'Standard', 'Your weekly sound diet', '200 XOF', 200, 120, 120, 2, true, now()),
+  ('SN', 'mega', 'Mega', 'Deep catalog access', '500 XOF', 500, 350, 350, 3, true, now())
 on conflict (country, code) do update set
   name = excluded.name,
   description = excluded.description,

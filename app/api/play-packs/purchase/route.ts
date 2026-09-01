@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { purchasePlayPack } from "@/lib/dashboard/credits";
-import { createClient } from "@/lib/supabase/server";
+import { createRouteClient } from "@/lib/supabase/route";
 
 type Body = { pack_id?: string | number };
 
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "pack_id is required" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = await createRouteClient(request);
   const {
     data: { user },
     error: userError,

@@ -6,19 +6,31 @@ import { trackMatchesLanguage } from "@/lib/dashboard/languages";
 import { normalizeTasteList } from "@/lib/dashboard/taste";
 import type { TrackRow } from "@/lib/tracks";
 
-/** RECT SCORE weights — authenticated streams · engagement · editorial · cultural. */
+/** RECT SCORE weights — streams · engagement · purchases · editorial · cultural. */
 export const RECT_SCORE_WEIGHTS = {
-  streams: 0.3,
-  engagement: 0.3,
-  editorial: 0.2,
-  cultural: 0.2,
+  streams: 0.25,
+  engagement: 0.25,
+  purchases: 0.2,
+  editorial: 0.15,
+  cultural: 0.15,
 } as const;
+
+/** Raw purchase points before cohort normalization (higher = stronger fan signal). */
+export const PURCHASE_SCORE_POINTS = {
+  song: 10,
+  album: 40,
+  cd: 60,
+  vinyl: 80,
+} as const;
+
+export type MusicPurchaseFormat = keyof typeof PURCHASE_SCORE_POINTS;
 
 export type StandingsCadence = "daily" | "weekly";
 
 export type RectScoreBreakdown = {
   streams: number;
   engagement: number;
+  purchases: number;
   editorial: number;
   cultural: number;
   total: number;
@@ -29,6 +41,7 @@ export type TrackScoreInputs = {
   streamsInWindow: number;
   likes: number;
   comments: number;
+  purchasesInWindow: number;
   editorialBoost: number;
   publishedAt: string | null;
   culturalRaw: number;
@@ -70,6 +83,7 @@ function normalizeMap(values: Map<string, number>): Map<string, number> {
 export function computeRectScoreFromNormalized(parts: {
   streams: number;
   engagement: number;
+  purchases: number;
   editorial: number;
   cultural: number;
 }): number {
@@ -77,6 +91,7 @@ export function computeRectScoreFromNormalized(parts: {
   return (
     parts.streams * w.streams +
     parts.engagement * w.engagement +
+    parts.purchases * w.purchases +
     parts.editorial * w.editorial +
     parts.cultural * w.cultural
   );
@@ -138,6 +153,7 @@ export function scoreTrackCohort(
 ): Map<string, RectScoreBreakdown> {
   const streamsRaw = new Map<string, number>();
   const engagementRaw = new Map<string, number>();
+  const purchasesRaw = new Map<string, number>();
   const editorialRaw = new Map<string, number>();
   const culturalRaw = new Map<string, number>();
 
@@ -147,6 +163,7 @@ export function scoreTrackCohort(
       row.trackId,
       row.likes + row.comments * 3,
     );
+    purchasesRaw.set(row.trackId, row.purchasesInWindow);
     editorialRaw.set(
       row.trackId,
       Math.min(
@@ -159,6 +176,7 @@ export function scoreTrackCohort(
 
   const streamsN = normalizeMap(streamsRaw);
   const engagementN = normalizeMap(engagementRaw);
+  const purchasesN = normalizeMap(purchasesRaw);
   const editorialN = normalizeMap(editorialRaw);
   const culturalN = normalizeMap(culturalRaw);
 
@@ -167,6 +185,7 @@ export function scoreTrackCohort(
     const parts = {
       streams: streamsN.get(row.trackId) ?? 0,
       engagement: engagementN.get(row.trackId) ?? 0,
+      purchases: purchasesN.get(row.trackId) ?? 0,
       editorial: editorialN.get(row.trackId) ?? 0,
       cultural: culturalN.get(row.trackId) ?? 0,
     };
@@ -274,6 +293,66 @@ async function loadStreamsInWindow(
   return counts;
 }
 
+function merchFormatPoints(format: string | null | undefined): number {
+  if (format === "album") return PURCHASE_SCORE_POINTS.album;
+  if (format === "cd") return PURCHASE_SCORE_POINTS.cd;
+  if (format === "vinyl") return PURCHASE_SCORE_POINTS.vinyl;
+  return 0;
+}
+
+async function loadPurchasesInWindow(
+  db: SupabaseClient,
+  trackIds: string[],
+  sinceIso: string,
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (trackIds.length === 0) return counts;
+
+  const trackSet = new Set(trackIds);
+
+  const { data: downloads, error: dlError } = await db
+    .from("track_download_purchases")
+    .select("track_id")
+    .in("track_id", trackIds)
+    .eq("status", "confirmed")
+    .gte("created_at", sinceIso);
+
+  if (!dlError && downloads) {
+    for (const row of downloads) {
+      const tid = row.track_id as string;
+      if (!trackSet.has(tid)) continue;
+      counts.set(
+        tid,
+        (counts.get(tid) ?? 0) + PURCHASE_SCORE_POINTS.song,
+      );
+    }
+  }
+
+  const { data: merchPurchases, error: merchError } = await db
+    .from("merch_purchases")
+    .select("id, artist_merch_items ( track_id, music_format )")
+    .eq("status", "confirmed")
+    .gte("created_at", sinceIso);
+
+  if (!merchError && merchPurchases) {
+    for (const row of merchPurchases) {
+      const item = row.artist_merch_items as
+        | { track_id?: string | null; music_format?: string | null }
+        | { track_id?: string | null; music_format?: string | null }[]
+        | null;
+      const merch = Array.isArray(item) ? item[0] : item;
+      const tid = merch?.track_id;
+      const format = merch?.music_format;
+      if (!tid || !trackSet.has(tid)) continue;
+      const pts = merchFormatPoints(format);
+      if (pts <= 0) continue;
+      counts.set(tid, (counts.get(tid) ?? 0) + pts);
+    }
+  }
+
+  return counts;
+}
+
 async function loadEditorialBoostMap(
   db: SupabaseClient,
   trackIds: string[],
@@ -325,10 +404,11 @@ export async function buildTrackScoreInputs(
   );
   const sinceIso = windowStartIso(options.cadence);
 
-  const [streams, likes, comments, editorial, cities] = await Promise.all([
+  const [streams, likes, comments, purchases, editorial, cities] = await Promise.all([
     loadStreamsInWindow(db, ids, artistByTrack, sinceIso),
     loadLikeCountMap(db, ids),
     loadCommentCountMap(db, ids),
+    loadPurchasesInWindow(db, ids, sinceIso),
     loadEditorialBoostMap(db, ids),
     loadArtistCityMap(db, artistIds),
   ]);
@@ -344,6 +424,7 @@ export async function buildTrackScoreInputs(
       streamsInWindow: streams.get(track.id) ?? 0,
       likes: likes.get(track.id) ?? 0,
       comments: comments.get(track.id) ?? 0,
+      purchasesInWindow: purchases.get(track.id) ?? 0,
       editorialBoost: editorial.get(track.id) ?? 0,
       publishedAt: track.created_at ?? null,
       culturalRaw: culturalResonanceRaw(

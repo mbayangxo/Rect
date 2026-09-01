@@ -1,6 +1,7 @@
 import { StudioMerchManager } from "@/components/studio/studio-merch-manager";
 import { loadArtistMerchItems } from "@/lib/dashboard/artist-merch";
 import { requireStudioArtist } from "@/lib/studio/require-artist";
+import { trackTitle, type TrackRow } from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,18 @@ export default async function StudioStorePage() {
   const merchRes = await loadArtistMerchItems(supabase, userId, {
     includeInactive: true,
   });
+
+  const { data: trackRows } = await supabase
+    .from("tracks")
+    .select("id, title")
+    .eq("artist_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(80);
+
+  const catalogTracks = ((trackRows ?? []) as TrackRow[]).map((t) => ({
+    id: t.id,
+    title: trackTitle(t),
+  }));
 
   return (
     <>
@@ -19,8 +32,8 @@ export default async function StudioStorePage() {
         Merch
       </h1>
       <p className="mt-2 text-sm text-white/45">
-        Sell clothing, digital goods, and physical merch. Items appear on your
-        public portal — fans pay with JOKO mobile money.
+        Sell clothing, albums, CDs, vinyl, and physical merch. Song downloads
+        are set per track at upload. Purchases feed into RECT SCORE on Charts.
       </p>
       <div className="mt-8">
         <StudioMerchManager
@@ -28,6 +41,7 @@ export default async function StudioStorePage() {
           storeReady={!merchRes.missingTable}
           storeError={merchRes.error}
           artistPortalHref={`/artists/${userId}`}
+          catalogTracks={catalogTracks}
         />
       </div>
     </>

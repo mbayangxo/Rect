@@ -130,7 +130,7 @@ export function ArtistMerchGrid({
                   {formatMerchPriceXof(item.price_xof)}
                   <span className="text-white/35 text-xs capitalize">
                     {" "}
-                    · {item.category}
+                    · {item.music_format ?? item.category}
                   </span>
                 </p>
                 {soldOut ? (

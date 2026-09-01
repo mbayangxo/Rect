@@ -127,6 +127,8 @@ export type PurchaseResult =
       pack_code: string | null;
       pack_name: string | null;
       price_label?: string | null;
+      price_xof?: number | null;
+      payment_method?: string | null;
     }
   | {
       ok: false;
@@ -142,15 +144,22 @@ export type PurchaseResult =
 export async function purchasePlayPack(
   supabase: SupabaseClient,
   packId: string,
+  options?: { paymentMethod?: string; phone?: string },
 ): Promise<PurchaseResult> {
   const idNum = Number(packId);
   if (!Number.isFinite(idNum)) {
     return { ok: false, error: "Invalid pack", code: "pack_not_found" };
   }
 
-  const { data, error } = await supabase.rpc("purchase_play_pack", {
-    p_pack_id: idNum,
-  });
+  const rpcArgs: Record<string, unknown> = { p_pack_id: idNum };
+  if (options?.paymentMethod) {
+    rpcArgs.p_payment_method = options.paymentMethod;
+  }
+  if (options?.phone) {
+    rpcArgs.p_payment_phone = options.phone;
+  }
+
+  const { data, error } = await supabase.rpc("purchase_play_pack", rpcArgs);
 
   if (error) {
     if (isMissingRelation(error.message)) {
@@ -182,7 +191,30 @@ export async function purchasePlayPack(
     pack_code: typeof row?.pack_code === "string" ? row.pack_code : null,
     pack_name: typeof row?.pack_name === "string" ? row.pack_name : null,
     price_label: typeof row?.price_label === "string" ? row.price_label : null,
+    price_xof: row?.price_xof == null ? null : Number(row.price_xof),
+    payment_method:
+      typeof row?.payment_method === "string" ? row.payment_method : null,
   };
+}
+
+export async function setPlayPackJokoReference(
+  supabase: SupabaseClient,
+  purchaseId: number,
+  reference: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { error } = await supabase.rpc("set_play_pack_joko_reference", {
+    p_purchase_id: purchaseId,
+    p_reference: reference,
+  });
+
+  if (error) {
+    if (isMissingRelation(error.message)) {
+      return { ok: false, error: "JOKO reference RPC not migrated." };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  return { ok: true };
 }
 
 export async function confirmPlayPackPurchase(

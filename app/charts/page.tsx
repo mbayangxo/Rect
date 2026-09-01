@@ -5,10 +5,6 @@ import { LanguageFilterChips } from "@/components/language-filter-chips";
 import { PlaceFilterChips } from "@/components/place-filter-chips";
 import { RectLogo } from "@/components/rect-logo";
 import {
-  ALKEBULAN_CHART_PLACES,
-  DAKAR_CHART_PLACES,
-} from "@/lib/dashboard/charts";
-import {
   genreToSlug,
   loadGenreHubs,
   resolveGenreParam,
@@ -35,6 +31,11 @@ import {
   type RankedTrack,
   type TracksLoadResult,
 } from "@/lib/dashboard/tracks";
+import {
+  loadStandingsBoard,
+  STANDINGS_BOARDS,
+  type StandingsEntry,
+} from "@/lib/dashboard/standings";
 import { loadLikedAmongTrackIds } from "@/lib/dashboard/likes";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,21 +48,21 @@ type Props = {
 const CHART_BOARDS = [
   {
     id: "dakar",
-    title: "DAKAR TOP 7",
-    subtitle: "City pulse · Senegal artists",
+    title: "DAKAR STANDINGS",
+    subtitle: "City · RECT SCORE · updates weekly",
     limit: 7,
-    placeKeys: DAKAR_CHART_PLACES,
+    standingsId: "city-dakar" as const,
     placeHref: "/places/senegal",
-    emptyHint: "No Senegal plays yet. Listen and the board fills.",
+    emptyHint: "No Senegal tracks yet. Publish live — every song enters STANDINGS.",
   },
   {
     id: "current",
     title: "THE CURRENT",
-    subtitle: "Top songs across RECT SOUND",
-    forYouSubtitle: "Soft-ranked for your taste · top listens",
-    forYouDaypartSubtitle: "Soft-ranked for your taste and listening time",
+    subtitle: "Global · RECT SCORE · updates weekly",
+    forYouSubtitle: "Global standings · RECT SCORE · updates weekly",
     limit: 10,
-    emptyHint: "Play songs — the Current ranks real listens.",
+    standingsGlobal: true as const,
+    emptyHint: "Play songs — STANDINGS rank by RECT SCORE.",
   },
   {
     id: "first-light",
@@ -74,12 +75,111 @@ const CHART_BOARDS = [
   {
     id: "alkebulan",
     title: "THE ALKEBULAN",
-    subtitle: "Continental pulse · African places",
+    subtitle: "Continental · RECT SCORE · updates weekly",
     limit: 12,
-    placeKeys: ALKEBULAN_CHART_PLACES,
+    standingsId: "alkebulan" as const,
     emptyHint: "Artists with African places set will rank here.",
   },
 ] as const;
+
+function standingsToRanked(entries: StandingsEntry[]): RankedTrack[] {
+  return entries.map((e) => ({
+    id: e.id,
+    title: e.title,
+    audio_url: e.audio_url,
+    cover_art_url: e.cover_art_url,
+    genre: e.genre,
+    language: e.language,
+    artist_id: e.artist_id,
+    duration_secs: e.duration_secs,
+    status: e.status,
+    created_at: e.created_at,
+    artist_name: e.artist_name,
+    play_count: e.play_count,
+    like_count: e.like_count,
+  }));
+}
+
+async function loadChartBoard(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  board: (typeof CHART_BOARDS)[number],
+  tasteForRank: ListenerTaste | null,
+  filters: {
+    languageFilter: string | null;
+    genreFilter: string | null;
+    placeFilter: string | null;
+  },
+): Promise<TracksLoadResult> {
+  if ("standingsId" in board && board.standingsId) {
+    const def = STANDINGS_BOARDS.find((b) => b.id === board.standingsId);
+    if (!def) {
+      return { ok: false, tracks: [], empty: true, error: "Board not found", source: null };
+    }
+    const res = await loadStandingsBoard(supabase, { ...def, limit: board.limit });
+    if (res.error) {
+      return { ok: false, tracks: [], empty: true, error: res.error, source: null };
+    }
+    const tracks = standingsToRanked(res.entries);
+    return {
+      ok: true,
+      tracks,
+      empty: tracks.length === 0,
+      error: null,
+      source: "plays_aggregate",
+    };
+  }
+
+  if ("standingsGlobal" in board && board.standingsGlobal) {
+    const res = await loadStandingsBoard(supabase, {
+      id: "global",
+      kind: "global",
+      title: "THE CURRENT",
+      subtitle: "Global · weekly",
+      cadence: "weekly",
+      limit: board.limit,
+    });
+    if (res.error) {
+      return { ok: false, tracks: [], empty: true, error: res.error, source: null };
+    }
+    const tracks = standingsToRanked(res.entries);
+    return {
+      ok: true,
+      tracks,
+      empty: tracks.length === 0,
+      error: null,
+      source: "plays_aggregate",
+    };
+  }
+
+  if (filters.genreFilter && board.id === "current") {
+    const res = await loadStandingsBoard(supabase, {
+      id: `genre-${filters.genreFilter}`,
+      kind: "genre",
+      title: filters.genreFilter,
+      subtitle: "Genre · weekly",
+      cadence: "weekly",
+      genre: filters.genreFilter,
+      limit: board.limit,
+    });
+    if (!res.error && res.entries.length > 0) {
+      const tracks = standingsToRanked(res.entries);
+      return {
+        ok: true,
+        tracks,
+        empty: false,
+        error: null,
+        source: "plays_aggregate",
+      };
+    }
+  }
+
+  return loadRankedTracks(supabase, board.limit, tasteForRank, {
+    sort: "sort" in board ? board.sort : "plays",
+    language: filters.languageFilter,
+    genre: filters.genreFilter,
+    place: filters.placeFilter,
+  });
+}
 
 function boardTracks(res: TracksLoadResult): RankedTrack[] {
   return res.ok ? res.tracks : [];
@@ -142,12 +242,10 @@ export default async function ChartsPage({ searchParams }: Props) {
   const [results, langHubs, genreHubs, placeHubs] = await Promise.all([
     Promise.all(
       CHART_BOARDS.map((board) =>
-        loadRankedTracks(supabase, board.limit, tasteForRank, {
-          placeKeys: "placeKeys" in board ? board.placeKeys : undefined,
-          sort: "sort" in board ? board.sort : "plays",
-          language: languageFilter,
-          genre: genreFilter,
-          place: placeFilter,
+        loadChartBoard(supabase, board, tasteForRank, {
+          languageFilter,
+          genreFilter,
+          placeFilter,
         }),
       ),
     ),
@@ -220,8 +318,10 @@ export default async function ChartsPage({ searchParams }: Props) {
             Chart room
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
-            Boards ranked from real plays — Dakar (Senegal), the Current, First
-            Light, and Alkebulan.
+            STANDINGS ranked by RECT SCORE — 25% authenticated streams, 25%
+            engagement, 20% purchases (songs, albums, CDs, vinyl), 15% editorial,
+            15% cultural resonance. City and genre boards update weekly;
+            boards update weekly; neighborhood boards update daily.
             {personalized
               ? daypartLabel
                 ? ` Soft-boosted for your places, genres, languages, and ${daypartLabel.toLowerCase()} listening.`
@@ -236,6 +336,14 @@ export default async function ChartsPage({ searchParams }: Props) {
               </Link>
             ) : null}
           </p>
+          {user ? (
+            <Link
+              href="/charts/my"
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#1DB954]/35 px-4 py-2 text-sm font-medium text-[#1DB954] hover:bg-[#1DB954]/10"
+            >
+              My personal chart →
+            </Link>
+          ) : null}
           {chartsHidden ? (
             <p className="mt-4 max-w-xl rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
               Your plays stay off these boards.{" "}

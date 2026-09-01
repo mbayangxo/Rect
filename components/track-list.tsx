@@ -61,7 +61,7 @@ export function TrackList({
               <span className="w-6 shrink-0 text-center text-xs tabular-nums text-white/35">
                 {i + 1}
               </span>
-              <TrackCover track={t} size="sm" />
+              <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
               <div className="min-w-0 flex-1">
                 <Link
                   href={`/songs/${t.id}`}

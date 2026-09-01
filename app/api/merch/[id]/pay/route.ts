@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import {
-  confirmMerchPurchase,
   purchaseMerchItem,
   setMerchJokoReference,
 } from "@/lib/dashboard/artist-merch";
@@ -9,7 +8,8 @@ import {
   isJokoPaymentMethod,
   jokoMethodLabel,
 } from "@/lib/joko/payments";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createRouteClient } from "@/lib/supabase/route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,7 +47,7 @@ export async function POST(request: Request, ctx: Ctx) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = await createRouteClient(request);
   const {
     data: { user },
     error: userError,
@@ -92,29 +92,40 @@ export async function POST(request: Request, ctx: Ctx) {
     packName: purchase.title,
     userId: user.id,
     product: "rect_merch",
+    referencePrefix: `joko-merch-${purchase.purchase_id}`,
   });
 
   if (!joko.ok) {
+    await supabase.rpc("cancel_merch_purchase", {
+      p_purchase_id: purchase.purchase_id,
+    });
     return NextResponse.json({ error: joko.error }, { status: 502 });
   }
 
   await setMerchJokoReference(supabase, purchase.purchase_id, joko.reference);
 
   if (joko.instantConfirm) {
-    const confirmed = await confirmMerchPurchase(
-      supabase,
-      purchase.purchase_id,
-    );
-    if (!confirmed.ok) {
-      return NextResponse.json({ error: confirmed.error }, { status: 500 });
+    const admin = createAdminClient();
+    if (!admin) {
+      return NextResponse.json(
+        { error: "Server misconfigured for demo confirm." },
+        { status: 503 },
+      );
     }
+    const { data, error } = await admin.rpc("confirm_merch_purchase_system", {
+      p_purchase_id: purchase.purchase_id,
+    });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    const row = data as Record<string, unknown> | null;
 
     return NextResponse.json({
       ok: true,
       status: "confirmed",
       mode: joko.mode,
-      purchase_id: confirmed.purchase_id,
-      title: confirmed.title,
+      purchase_id: Number(row?.purchase_id ?? purchase.purchase_id),
+      title: String(row?.title ?? purchase.title),
       payment_method: jokoMethodLabel(paymentMethod),
       checkout_url: null,
     });
