@@ -18,7 +18,7 @@
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import pg from "pg";
-import { FIX_PROBE, ARTIST_OS, ALL_RECT } from "./migration-bundles.mjs";
+import { FIX_PROBE, ARTIST_OS, ALL_RECT, CORE } from "./migration-bundles.mjs";
 
 const { Client } = pg;
 
@@ -95,6 +95,7 @@ async function applyViaManagementApi(token, projectRef, sql, label) {
 }
 
 function resolveBundle(args) {
+  if (args.includes("--core")) return CORE;
   if (args.includes("--fix-probe")) return FIX_PROBE;
   if (args.includes("--all-artist-os")) return ARTIST_OS;
   if (args.includes("--all")) return ALL_RECT;
@@ -159,6 +160,7 @@ async function main() {
   const args = process.argv.slice(2);
   const files = resolveBundle(args);
   const continueOnBenign =
+    args.includes("--core") ||
     args.includes("--fix-probe") ||
     args.includes("--all-artist-os") ||
     args.includes("--all");

@@ -8,13 +8,28 @@
  */
 import { writeFileSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
-import { FIX_PROBE, ARTIST_OS, ALL_RECT } from "./migration-bundles.mjs";
+import { FIX_PROBE, ARTIST_OS, ALL_RECT, CORE } from "./migration-bundles.mjs";
+
+const GUARD_REQUIRE_CORE = `-- Guard: stop early with a clear message if core tables are missing.
+do $$
+begin
+  if to_regclass('public.users') is null then
+    raise exception 'public.users does not exist. Run _BUNDLE_core.sql first (npm run db:bundle:core), then re-run this bundle.';
+  end if;
+end $$;
+`;
 
 const bundles = {
+  core: {
+    out: "_BUNDLE_core.sql",
+    files: CORE,
+    title: "RECT — foundation + core schema (fresh Supabase — run FIRST)",
+  },
   "fix-probe": {
     out: "_BUNDLE_fix_probe.sql",
     files: FIX_PROBE,
     title: "RECT — fix Aug 8/9 social + studio probe gaps (one paste)",
+    prepend: GUARD_REQUIRE_CORE,
   },
   "artist-os": {
     out: "_BUNDLE_artist_os.sql",
@@ -31,7 +46,7 @@ const bundles = {
 const key = process.argv[2] || "fix-probe";
 const bundle = bundles[key];
 if (!bundle) {
-  console.error(`Unknown bundle "${key}". Use: fix-probe | artist-os | all`);
+  console.error(`Unknown bundle "${key}". Use: core | fix-probe | artist-os | all`);
   process.exit(1);
 }
 
@@ -43,6 +58,11 @@ const parts = [
   `-- Supabase SQL Editor → paste this entire file → Run`,
   "",
 ];
+
+if (bundle.prepend) {
+  parts.push(bundle.prepend.trim());
+  parts.push("");
+}
 
 for (const name of bundle.files) {
   const path = join(dir, name);

@@ -2,6 +2,32 @@
  * Ordered migration bundles — used by apply-supabase-sql.mjs and bundle-migrations.mjs
  */
 
+/** Fresh Supabase: foundation + core RECT tables (run before fix-probe). */
+export const CORE = [
+  "20260805_foundation_schema.sql",
+  "20260806_onboarding_users.sql",
+  "20260806_fix_auth_trigger.sql",
+  "20260806_storage_tracks_bucket.sql",
+  "20260806_plays_artist_policies.sql",
+  "20260807_users_role_fan_artist.sql",
+  "20260807_users_phone_number_default.sql",
+  "20260807_fix_phone_unique_and_taste.sql",
+  "20260807_cultural_onboarding.sql",
+  "20260807_play_packs.sql",
+  "20260807_play_credits.sql",
+  "20260807_dashboard_discovery.sql",
+  "20260807_chart_privacy.sql",
+  "20260807_user_privacy_settings.sql",
+  "20260807_track_likes.sql",
+  "20260807_track_like_counts.sql",
+  "20260807_artist_follows.sql",
+  "20260807_artist_notifications.sql",
+  "20260807_artist_tips.sql",
+  "20260807_playlists.sql",
+  "20260807_track_publish_gate.sql",
+  "20260807_release_notifications.sql",
+];
+
 /** Fixes probe gaps: Aug 8 playlists + full Aug 9 social + studio earnings */
 export const FIX_PROBE = [
   "20260808_users_avatar.sql",
@@ -99,27 +125,7 @@ export const ARTIST_OS = [
 
 /** Full RECT schema (core → social → studio → artist OS). Skips seed/probe bundles. */
 export const ALL_RECT = [
-  "20260806_onboarding_users.sql",
-  "20260806_fix_auth_trigger.sql",
-  "20260806_storage_tracks_bucket.sql",
-  "20260806_plays_artist_policies.sql",
-  "20260807_users_role_fan_artist.sql",
-  "20260807_users_phone_number_default.sql",
-  "20260807_fix_phone_unique_and_taste.sql",
-  "20260807_cultural_onboarding.sql",
-  "20260807_play_packs.sql",
-  "20260807_play_credits.sql",
-  "20260807_dashboard_discovery.sql",
-  "20260807_chart_privacy.sql",
-  "20260807_user_privacy_settings.sql",
-  "20260807_track_likes.sql",
-  "20260807_track_like_counts.sql",
-  "20260807_artist_follows.sql",
-  "20260807_artist_notifications.sql",
-  "20260807_artist_tips.sql",
-  "20260807_playlists.sql",
-  "20260807_track_publish_gate.sql",
-  "20260807_release_notifications.sql",
+  ...CORE,
   ...FIX_PROBE.filter(
     (f) =>
       ![

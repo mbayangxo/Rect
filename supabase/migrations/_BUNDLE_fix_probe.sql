@@ -1,7 +1,15 @@
 -- RECT — fix Aug 8/9 social + studio probe gaps (one paste)
--- Generated: 2026-09-01T20:51:19.775Z
+-- Generated: 2026-09-01T20:59:25.105Z
 -- Files: 69
 -- Supabase SQL Editor → paste this entire file → Run
+
+-- Guard: stop early with a clear message if core tables are missing.
+do $$
+begin
+  if to_regclass('public.users') is null then
+    raise exception 'public.users does not exist. Run _BUNDLE_core.sql first (npm run db:bundle:core), then re-run this bundle.';
+  end if;
+end $$;
 
 -- ═══════════════════════════════════════════════════════════
 -- BEGIN 20260808_users_avatar.sql

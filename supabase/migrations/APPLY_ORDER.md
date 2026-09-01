@@ -5,6 +5,7 @@ After applying, run `_probe_missing_aug08_09.sql` — every row should show `ok`
 
 ## Core (run first if starting fresh)
 
+0. **`20260805_foundation_schema.sql`** — creates `public.users`, `tracks`, `plays` (required on empty Supabase)
 1. `20260806_onboarding_users.sql`
 2. `20260806_fix_auth_trigger.sql`
 3. `20260806_storage_tracks_bucket.sql`

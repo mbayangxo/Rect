@@ -2,6 +2,18 @@
 
 Your probe shows gaps from **Aug 8 playlists** through **Aug 9 social** plus **Studio earnings**.
 
+## Got `relation "public.users" does not exist`?
+
+Your Supabase project is missing the **core schema**. Run core **first**, then fix-probe:
+
+```bash
+npm run db:bundle:core        # → supabase/migrations/_BUNDLE_core.sql
+```
+
+Paste `_BUNDLE_core.sql` in SQL Editor → **Run once**, then continue below.
+
+---
+
 ## Too much to paste one-by-one?
 
 ### Option A — ONE paste (no CLI)
@@ -13,6 +25,8 @@ npm run db:bundle:fix-probe
 Then in Supabase SQL Editor, open and paste **the entire file**:
 
 `supabase/migrations/_BUNDLE_fix_probe.sql` → **Run once**
+
+(If you have not run core yet, run `_BUNDLE_core.sql` first.)
 
 For Artist OS after that:
 

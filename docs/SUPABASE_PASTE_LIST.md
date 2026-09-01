@@ -5,6 +5,28 @@
 
 ---
 
+## Fresh Supabase (no `public.users` yet)
+
+Run **core** first, then fix-probe, then artist-os:
+
+```bash
+npm run db:bundle:core        # → _BUNDLE_core.sql
+npm run db:bundle:fix-probe   # → _BUNDLE_fix_probe.sql
+npm run db:bundle:artist-os   # → _BUNDLE_artist_os.sql
+```
+
+Paste each `_BUNDLE_*.sql` in order → **Run once** per file.
+
+Or one CLI pass with `SUPABASE_DB_URL` in `.env.local`:
+
+```bash
+npm run db:apply:core
+npm run db:apply:fix-probe
+npm run db:apply:artist-os
+```
+
+---
+
 ## If you already have RECT running (minimum new batch)
 
 **Easiest — one paste each (no CLI):**
