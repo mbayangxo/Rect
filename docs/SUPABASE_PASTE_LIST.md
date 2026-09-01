@@ -7,7 +7,25 @@
 
 ## If you already have RECT running (minimum new batch)
 
-Run these **in order** if you haven’t yet:
+**Easiest — one paste each (no CLI):**
+
+```bash
+npm run db:bundle:fix-probe    # → supabase/migrations/_BUNDLE_fix_probe.sql
+npm run db:bundle:artist-os    # → supabase/migrations/_BUNDLE_artist_os.sql
+```
+
+Open each `_BUNDLE_*.sql` in Supabase SQL Editor → paste entire file → **Run once**.
+
+**Or one command** (add `SUPABASE_DB_URL` to `.env.local` first):
+
+```bash
+npm run db:apply:fix-probe
+npm run db:apply:artist-os
+```
+
+---
+
+Individual files (if you prefer):
 
 | # | File | What it enables |
 |---|------|-----------------|
