@@ -19,6 +19,7 @@ const TABS = [
       p.startsWith("/radio") ||
       p.startsWith("/charts") ||
       p.startsWith("/new") ||
+      p.startsWith("/parties") ||
       p.startsWith("/genres") ||
       p.startsWith("/places") ||
       p.startsWith("/languages"),

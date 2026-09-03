@@ -18,6 +18,14 @@ const KINDS = [
   { id: "world", label: "World" },
 ] as const;
 
+const THEME_PRESETS = [
+  { id: "sand", label: "Sand", color: "#D4AF69" },
+  { id: "forest", label: "Forest", color: "#2D5A3D" },
+  { id: "night", label: "Night", color: "#6B8CAE" },
+  { id: "ember", label: "Ember", color: "#C45C26" },
+  { id: "violet", label: "Violet", color: "#8B6BB5" },
+] as const;
+
 export function StudioPortalWorlds({ artistId, initialReleases }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -25,7 +33,7 @@ export function StudioPortalWorlds({ artistId, initialReleases }: Props) {
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<string>("release");
   const [description, setDescription] = useState("");
-  const [themeColor, setThemeColor] = useState("#1DB954");
+  const [themeColor, setThemeColor] = useState("#D4AF69");
   const [pending, setPending] = useState(false);
   const [mediaPending, setMediaPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -179,14 +187,36 @@ export function StudioPortalWorlds({ artistId, initialReleases }: Props) {
           rows={3}
           className="w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-sm"
         />
-        <label className="flex items-center gap-3 text-xs text-white/45">
-          Theme color
-          <input
-            type="color"
-            value={themeColor}
-            onChange={(e) => setThemeColor(e.target.value)}
-            className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent"
-          />
+        <label className="flex flex-col gap-2 text-xs text-white/45">
+          Theme mood
+          <div className="flex flex-wrap gap-2">
+            {THEME_PRESETS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setThemeColor(p.color)}
+                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${
+                  themeColor.toLowerCase() === p.color.toLowerCase()
+                    ? "border-white/40 text-white"
+                    : "border-white/10 text-white/50"
+                }`}
+              >
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: p.color }}
+                  aria-hidden
+                />
+                {p.label}
+              </button>
+            ))}
+            <input
+              type="color"
+              value={themeColor}
+              onChange={(e) => setThemeColor(e.target.value)}
+              className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent"
+              aria-label="Custom theme color"
+            />
+          </div>
         </label>
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
         <div className="flex flex-wrap gap-2">
@@ -194,7 +224,7 @@ export function StudioPortalWorlds({ artistId, initialReleases }: Props) {
             type="button"
             disabled={pending}
             onClick={() => void createRelease(true)}
-            className="rounded-full bg-[#1DB954] px-5 py-2 text-sm font-semibold text-black disabled:opacity-50"
+            className="rounded-full bg-[var(--rect)] px-5 py-2 text-sm font-semibold text-black disabled:opacity-50"
           >
             Publish world
           </button>

@@ -69,12 +69,13 @@ export default async function ArtistPortalPage({ params }: Props) {
     city?: string | null;
     artist_bio?: string | null;
     privacy_public_profile?: boolean | null;
+    artist_store_layout?: string | null;
   };
 
   const fullArtist = await db
     .from("users")
     .select(
-      "id, display_name, genres, countries, avatar_url, artist_banner_url, account_type, role, created_at, city, artist_bio, privacy_public_profile",
+      "id, display_name, genres, countries, avatar_url, artist_banner_url, account_type, role, created_at, city, artist_bio, privacy_public_profile, artist_store_layout",
     )
     .eq("id", id)
     .maybeSingle();
@@ -82,7 +83,7 @@ export default async function ArtistPortalPage({ params }: Props) {
   let artist: ArtistProfile | null = null;
   if (
     fullArtist.error &&
-    /artist_banner_url|privacy_public_profile|city|artist_bio|countries|avatar_url|column .* does not exist/i.test(
+    /artist_store_layout|artist_banner_url|privacy_public_profile|city|artist_bio|countries|avatar_url|column .* does not exist/i.test(
       fullArtist.error.message,
     )
   ) {
@@ -606,12 +607,18 @@ export default async function ArtistPortalPage({ params }: Props) {
             artistId={id}
             isOwner={isOwner}
             loginNext={`/artists/${id}`}
+            layout={
+              artist.artist_store_layout === "rail" ||
+              artist.artist_store_layout === "featured"
+                ? artist.artist_store_layout
+                : "grid"
+            }
           />
         ) : isOwner && !merchRes.missingTable ? (
           <section className="rounded-xl border border-dashed border-white/15 px-4 py-6 text-center">
             <p className="text-sm text-white/45">No store items yet</p>
             <p className="mt-1 text-xs text-white/30">
-              Add merch in Studio — active items appear here automatically.
+              Decorate your store in RECT Artist — active items appear here.
             </p>
             <Link
               href="/studio/store"

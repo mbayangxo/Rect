@@ -1,6 +1,7 @@
 import { StudioFanClubManager } from "@/components/studio/studio-fan-club-manager";
 import { StudioPortalEditor } from "@/components/studio/studio-portal-editor";
 import { StudioPortalWorlds } from "@/components/studio/studio-portal-worlds";
+import { WorldDecorateChecklist } from "@/components/studio/world-decorate-checklist";
 import { loadFanClubTiers } from "@/lib/dashboard/fan-club";
 import { loadPortalReleases } from "@/lib/dashboard/portal-releases";
 import {
@@ -27,15 +28,15 @@ export default async function StudioPortalPage({ searchParams }: Props) {
 
   return (
     <>
-      <p className="text-[0.65rem] font-medium uppercase tracking-[0.28em] text-[#1DB954]">
-        My portal
+      <p className="text-[0.65rem] font-medium uppercase tracking-[0.28em] text-[var(--rect)]">
+        RECT Artist · World
       </p>
       <h1 className="mt-2 font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight sm:text-3xl">
-        Artist profile & worlds
+        Decorate my World
       </h1>
       <p className="mt-2 text-sm text-white/45">
-        Your official RECT artist profile for fans — plus separate portal worlds
-        for releases, remixes, and personal drops.
+        Likeness, banner, and portal worlds fans enter from your public page —
+        end to end on RECT Artist.
       </p>
       {needsPlaces ? (
         <p className="mt-4 rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 px-4 py-3 text-sm text-[#F5A623]">
@@ -44,16 +45,23 @@ export default async function StudioPortalPage({ searchParams }: Props) {
         </p>
       ) : null}
       <div className="mt-8 space-y-12">
+        <WorldDecorateChecklist
+          profile={profile}
+          worlds={portalWorlds.releases}
+          artistId={userId}
+        />
         <StudioPortalEditor
           artistId={userId}
           profile={profile}
           emphasizeSetup={setupPlaces || needsPlaces}
         />
         <StudioFanClubManager initialTiers={fanClub.tiers} />
-        <StudioPortalWorlds
-          artistId={userId}
-          initialReleases={portalWorlds.releases}
-        />
+        <div id="portal-worlds">
+          <StudioPortalWorlds
+            artistId={userId}
+            initialReleases={portalWorlds.releases}
+          />
+        </div>
       </div>
     </>
   );

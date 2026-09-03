@@ -77,6 +77,7 @@ export function AppDrawerNav({
           { href: "/radio", label: "Wave · radio" },
           { href: "/new-wave", label: "New Wave · shows" },
           { href: "/new-sounds", label: "New Sounds" },
+          { href: "/parties", label: "Listening parties" },
         ]}
         onNavigate={onNavigate}
       />

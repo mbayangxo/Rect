@@ -37,6 +37,7 @@ const BROWSE = [
   { href: "/radio", label: "Wave" },
   { href: "/new-wave", label: "New Wave" },
   { href: "/new-sounds", label: "New Sounds" },
+  { href: "/parties", label: "Parties" },
   { href: "/charts", label: "Standings" },
   { href: "/discover", label: "Live" },
   { href: "/new", label: "New" },

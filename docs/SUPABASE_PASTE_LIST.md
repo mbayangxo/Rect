@@ -66,8 +66,11 @@ Individual files (if you prefer):
 | 13 | `20260830_rect_live.sql` | RECT Live |
 | 14 | `20260830_discovery_trending.sql` | Discover trending |
 | 15 | `20260830_direct_messages.sql` | DMs (optional) |
-| 16 | **`20260831_artist_os_delivery_suite.sql`** | DSP delivery tables, `launch_at`, ISRC/UPC, New Wave RPC, tip→wallet |
+| 16 | **`20260831_artist_os_delivery_suite.sql`** | DSP delivery tables, `launch_at`, ISRC/UPC, New Sounds RPC, tip→wallet |
 | 17 | **`20260831_joko_tips.sql`** | JOKO tips (pending → confirm → wallet) |
+| 18 | **`20260903_listening_card_events.sql`** | Listening card share analytics |
+| 19 | **`20260903_artist_store_layout.sql`** | Store layout template (grid/rail/featured) |
+| 20 | **`20260903_listening_parties.sql`** | Listening parties host/join/chat |
 
 Optional extras:
 

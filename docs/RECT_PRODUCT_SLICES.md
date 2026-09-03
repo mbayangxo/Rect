@@ -22,7 +22,7 @@ Work **slice by slice, end to end** — no half-wired surfaces.
 2. **Naming + Artist site split** — New Sounds / New Wave / RECT Artist separate from Music  
 3. **Decorate my World** — photos, likeness, portal layout end to end  
 4. **Decorate store** — templates + merch products end to end  
-5. **Listening parties** — host / join / chat / photos / gifs  
+5. **Listening parties** — host / join / chat / gifs · `/parties`  
 6. **RECT Labels** — mutual accept, roster, splits, label analytics (after World/store)  
 7. **Analytics 1–5** — completion, geo, funnel, compare, label rollup  
 8. **Upload QC + RECT Punch** — LUFS / peak / silence gates, then Taali gets the master  

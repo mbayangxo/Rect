@@ -122,6 +122,8 @@ export const ARTIST_OS = [
   "20260831_artist_os_delivery_suite.sql",
   "20260831_joko_tips.sql",
   "20260903_listening_card_events.sql",
+  "20260903_artist_store_layout.sql",
+  "20260903_listening_parties.sql",
 ];
 
 /** Full RECT schema (core → social → studio → artist OS). Skips seed/probe bundles. */
