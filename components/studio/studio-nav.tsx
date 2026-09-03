@@ -13,7 +13,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/studio/upload", label: "Upload", short: "Upload" },
       { href: "/studio/tracks", label: "Tracks", short: "Tracks" },
-      { href: "/studio/portal", label: "Portal", short: "Portal" },
+      { href: "/studio/portal", label: "World", short: "World" },
     ],
   },
   {
@@ -46,13 +46,22 @@ const SECTIONS: NavSection[] = [
   },
 ];
 
-const FLAT = SECTIONS.flatMap((s) => s.items);
+/** Mobile bottom bar — max 4 destinations + overflow in More (/studio). */
+const MOBILE_TABS: NavItem[] = [
+  { href: "/studio/upload", label: "Upload", short: "Upload" },
+  { href: "/studio/analytics", label: "Analytics", short: "Stats" },
+  { href: "/studio/wallet", label: "Wallet", short: "Money" },
+  { href: "/studio", label: "More", short: "More" },
+];
 
 type Props = {
   displayName: string;
 };
 
 function isActive(pathname: string, href: string) {
+  if (href === "/studio") {
+    return pathname === "/studio" || pathname === "/studio/";
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -66,10 +75,13 @@ export function StudioNav({ displayName }: Props) {
           <Link href="/studio/upload">
             <RectLogo size={32} showWordmark />
           </Link>
-          <p className="mt-3 text-[0.65rem] font-medium uppercase tracking-[0.24em] text-[#1DB954]">
-            Artist OS
+          <p className="mt-3 text-[0.65rem] font-medium uppercase tracking-[0.24em] text-[var(--rect)]">
+            Artist Studio
           </p>
           <p className="mt-1 truncate text-sm text-white/50">{displayName}</p>
+          <p className="mt-0.5 text-[0.65rem] text-white/30">
+            RECT Artist · Taali delivers DSPs
+          </p>
         </div>
         <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
           {SECTIONS.map((section) => (
@@ -86,7 +98,7 @@ export function StudioNav({ displayName }: Props) {
                       href={item.href}
                       className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                         active
-                          ? "bg-[#1DB954]/15 text-[#1DB954]"
+                          ? "bg-[var(--rect)]/15 text-[var(--rect)]"
                           : "text-white/55 hover:bg-white/[0.04] hover:text-white"
                       }`}
                     >
@@ -101,35 +113,29 @@ export function StudioNav({ displayName }: Props) {
             href="/dashboard"
             className="mt-auto rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white/45 hover:border-white/20 hover:text-white"
           >
-            ← Back to RECT SOUND
+            ← Back to listening
           </Link>
         </nav>
       </aside>
 
       <nav
-        aria-label="Artist OS"
-        className="fixed inset-x-0 bottom-0 z-40 flex overflow-x-auto border-t border-white/10 bg-[#030a05]/95 backdrop-blur-md md:hidden"
+        aria-label="Artist Studio"
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#030a05]/95 backdrop-blur-md md:hidden"
       >
-        {FLAT.map((item) => {
+        {MOBILE_TABS.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex min-w-[3.5rem] shrink-0 flex-col items-center px-1 py-2.5 text-[0.55rem] font-medium ${
-                active ? "text-[#1DB954]" : "text-white/45"
+              className={`flex flex-1 flex-col items-center px-1 py-2.5 text-[0.6rem] font-medium ${
+                active ? "text-[var(--rect)]" : "text-white/45"
               }`}
             >
               <span>{item.short}</span>
             </Link>
           );
         })}
-        <Link
-          href="/dashboard"
-          className="flex min-w-[3.5rem] shrink-0 flex-col items-center px-1 py-2.5 text-[0.55rem] font-medium text-white/35"
-        >
-          <span>RECT</span>
-        </Link>
       </nav>
     </>
   );

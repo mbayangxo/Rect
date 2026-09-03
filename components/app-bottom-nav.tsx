@@ -40,8 +40,8 @@ const TABS = [
     label: "You",
     match: (p: string) =>
       p.startsWith("/profile") ||
-      p.startsWith("/hearing-aid") ||
       p.startsWith("/inbox") ||
+      p.startsWith("/hearing-aid") ||
       p.startsWith("/messages") ||
       p.startsWith("/studio") ||
       p.startsWith("/artist") ||

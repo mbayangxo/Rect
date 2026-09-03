@@ -483,6 +483,13 @@ export default async function SongPage({ params }: Props) {
 
           <ShareTrackButton track={track} />
 
+          <Link
+            href={`/songs/${track.id}/card`}
+            className="mt-2 inline-flex text-xs text-[var(--rect-sand)] hover:underline"
+          >
+            Open RECT listening card →
+          </Link>
+
           <AddToPlaylist trackId={track.id} />
 
           <AddToFanChart trackId={track.id} loginNext={loginNext} />

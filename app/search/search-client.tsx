@@ -34,13 +34,14 @@ import { personProfileHref } from "@/lib/dashboard/people";
 import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
 const BROWSE = [
-  { href: "/discover", label: "Discover", tone: "from-[#0F2B1A] to-[#060908]" },
-  { href: "/radio", label: "Wave", tone: "from-[#0a2e18] to-[#060908]" },
-  { href: "/charts", label: "Standings", tone: "from-[#1a2b14] to-[#060908]" },
-  { href: "/new", label: "New", tone: "from-[#142b0f] to-[#060908]" },
-  { href: "/genres", label: "Genres", tone: "from-[#0f1a2b] to-[#06080a]" },
-  { href: "/places", label: "Places", tone: "from-[#1a2410] to-[#060908]" },
-  { href: "/languages", label: "Languages", tone: "from-[#0F1A2B] to-[#06080A]" },
+  { href: "/radio", label: "Wave" },
+  { href: "/charts", label: "Standings" },
+  { href: "/new-wave", label: "New Wave" },
+  { href: "/discover", label: "Live" },
+  { href: "/new", label: "New" },
+  { href: "/genres", label: "Genres" },
+  { href: "/places", label: "Places" },
+  { href: "/languages", label: "Languages" },
 ] as const;
 
 type Props = {
@@ -137,11 +138,11 @@ export function SearchClient({
 
       <div className="mx-auto w-full max-w-6xl space-y-8 px-5 py-8 sm:px-8">
         <div>
-          <h1 className="font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+          <h1 className="font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight sm:text-3xl">
             Search
           </h1>
-          <p className="mt-2 text-sm text-white/45">
-            Find songs, artists, and mixes — or browse below.
+          <p className="mt-1.5 text-sm text-white/45">
+            Songs, artists, mixes — Wave and standings live in the chips below.
           </p>
         </div>
 
@@ -213,14 +214,16 @@ export function SearchClient({
         ) : null}
 
         {!initialQuery && !languageSlug && !genreSlug && !placeSlug ? (
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-white/70">Browse</h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <section aria-label="Browse">
+            <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-white/35">
+              Browse
+            </p>
+            <div className="flex flex-wrap gap-2">
               {BROWSE.map((b) => (
                 <Link
                   key={b.href}
                   href={b.href}
-                  className={`flex h-24 items-end rounded-xl border border-white/10 bg-gradient-to-br ${b.tone} p-4 text-sm font-semibold transition hover:border-[#1DB954]/40`}
+                  className="rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-1.5 text-xs font-medium text-white/70 transition hover:border-[var(--rect)]/45 hover:text-white"
                 >
                   {b.label}
                 </Link>

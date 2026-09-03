@@ -1,9 +1,13 @@
 @import "tailwindcss";
 
 :root {
-  --background: #040d06;
-  --foreground: #f8f8f8;
-  --rect: #1db954;
+  --background: #06100a;
+  --foreground: #f3f1ea;
+  /* RECT accent — warm sand/gold on forest (not Spotify clone green) */
+  --rect: #c4a35a;
+  --rect-sand: #e8d9a8;
+  --rect-deep: #0a1a12;
+  --rect-glow: rgba(196, 163, 90, 0.22);
 }
 
 @theme inline {
@@ -15,6 +19,12 @@
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+.listening-card-page {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, var(--rect-glow), transparent),
+    var(--background);
 }
 
 h1,
@@ -64,7 +74,7 @@ main > .app-bottom-nav {
 }
 
 .app-bottom-ni.on {
-  color: #1db954;
+  color: var(--rect);
 }
 
 .app-bottom-ico {
