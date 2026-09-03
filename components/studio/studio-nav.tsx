@@ -20,6 +20,7 @@ const SECTIONS: NavSection[] = [
     title: "Delivery",
     items: [
       { href: "/studio/delivery", label: "Releases · DSP", short: "DSP" },
+      { href: "/studio/label", label: "RECT Label", short: "Label" },
     ],
   },
   {

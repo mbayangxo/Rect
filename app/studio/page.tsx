@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/studio/tracks", label: "Tracks", hint: "Your catalog" },
   { href: "/studio/portal", label: "World", hint: "Decorate your portal" },
   { href: "/studio/delivery", label: "DSP Delivery", hint: "Via Taali" },
+  { href: "/studio/label", label: "RECT Label", hint: "Roster · mutual accept" },
   { href: "/studio/analytics", label: "Analytics", hint: "Listeners & plays" },
   { href: "/studio/wallet", label: "Wallet", hint: "JOKO payouts" },
   { href: "/studio/accounting", label: "Accounting", hint: "Monthly books" },

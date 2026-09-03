@@ -71,6 +71,7 @@ Individual files (if you prefer):
 | 18 | **`20260903_listening_card_events.sql`** | Listening card share analytics |
 | 19 | **`20260903_artist_store_layout.sql`** | Store layout template (grid/rail/featured) |
 | 20 | **`20260903_listening_parties.sql`** | Listening parties host/join/chat |
+| 21 | **`20260903_rect_labels.sql`** | RECT Labels mutual accept + roster |
 
 Optional extras:
 

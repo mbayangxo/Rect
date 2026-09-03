@@ -138,6 +138,14 @@ export type StudioAnalytics = {
     fanClubGrowth: PlaysByDay[];
     followerGrowth: PlaysByDay[];
   };
+  /** Funnel: play → engage → follow (slice 3). */
+  funnel: {
+    playsInRange: number;
+    uniqueListeners: number;
+    likes: number;
+    followers: number;
+    avgCompletionPct: number | null;
+  };
   delivery: {
     ready: boolean;
     taaliLive: boolean;
@@ -272,6 +280,13 @@ function emptyAnalytics(window: AnalyticsTimeWindow): StudioAnalytics {
       topFans: [],
       fanClubGrowth: [],
       followerGrowth: [],
+    },
+    funnel: {
+      playsInRange: 0,
+      uniqueListeners: 0,
+      likes: 0,
+      followers: 0,
+      avgCompletionPct: null,
     },
     delivery: {
       ready: false,
@@ -1091,6 +1106,21 @@ export async function loadStudioAnalytics(
         topFans,
         fanClubGrowth,
         followerGrowth,
+      },
+      funnel: {
+        playsInRange: streamsInRange,
+        uniqueListeners: listenersInRange.size,
+        likes: [...likesMap.values()].reduce((a, b) => a + b, 0),
+        followers: followersRes.count ?? 0,
+        avgCompletionPct: (() => {
+          const rates = songs
+            .map((s) => s.completionRate)
+            .filter((n): n is number => n != null);
+          if (rates.length === 0) return null;
+          return Math.round(
+            rates.reduce((a, b) => a + b, 0) / rates.length,
+          );
+        })(),
       },
       delivery: {
         ready: !deliveryRes.missingTable,
