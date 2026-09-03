@@ -150,16 +150,35 @@ export async function POST(request: Request) {
 
   if (joko.instantConfirm) {
     const admin = createAdminClient();
-    if (admin) {
-      await admin.rpc("confirm_artist_tip_system", { p_tip_id: tipId });
-    } else {
-      await supabase
-        .from("artist_tips")
-        .update({ status: "confirmed" })
-        .eq("id", tipId)
-        .eq("from_user_id", user.id);
+    if (!admin) {
+      return NextResponse.json(
+        {
+          error:
+            "Tip payment started but server cannot confirm without SUPABASE_SERVICE_ROLE_KEY. Tip stays pending until webhook.",
+          code: "missing_service_role",
+          tip_id: tipId,
+          status: "pending",
+          mode: joko.mode,
+        },
+        { status: 503 },
+      );
     }
-    await notifyArtist(supabase, artistId, "tip", {
+    const { error: confirmError } = await admin.rpc(
+      "confirm_artist_tip_system",
+      { p_tip_id: tipId },
+    );
+    if (confirmError) {
+      return NextResponse.json(
+        {
+          error: confirmError.message,
+          code: "confirm_failed",
+          tip_id: tipId,
+          status: "pending",
+        },
+        { status: 500 },
+      );
+    }
+    await notifyArtist(admin, artistId, "tip", {
       amount_xof: amount,
       body: message || undefined,
       track_id: trackId || undefined,

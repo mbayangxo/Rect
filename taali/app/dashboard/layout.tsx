@@ -7,7 +7,9 @@ const navItems = [
   { href: "/dashboard/delivery", label: "Delivery center" },
 ];
 
-export default function DashboardLayout({ children }: LayoutProps<"/dashboard">) {
+export default function DashboardLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <div className="flex min-h-screen">
       <aside className="w-64 shrink-0 border-r border-taali-border bg-taali-surface p-6">

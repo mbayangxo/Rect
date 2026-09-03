@@ -24,7 +24,11 @@ export default async function StudioLivePage() {
       </h1>
       <p className="mt-2 max-w-xl text-sm text-white/45">
         Everyday Live Rooms — video, photos, or audio. Fans join from your
-        Artist World. RECT Live (pro stage) comes later.
+        Artist World. For the pro stage, open{" "}
+        <a href="/studio/rect-live" className="text-[#1DB954] underline-offset-2 hover:underline">
+          RECT Live
+        </a>
+        .
       </p>
       <div className="mt-8">
         <StudioLiveRoomManager

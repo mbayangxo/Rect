@@ -18,7 +18,9 @@ export const metadata: Metadata = {
     "Taali is the distribution rail for RECT — package releases and deliver to DSPs.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"

@@ -127,13 +127,18 @@ Then: `cd taali && npm run probe:taali`
 
 ## Env vars (RECT → Taali)
 
-On RECT (`.env.local`):
+On RECT (`.env.local` — see also root `.env.example`):
 
 ```
 TAALI_API_URL=https://your-taali-app.vercel.app
 TAALI_API_KEY=your-taali-api-key
+TAALI_ORG_ID=uuid-from-taali-organizations-table
+TAALI_PROVIDER_ID=demo
 TAALI_WEBHOOK_SECRET=shared-secret
+TAALI_WEBHOOK_URL=https://your-rect.vercel.app/api/taali/webhook
 ```
+
+Without `TAALI_ORG_ID`, Delivery stays in honest **demo queue** (not live on DSPs).
 
 On Taali:
 
