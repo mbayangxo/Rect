@@ -24,14 +24,14 @@ export default async function StudioIndexPage() {
   return (
     <>
       <p className="text-[0.65rem] font-medium uppercase tracking-[0.28em] text-[var(--rect)]">
-        Artist Studio
+        RECT Artist
       </p>
       <h1 className="mt-2 font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight">
         {displayName}
       </h1>
       <p className="mt-2 max-w-xl text-sm text-white/45">
-        RECT Artist tools. Delivery to Spotify / Apple goes through Taali — a
-        separate distribution rail.
+        Separate from RECT Music. Delivery to Spotify / Apple goes through Taali
+        — a separate distribution rail.
       </p>
       <ul className="mt-8 grid gap-2 sm:grid-cols-2">
         {LINKS.map((item) => (

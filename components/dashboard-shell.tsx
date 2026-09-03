@@ -11,6 +11,7 @@ import { HearthHero } from "@/components/hearth/hearth-hero";
 import { HearthPulse } from "@/components/hearth/hearth-pulse";
 import { HearthTrackGrid } from "@/components/hearth/hearth-track-grid";
 import { HomeShelf, type ShelfTrack } from "@/components/hearth/home-shelf";
+import { HomeShowShelf } from "@/components/hearth/home-show-shelf";
 import { InboxPlaylistActions } from "@/components/inbox-playlist-actions";
 import { InboxTrackPlay } from "@/components/inbox-track-play";
 import { usePlayer } from "@/components/player-provider";
@@ -23,7 +24,8 @@ import type {
 } from "@/lib/dashboard/trending";
 import type { ArtistPortal } from "@/lib/dashboard/artists";
 import type { LiveRoom } from "@/lib/dashboard/live-rooms";
-import type { NewWaveTrack } from "@/lib/dashboard/new-wave";
+import type { NewSoundsTrack } from "@/lib/dashboard/new-sounds";
+import type { NewWaveShow } from "@/lib/dashboard/new-wave-shows";
 import {
   formatPlayedAt,
   type JournalEntry,
@@ -62,11 +64,8 @@ type Props = {
   pendingPackPurchases?: PendingPackPurchase[];
   likedTrackIds: string[];
   likesReady: boolean;
-  showArtistStudio?: boolean;
   /** Unread release alerts for /inbox */
   inboxUnread?: number;
-  /** Unread studio activity for /artist/inbox */
-  artistInboxUnread?: number;
   continueListening: JournalEntry[];
   continueError: string | null;
   friendsListening?: FriendsListenItem[];
@@ -81,7 +80,8 @@ type Props = {
   liveNow?: LiveRoom[];
   trendingTracks?: TrendingTrack[];
   trendingPortals?: TrendingPortal[];
-  newWaveTracks?: NewWaveTrack[];
+  newSoundsTracks?: NewSoundsTrack[];
+  newWaveShows?: NewWaveShow[];
 };
 
 function formatTime(secs: number) {
@@ -111,9 +111,7 @@ export function DashboardShell({
   pendingPackPurchases = [],
   likedTrackIds,
   likesReady,
-  showArtistStudio = false,
   inboxUnread = 0,
-  artistInboxUnread = 0,
   continueListening,
   continueError,
   friendsListening = [],
@@ -128,7 +126,8 @@ export function DashboardShell({
   liveNow = [],
   trendingTracks = [],
   trendingPortals = [],
-  newWaveTracks = [],
+  newSoundsTracks = [],
+  newWaveShows = [],
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -295,9 +294,7 @@ export function DashboardShell({
         </div>
         <AppDrawerNav
           displayName={displayName}
-          showArtistStudio={showArtistStudio}
           inboxUnread={inboxUnread}
-          artistInboxUnread={artistInboxUnread}
           onNavigate={() => setDrawerOpen(false)}
         />
       </aside>
@@ -355,23 +352,33 @@ export function DashboardShell({
             />
           ) : null}
 
-          {newWaveTracks.length > 0 ? (
+          {newSoundsTracks.length > 0 ? (
             <HomeShelf
               kicker="Just dropped"
-              title="New Wave"
-              seeAllHref="/new-wave"
+              title="New Sounds"
+              seeAllHref="/new-sounds"
               seeAllLabel="Full mix →"
-              tracks={newWaveTracks.map(
+              tracks={newSoundsTracks.map(
                 (t): ShelfTrack => ({
                   ...t,
                   subtitle: t.artist_name,
                 }),
               )}
               onPlay={(track, index) => {
-                const list = newWaveTracks.filter((x) => x.audio_url);
+                const list = newSoundsTracks.filter((x) => x.audio_url);
                 const idx = list.findIndex((x) => x.id === track.id);
                 player.playQueue(list, idx >= 0 ? idx : index);
               }}
+            />
+          ) : null}
+
+          {newWaveShows.length > 0 ? (
+            <HomeShowShelf
+              kicker="On Wave"
+              title="New Wave"
+              seeAllHref="/new-wave"
+              seeAllLabel="All shows →"
+              shows={newWaveShows}
             />
           ) : null}
 

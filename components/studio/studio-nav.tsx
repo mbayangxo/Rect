@@ -72,15 +72,15 @@ export function StudioNav({ displayName }: Props) {
     <>
       <aside className="hidden w-56 shrink-0 border-r border-white/10 bg-[#030a05] md:flex md:flex-col">
         <div className="border-b border-white/10 px-5 py-5">
-          <Link href="/studio/upload">
-            <RectLogo size={32} showWordmark />
+          <Link href="/studio">
+            <RectLogo size={32} showWordmark={false} />
           </Link>
-          <p className="mt-3 text-[0.65rem] font-medium uppercase tracking-[0.24em] text-[var(--rect)]">
-            Artist Studio
+          <p className="mt-3 font-[family-name:var(--font-syne)] text-sm font-semibold tracking-wide">
+            RECT <span className="text-[var(--rect)]">Artist</span>
           </p>
           <p className="mt-1 truncate text-sm text-white/50">{displayName}</p>
           <p className="mt-0.5 text-[0.65rem] text-white/30">
-            RECT Artist · Taali delivers DSPs
+            Separate from RECT Music · Taali delivers DSPs
           </p>
         </div>
         <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
@@ -113,13 +113,13 @@ export function StudioNav({ displayName }: Props) {
             href="/dashboard"
             className="mt-auto rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white/45 hover:border-white/20 hover:text-white"
           >
-            ← Back to listening
+            Exit to RECT Music →
           </Link>
         </nav>
       </aside>
 
       <nav
-        aria-label="Artist Studio"
+        aria-label="RECT Artist"
         className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#030a05]/95 backdrop-blur-md md:hidden"
       >
         {MOBILE_TABS.map((item) => {

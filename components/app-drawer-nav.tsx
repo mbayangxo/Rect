@@ -11,9 +11,7 @@ type LinkItem = {
 
 type Props = {
   displayName: string;
-  showArtistStudio?: boolean;
   inboxUnread?: number;
-  artistInboxUnread?: number;
   onNavigate?: () => void;
 };
 
@@ -49,15 +47,14 @@ function Section({
 }
 
 /**
- * Slim drawer — depth lives under Search / Library / You (Spotify-style).
- * Wave = radio (not a separate product). Hearing Aids = podcasts (coming).
- * Inbox = social notifications (not Hearing Aid).
+ * Slim consumer drawer — RECT Music only.
+ * RECT Artist is a separate site entered via /for-artists (not nested here).
+ * Wave = radio. New Wave = new radio shows. New Sounds = music launches.
+ * Hearing Aids = podcasts (coming). Inbox = social notifications.
  */
 export function AppDrawerNav({
   displayName,
-  showArtistStudio = false,
   inboxUnread = 0,
-  artistInboxUnread = 0,
   onNavigate,
 }: Props) {
   return (
@@ -78,6 +75,8 @@ export function AppDrawerNav({
         items={[
           { href: "/search", label: "Search & browse" },
           { href: "/radio", label: "Wave · radio" },
+          { href: "/new-wave", label: "New Wave · shows" },
+          { href: "/new-sounds", label: "New Sounds" },
         ]}
         onNavigate={onNavigate}
       />
@@ -102,18 +101,21 @@ export function AppDrawerNav({
             badge: inboxUnread,
           },
           { href: "/messages", label: "Messages" },
-          ...(showArtistStudio
-            ? [
-                {
-                  href: "/studio",
-                  label: "Artist Studio",
-                  badge: artistInboxUnread,
-                },
-              ]
-            : [{ href: "/for-artists", label: "Become a RECT artist" }]),
         ]}
         onNavigate={onNavigate}
       />
+
+      <div className="dash-dr-section">
+        <p className="dash-dr-section-title">Artists</p>
+        <Link
+          href="/for-artists"
+          className="dash-dmi"
+          onClick={onNavigate}
+        >
+          <span>RECT Artist (separate site)</span>
+          <span aria-hidden>›</span>
+        </Link>
+      </div>
     </>
   );
 }

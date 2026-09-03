@@ -281,7 +281,7 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
             className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-[#1DB954]"
           />
           <span className="mt-1 block text-[0.65rem] text-white/30">
-            When it appears on New &amp; New Wave. Empty = as soon as published.
+            When it appears on New &amp; New Sounds. Empty = as soon as published.
           </span>
         </label>
       </div>
@@ -388,7 +388,7 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
             onChange={() => setPublishLive(true)}
             className="accent-[#1DB954]"
           />
-          Publish live — on RECT when launch date hits (New / New Wave / Charts)
+          Publish live — on RECT when launch date hits (New / New Sounds / Charts)
         </label>
         <label className="mt-2 flex cursor-pointer items-center gap-3 text-sm">
           <input

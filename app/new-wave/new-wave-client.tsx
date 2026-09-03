@@ -1,82 +1,73 @@
 "use client";
 
 import Link from "next/link";
-import { AddToPlaylist } from "@/components/add-to-playlist";
-import { usePlayer } from "@/components/player-provider";
-import { QueueTrackButton } from "@/components/queue-track-button";
-import { TrackCover } from "@/components/track-cover";
-import { TrackLikeButton } from "@/components/track-like-button";
-import { formatReleasedAt } from "@/lib/dashboard/new-releases";
-import type { NewWaveTrack } from "@/lib/dashboard/new-wave";
-import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
+import type { NewWaveShow } from "@/lib/dashboard/new-wave-shows";
 
 type Props = {
-  tracks: NewWaveTrack[];
+  shows: NewWaveShow[];
   loadError: string | null;
 };
 
-export function NewWaveClient({ tracks, loadError }: Props) {
-  const player = usePlayer();
-  const playable = tracks.filter((t) => t.audio_url);
-
+export function NewWaveShowsClient({ shows, loadError }: Props) {
   if (loadError) {
     return <p className="text-sm text-[#F5A623]">{loadError}</p>;
   }
 
-  if (tracks.length === 0) {
+  if (shows.length === 0) {
     return (
       <p className="text-sm text-white/45">
-        No New Wave tracks yet. Artists schedule a launch date on upload — when
-        it hits, the song lands here.
+        No new Wave shows yet. Tune into{" "}
+        <Link href="/radio" className="text-[var(--rect)] hover:underline">
+          Wave
+        </Link>{" "}
+        for stations, or check{" "}
+        <Link href="/new-sounds" className="text-[var(--rect)] hover:underline">
+          New Sounds
+        </Link>{" "}
+        for music launches.
       </p>
     );
   }
 
   return (
-    <ul className="space-y-2">
-      {tracks.map((t, i) => (
-        <li
-          key={t.id}
-          className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3"
-        >
-          <span className="w-6 shrink-0 text-center text-xs tabular-nums text-white/30">
-            {i + 1}
-          </span>
-          <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
-          <div className="min-w-0 flex-1">
-            <Link
-              href={`/songs/${t.id}`}
-              className="block truncate font-medium hover:text-[#1DB954]"
-            >
-              {trackTitle(t)}
-            </Link>
-            <p className="truncate text-xs text-white/40">
-              {trackArtist(t)}
-              {t.duration_secs
-                ? ` · ${formatTrackDuration(t.duration_secs)}`
-                : ""}
-              {" · "}
-              {formatReleasedAt(t.wave_at)}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <TrackLikeButton trackId={t.id} compact loginNext="/new-wave" />
-            <QueueTrackButton track={t} compact />
-            <AddToPlaylist trackId={t.id} compact loginNext="/new-wave" />
-            <button
-              type="button"
-              disabled={!t.audio_url}
-              onClick={() => {
-                if (!t.audio_url) return;
-                const idx = playable.findIndex((x) => x.id === t.id);
-                player.playQueue(playable, idx >= 0 ? idx : 0);
-              }}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1DB954] text-sm text-black disabled:opacity-30"
-              aria-label={`Play ${trackTitle(t)}`}
-            >
-              ▶
-            </button>
-          </div>
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {shows.map((s) => (
+        <li key={s.id}>
+          <Link
+            href={s.href}
+            className="flex gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 transition hover:border-[var(--rect)]/35"
+          >
+            <span
+              className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white/[0.06]"
+              style={
+                s.cover_url
+                  ? {
+                      backgroundImage: `url(${s.cover_url})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center",
+                    }
+                  : undefined
+              }
+            />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="truncate font-medium text-white">
+                  {s.title}
+                </span>
+                {s.kind === "live" ? (
+                  <span className="shrink-0 rounded bg-red-500/20 px-1.5 py-0.5 text-[0.55rem] font-semibold uppercase tracking-wider text-red-300">
+                    Live
+                  </span>
+                ) : null}
+              </span>
+              <span className="mt-0.5 block truncate text-xs text-white/45">
+                {s.subtitle}
+              </span>
+              <span className="mt-1 block text-[0.65rem] uppercase tracking-wider text-white/30">
+                {s.meta}
+              </span>
+            </span>
+          </Link>
         </li>
       ))}
     </ul>

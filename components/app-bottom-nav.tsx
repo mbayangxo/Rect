@@ -42,16 +42,16 @@ const TABS = [
       p.startsWith("/profile") ||
       p.startsWith("/inbox") ||
       p.startsWith("/hearing-aid") ||
-      p.startsWith("/messages") ||
-      p.startsWith("/studio") ||
-      p.startsWith("/artist") ||
-      p.startsWith("/for-artists"),
+      p.startsWith("/messages"),
     icon: "●",
   },
 ] as const;
 
-/** Paths that show the Spotify-style 4-tab bar. */
+/** Paths that show the Spotify-style 4-tab bar (RECT Music only — not RECT Artist). */
 export function usesAppBottomNav(pathname: string) {
+  if (pathname.startsWith("/studio") || pathname.startsWith("/for-artists")) {
+    return false;
+  }
   return TABS.some((t) => t.match(pathname));
 }
 

@@ -9,20 +9,21 @@ import {
   type TrackRow,
 } from "@/lib/tracks";
 
-export type NewWaveTrack = TrackRow & {
+export type NewSoundsTrack = TrackRow & {
   artist_name: string | null;
   like_count: number;
-  wave_at: string | null;
+  launch_at_display: string | null;
 };
 
 /**
- * New Wave — recently launched (or unscheduled) live tracks on RECT.
+ * New Sounds — recently launched (or unscheduled) live tracks on RECT.
  * Prefers RPC new_wave_tracks when migration applied; falls back to catalog query.
+ * (DB RPC name kept for compatibility; product name is New Sounds.)
  */
-export async function loadNewWaveTracks(
+export async function loadNewSoundsTracks(
   supabase: SupabaseClient,
   limit = 40,
-): Promise<{ tracks: NewWaveTrack[]; error: string | null; viaRpc: boolean }> {
+): Promise<{ tracks: NewSoundsTrack[]; error: string | null; viaRpc: boolean }> {
   const admin = createAdminClient();
   const db = admin ?? supabase;
 
@@ -46,7 +47,7 @@ export async function loadNewWaveTracks(
         ((tracks ?? []) as TrackRow[]).map((t) => [t.id, t]),
       );
       const ordered: TrackRow[] = [];
-      const waveAt = new Map<string, string | null>();
+      const launchAt = new Map<string, string | null>();
       for (const row of rpcData as {
         track_id: string;
         launch_at?: string | null;
@@ -54,14 +55,14 @@ export async function loadNewWaveTracks(
         const t = byId.get(row.track_id);
         if (t) {
           ordered.push(t);
-          waveAt.set(
+          launchAt.set(
             t.id,
             typeof row.launch_at === "string" ? row.launch_at : null,
           );
         }
       }
       return {
-        tracks: await enrich(db, ordered, waveAt),
+        tracks: await enrich(db, ordered, launchAt),
         error: null,
         viaRpc: true,
       };
@@ -81,7 +82,6 @@ export async function loadNewWaveTracks(
     .limit(Math.max(limit * 2, 60));
 
   if (error) {
-    // retry without launch_at
     const lean = await db
       .from("tracks")
       .select(
@@ -113,12 +113,12 @@ export async function loadNewWaveTracks(
     })
     .slice(0, limit);
 
-  const waveAt = new Map(
+  const launchAt = new Map(
     rows.map((t) => [t.id, (t.launch_at || t.created_at || null) as string | null]),
   );
 
   return {
-    tracks: await enrich(db, rows, waveAt),
+    tracks: await enrich(db, rows, launchAt),
     error: null,
     viaRpc: false,
   };
@@ -127,8 +127,8 @@ export async function loadNewWaveTracks(
 async function enrich(
   db: SupabaseClient,
   rows: TrackRow[],
-  waveAt: Map<string, string | null>,
-): Promise<NewWaveTrack[]> {
+  launchAt: Map<string, string | null>,
+): Promise<NewSoundsTrack[]> {
   const artistIds = [
     ...new Set(rows.map((t) => t.artist_id).filter(Boolean) as string[]),
   ];
@@ -141,6 +141,7 @@ async function enrich(
     ...t,
     artist_name: t.artist_id ? (nameById.get(t.artist_id) ?? null) : null,
     like_count: likes.get(t.id) ?? 0,
-    wave_at: waveAt.get(t.id) ?? t.launch_at ?? t.created_at ?? null,
+    launch_at_display:
+      launchAt.get(t.id) ?? t.launch_at ?? t.created_at ?? null,
   }));
 }

@@ -14,7 +14,7 @@ export type TrackRow = {
   download_price_xof?: number | null;
   /** Plain-text lyrics; null/empty = none. */
   lyrics?: string | null;
-  /** When the track appears on New / New Wave; null = immediate. */
+  /** When the track appears on New / New Sounds; null = immediate. */
   launch_at?: string | null;
   isrc_code?: string | null;
   upc_code?: string | null;

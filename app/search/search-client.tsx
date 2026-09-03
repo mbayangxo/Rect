@@ -35,8 +35,9 @@ import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
 const BROWSE = [
   { href: "/radio", label: "Wave" },
-  { href: "/charts", label: "Standings" },
   { href: "/new-wave", label: "New Wave" },
+  { href: "/new-sounds", label: "New Sounds" },
+  { href: "/charts", label: "Standings" },
   { href: "/discover", label: "Live" },
   { href: "/new", label: "New" },
   { href: "/genres", label: "Genres" },
