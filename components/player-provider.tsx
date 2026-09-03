@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { usesAppBottomNav } from "@/components/app-bottom-nav";
 import {
   createContext,
   useCallback,
@@ -12,6 +13,7 @@ import {
 } from "react";
 import { AddToPlaylist } from "@/components/add-to-playlist";
 import { ArtistTipButton } from "@/components/artist-tip-button";
+import { ImmersiveStage } from "@/components/immersive-stage";
 import { PlayerFollowButton } from "@/components/player-follow-button";
 import { PlayerLikeButton } from "@/components/player-like-button";
 import { ShareTrackButton } from "@/components/share-track-button";
@@ -125,6 +127,15 @@ function formatClock(secs: number) {
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const liftForNav = usesAppBottomNav(pathname);
+  const bottomBarClass = liftForNav ? "bottom-14" : "bottom-0";
+  const noticeBottomClass = liftForNav
+    ? "bottom-[8.25rem]"
+    : "bottom-[4.5rem]";
+  const queueBottomClass = liftForNav
+    ? "bottom-[8.5rem] sm:bottom-[9rem]"
+    : "bottom-[4.75rem] sm:bottom-[5.25rem]";
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [track, setTrack] = useState<TrackRow | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -143,6 +154,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<TrackRow[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [queueOpen, setQueueOpen] = useState(false);
+  const [immersiveOpen, setImmersiveOpen] = useState(false);
   const [savingQueue, setSavingQueue] = useState(false);
   const recordedFor = useRef<string | null>(null);
   const recordPlayRef = useRef<(trackId: string) => Promise<void>>(
@@ -402,6 +414,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setLoginNext(`/songs/${next.id}`);
       setCreditNotice(null);
       syncQueueFlags();
+      setImmersiveOpen(true);
+
+      // Hydrate lyrics for immersive stage if missing on the row
+      if (!next.lyrics?.trim()) {
+        void fetch(`/api/tracks/${next.id}/immerse`)
+          .then(async (res) => {
+            if (!res.ok) return;
+            const data = (await res.json()) as { lyrics?: string | null };
+            if (typeof data.lyrics === "string" && data.lyrics.trim()) {
+              setTrack((t) =>
+                t && t.id === next.id ? { ...t, lyrics: data.lyrics } : t,
+              );
+            }
+          })
+          .catch(() => undefined);
+      }
 
       void (async () => {
         let isGuest = true;
@@ -806,8 +834,25 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
+      {immersiveOpen && track ? (
+        <ImmersiveStage
+          track={track}
+          playing={playing}
+          currentTime={currentTime}
+          duration={duration}
+          canPrev={canPrev}
+          canNext={canNext}
+          onClose={() => setImmersiveOpen(false)}
+          onToggle={toggle}
+          onPrev={prev}
+          onNext={next}
+          onSeek={seek}
+        />
+      ) : null}
       {creditNotice ? (
-        <div className="fixed inset-x-0 bottom-[4.5rem] z-50 mx-auto w-full max-w-6xl px-4 sm:px-8 lg:px-10">
+        <div
+          className={`fixed inset-x-0 z-50 mx-auto w-full max-w-6xl px-4 sm:px-8 lg:px-10 ${noticeBottomClass}`}
+        >
           <div className="rounded-xl border border-[#F5A623]/40 bg-[#120e06]/95 px-4 py-3 text-sm text-[#F5A623] backdrop-blur-md">
             {creditNotice}{" "}
             {/credit|pack/i.test(creditNotice) ? (
@@ -834,7 +879,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
       {track && queueOpen && queue.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-[4.75rem] z-50 mx-auto w-full max-w-6xl px-4 sm:bottom-[5.25rem] sm:px-8 lg:px-10">
+        <div
+          className={`fixed inset-x-0 z-50 mx-auto w-full max-w-6xl px-4 sm:px-8 lg:px-10 ${queueBottomClass}`}
+        >
           <div className="max-h-[40vh] overflow-hidden rounded-2xl border border-white/10 bg-[#071208]/97 shadow-2xl shadow-black/40 backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1DB954]">
@@ -885,7 +932,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                       onClick={() => playAt(i)}
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
-                      <TrackCover track={t} size="sm" />
+                      <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                       <span className="min-w-0 flex-1">
                         <span
                           className={`block truncate text-sm ${
@@ -917,12 +964,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       ) : null}
-      {track ? (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#071208]/95 backdrop-blur-md">
+      {track && !immersiveOpen ? (
+        <div
+          className={`fixed inset-x-0 z-50 border-t border-white/10 bg-[#071208]/95 backdrop-blur-md ${bottomBarClass}`}
+        >
           <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-8 lg:px-10">
-            <Link href={`/songs/${track.id}`} className="shrink-0">
+            <button
+              type="button"
+              onClick={() => setImmersiveOpen(true)}
+              className="shrink-0 rounded-md ring-offset-2 ring-offset-[#071208] hover:ring-2 hover:ring-[#1DB954]/50"
+              aria-label="Open immersive player"
+              title="Immerse"
+            >
               <TrackCover track={track} size="sm" />
-            </Link>
+            </button>
             <div className="flex shrink-0 items-center gap-1">
               <button
                 type="button"
@@ -985,12 +1040,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               ) : null}
             </div>
             <div className="min-w-0 flex-1">
-              <Link
-                href={`/songs/${track.id}`}
-                className="block truncate text-sm font-medium text-white hover:text-[#1DB954]"
+              <button
+                type="button"
+                onClick={() => setImmersiveOpen(true)}
+                className="block w-full truncate text-left text-sm font-medium text-white hover:text-[#1DB954]"
               >
                 {trackTitle(track)}
-              </Link>
+              </button>
               {track.artist_id &&
               trackArtist(track) !== PRIVATE_ARTIST_LABEL ? (
                 <Link
@@ -1051,6 +1107,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               aria-label={muted || volume === 0 ? "Unmute" : "Mute"}
             >
               {muted || volume === 0 ? "Off" : "Vol"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setImmersiveOpen(true)}
+              className="hidden shrink-0 rounded-full border border-[#1DB954]/40 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[#1DB954] hover:bg-[#1DB954]/10 sm:inline-flex"
+              title="Immersive lyrics stage"
+            >
+              Immerse
             </button>
             {creditsRemaining != null ? (
               <Link

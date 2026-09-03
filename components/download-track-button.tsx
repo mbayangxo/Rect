@@ -13,9 +13,16 @@ type Props = {
   track: TrackRow;
   compact?: boolean;
   onChange?: () => void;
+  /** When true, fetch audio via /api/tracks/[id]/download (paid tracks). */
+  useEntitlementApi?: boolean;
 };
 
-export function DownloadTrackButton({ track, compact = false, onChange }: Props) {
+export function DownloadTrackButton({
+  track,
+  compact = false,
+  onChange,
+  useEntitlementApi = false,
+}: Props) {
   const [downloaded, setDownloaded] = useState(false);
   const [pending, setPending] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
@@ -26,12 +33,12 @@ export function DownloadTrackButton({ track, compact = false, onChange }: Props)
   }, [track.id, track.audio_url]);
 
   async function onDownload() {
-    if (!track.audio_url || pending) return;
+    if (pending) return;
     setPending(true);
     setError(null);
     setProgress(0);
     try {
-      await downloadTrack(track, setProgress);
+      await downloadTrack(track, setProgress, { useEntitlementApi });
       setDownloaded(true);
       onChange?.();
     } catch (e) {
@@ -70,7 +77,7 @@ export function DownloadTrackButton({ track, compact = false, onChange }: Props)
       <div className="relative shrink-0">
         <button
           type="button"
-          disabled={!track.audio_url || pending}
+          disabled={pending}
           onClick={() => void (downloaded ? onRemove() : onDownload())}
           className="flex h-9 w-9 items-center justify-center rounded-full text-xs text-white/55 hover:bg-white/10 hover:text-white disabled:opacity-40"
           title={
@@ -99,7 +106,7 @@ export function DownloadTrackButton({ track, compact = false, onChange }: Props)
     <div className="shrink-0 text-right">
       <button
         type="button"
-        disabled={!track.audio_url || pending}
+        disabled={pending}
         onClick={() => void (downloaded ? onRemove() : onDownload())}
         className="rounded-full border border-white/20 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-white/70 hover:bg-white/10 disabled:opacity-50"
       >

@@ -15,7 +15,11 @@ type PatchBody = {
   genre?: string | null;
   language?: string | null;
   duration_secs?: number | null;
+  download_price_xof?: number | null;
+  lyrics?: string | null;
 };
+
+const MAX_LYRICS_CHARS = 20_000;
 
 function storagePathFromPublicUrl(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -111,9 +115,48 @@ export async function PATCH(request: Request, { params }: Params) {
     }
   }
 
+  if (body.download_price_xof !== undefined) {
+    if (body.download_price_xof === null) {
+      patch.download_price_xof = null;
+    } else if (
+      typeof body.download_price_xof === "number" &&
+      Number.isFinite(body.download_price_xof) &&
+      body.download_price_xof >= 0
+    ) {
+      patch.download_price_xof = Math.round(body.download_price_xof);
+    } else {
+      return NextResponse.json(
+        { error: "download_price_xof must be 0 or greater." },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (body.lyrics !== undefined) {
+    if (body.lyrics === null) {
+      patch.lyrics = null;
+    } else if (typeof body.lyrics === "string") {
+      const lyrics = body.lyrics.trim();
+      if (lyrics.length > MAX_LYRICS_CHARS) {
+        return NextResponse.json(
+          {
+            error: `Lyrics must be under ${MAX_LYRICS_CHARS.toLocaleString()} characters.`,
+          },
+          { status: 400 },
+        );
+      }
+      patch.lyrics = lyrics.length ? lyrics : null;
+    } else {
+      return NextResponse.json({ error: "Invalid lyrics." }, { status: 400 });
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(
-      { error: "Provide title, genre, language, and/or duration_secs." },
+      {
+        error:
+          "Provide title, genre, language, duration_secs, download_price_xof, and/or lyrics.",
+      },
       { status: 400 },
     );
   }
@@ -173,10 +216,43 @@ export async function PATCH(request: Request, { params }: Params) {
     .update(patch)
     .eq("id", trackId)
     .eq("artist_id", user.id)
-    .select("id, title, genre, language, status, artist_id")
+    .select("id, title, genre, language, status, artist_id, download_price_xof, lyrics")
     .maybeSingle();
 
   if (error) {
+    if (/lyrics|download_price_xof|column .* does not exist/i.test(error.message)) {
+      const leanPatch = Object.fromEntries(
+        Object.entries(patch).filter(
+          ([k]) => k !== "download_price_xof" && k !== "lyrics",
+        ),
+      );
+      if (Object.keys(leanPatch).length === 0 && patch.lyrics !== undefined) {
+        return NextResponse.json(
+          {
+            error:
+              "Run 20260830_track_lyrics.sql in Supabase to enable lyrics.",
+          },
+          { status: 503 },
+        );
+      }
+      const lean = await supabase
+        .from("tracks")
+        .update(leanPatch)
+        .eq("id", trackId)
+        .eq("artist_id", user.id)
+        .select("id, title, genre, language, status, artist_id")
+        .maybeSingle();
+      if (lean.error) {
+        return NextResponse.json({ error: lean.error.message }, { status: 500 });
+      }
+      return NextResponse.json({
+        ok: true,
+        track: lean.data,
+        warning: /lyrics/i.test(error.message)
+          ? "Run 20260830_track_lyrics.sql for lyrics."
+          : "Run 20260830_monetization_stack.sql for download pricing.",
+      });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

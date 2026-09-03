@@ -6,7 +6,9 @@ import type {
   SongPerformanceRow,
   StudioAnalytics,
 } from "@/lib/dashboard/artist-analytics";
+import type { StudioFanProfile } from "@/lib/dashboard/artist-fan-profile";
 import type { AnalyticsRangeId } from "@/lib/dashboard/analytics-time";
+import Link from "next/link";
 
 type Props = {
   initialData: StudioAnalytics;
@@ -59,12 +61,56 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selectedFanId, setSelectedFanId] = useState<string | null>(null);
+  const [fanProfile, setFanProfile] = useState<StudioFanProfile | null>(null);
+  const [fanLoading, setFanLoading] = useState(false);
+  const [fanError, setFanError] = useState<string | null>(null);
 
   useEffect(() => {
     setData(initialData);
   }, [initialData]);
 
   const activeRange = (searchParams.get("range") ?? data.window.id) as AnalyticsRangeId;
+
+  useEffect(() => {
+    if (!selectedFanId) {
+      setFanProfile(null);
+      setFanError(null);
+      return;
+    }
+    let cancelled = false;
+    setFanLoading(true);
+    setFanError(null);
+    const params = new URLSearchParams();
+    params.set("range", activeRange);
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    void fetch(`/api/studio/analytics/fans/${selectedFanId}?${params}`)
+      .then(async (r) => {
+        const json = (await r.json()) as StudioFanProfile & { error?: string };
+        if (cancelled) return;
+        if (!r.ok || json.error) {
+          setFanError(json.error ?? "Could not load fan.");
+          setFanProfile(null);
+          return;
+        }
+        setFanProfile(json);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setFanError(e instanceof Error ? e.message : "Network error");
+          setFanProfile(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFanLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedFanId, activeRange, searchParams]);
 
   function applyRange(range: AnalyticsRangeId, from?: string, to?: string) {
     const params = new URLSearchParams();
@@ -204,6 +250,94 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
           </div>
         ) : null}
         <span className="ml-auto text-xs text-white/35">{data.window.label}</span>
+        <button
+          type="button"
+          onClick={() => {
+            const lines = [
+              "metric,value",
+              `streams_all_time,${data.overview.totalStreamsAllTime}`,
+              `streams_in_range,${data.overview.streamsInRange}`,
+              `revenue_all_time_xof,${data.overview.totalRevenueXof}`,
+              `revenue_in_range_xof,${data.overview.revenueInRangeXof}`,
+              `streams_xof,${data.revenue.streamsXof}`,
+              `downloads_xof,${data.revenue.downloadsXof}`,
+              `merch_xof,${data.revenue.merchXof}`,
+              `tips_xof,${data.revenue.tipsXof}`,
+              `tickets_xof,${data.revenue.ticketsXof}`,
+              `dsp_releases_live,${data.delivery?.liveCount ?? 0}`,
+            ];
+            const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `rect-analytics-${data.window.id}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="rounded-full border border-white/20 px-3 py-1.5 text-[0.65rem] font-medium text-white/55 hover:border-[#1DB954]/40"
+        >
+          Export CSV
+        </button>
+      </section>
+
+      {/* Delivery / Taali */}
+      <section>
+        <SectionTitle>Delivery · Taali / DSPs</SectionTitle>
+        {!data.delivery?.ready ? (
+          <EmptyState text="Run 20260831_artist_os_delivery_suite.sql to track DSP releases here." />
+        ) : (
+          <div className="mt-4 space-y-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatCard
+                label="Releases"
+                value={String(data.delivery.total)}
+                sub={
+                  data.delivery.taaliLive ? "Taali live" : "Demo / queued mode"
+                }
+              />
+              <StatCard
+                label="Live on DSPs"
+                value={String(data.delivery.liveCount)}
+                sub="Only after Taali confirms"
+                accent
+              />
+            </div>
+            {data.delivery.releases.length === 0 ? (
+              <EmptyState text="No DSP releases yet — create one in Studio → Delivery." />
+            ) : (
+              <ul className="space-y-2">
+                {data.delivery.releases.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm"
+                  >
+                    <span>
+                      {r.title}
+                      <span className="ml-2 text-xs text-white/35">
+                        {r.status}
+                        {r.releaseDate ? ` · ${r.releaseDate}` : ""}
+                      </span>
+                    </span>
+                    {r.smartLinkSlug ? (
+                      <Link
+                        href={`/r/${r.smartLinkSlug}`}
+                        className="text-xs text-[#1DB954] hover:underline"
+                      >
+                        /r/{r.smartLinkSlug}
+                      </Link>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Link
+              href="/studio/delivery"
+              className="inline-block text-sm text-[#1DB954] hover:underline"
+            >
+              Open Delivery suite →
+            </Link>
+          </div>
+        )}
       </section>
 
       {/* Overview */}
@@ -381,7 +515,20 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
           </div>
 
           <div className="space-y-4">
-            <MiniList title="Top cities" items={data.audience.cities.map((c) => `${c.name} · ${c.count}`)} empty="No city data" />
+            <MiniList title="Top listener cities" items={data.audience.cities.map((c) => `${c.name} · ${c.count}`)} empty="No city data" />
+            <MiniList
+              title="Follower cities"
+              items={data.audience.followerCities.map((c) => `${c.name} · ${c.count}`)}
+              empty="No follower city data yet"
+            />
+            <MiniList
+              title="Tour demand (fan requests)"
+              items={data.audience.tourDemand.map(
+                (d) =>
+                  `${d.city}${d.place ? ` · ${d.place}` : ""} · ${d.requestCount} req · ${d.uniqueFans} fans`,
+              )}
+              empty="No city requests yet — fans request from your portal"
+            />
             <MiniList
               title="Dakar neighborhoods"
               items={data.audience.neighborhoods.map((n) => `${n.name} · ${n.count}`)}
@@ -426,9 +573,10 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
         <SectionTitle>Revenue breakdown</SectionTitle>
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <StatCard label="Streams" value={`${data.revenue.streamsInRangeXof.toLocaleString()} XOF`} sub={`All time ${data.revenue.streamsXof.toLocaleString()}`} />
-          <StatCard label="Downloads" value={`${data.revenue.downloadsXof} XOF`} sub="When song pricing is enabled" />
+          <StatCard label="Downloads" value={`${data.revenue.downloadsXof.toLocaleString()} XOF`} sub="Paid track downloads via JOKO" />
           <StatCard label="Merch" value={`${data.revenue.merchInRangeXof.toLocaleString()} XOF`} sub={data.revenue.merchReady ? `All time ${data.revenue.merchXof}` : "Run merch migration"} />
-          <StatCard label="Fan club" value={`${data.revenue.fanClubXof} XOF`} sub="Not live yet" />
+          <StatCard label="Fan club" value={`${data.revenue.fanClubXof.toLocaleString()} XOF`} sub={data.overview.fanClubReady ? `${data.overview.fanClubMembers} members` : "Create tiers in Portal"} />
+          <StatCard label="Tickets (FEKK)" value={`${data.revenue.ticketsXof.toLocaleString()} XOF`} sub={`In range ${data.revenue.ticketsInRangeXof.toLocaleString()} XOF`} />
           <StatCard label="Tips" value={`${data.revenue.tipsInRangeXof.toLocaleString()} XOF`} sub={data.revenue.tipsReady ? `All time ${data.revenue.tipsXof}` : "Tips table missing"} />
           <StatCard label="This month" value={`${data.revenue.monthTotalXof.toLocaleString()} XOF`} accent />
         </div>
@@ -438,11 +586,26 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
             {data.revenue.allTimeXof.toLocaleString()} XOF
           </span>
         </p>
-        <div className="mt-4 rounded-xl border border-dashed border-white/10 px-4 py-5 text-center text-sm text-white/35">
-          {data.revenue.payouts.length === 0
-            ? "No JOKO payouts recorded yet."
-            : null}
-        </div>
+        {data.revenue.payouts.length === 0 ? (
+          <EmptyState text="No JOKO payouts recorded yet. Request a payout from Studio → Wallet." />
+        ) : (
+          <ul className="mt-4 space-y-2">
+            {data.revenue.payouts.map((p, i) => (
+              <li
+                key={`${p.date}-${i}`}
+                className="flex justify-between rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm"
+              >
+                <span>
+                  {p.amountXof.toLocaleString()} XOF
+                  <span className="ml-2 text-xs text-white/35">{p.status}</span>
+                </span>
+                <span className="text-xs text-white/40">
+                  {p.date ? new Date(p.date).toLocaleDateString() : "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* Chart history */}
@@ -528,28 +691,75 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
             <h3 className="text-xs font-semibold uppercase tracking-wider text-white/45">
               Top fans · {data.window.label}
             </h3>
+            <p className="mt-1 text-[0.65rem] text-white/30">
+              Tap a fan for favorites, spends, and purchase history.
+            </p>
             <ul className="mt-3 space-y-2">
-              {data.engagement.topFans.map((fan) => (
-                <li
-                  key={fan.listenerId}
-                  className="flex items-center justify-between rounded-lg border border-white/[0.08] px-4 py-2.5"
-                >
-                  <span className="text-sm">{fan.displayName}</span>
-                  <span className="text-xs tabular-nums text-white/45">
-                    {fan.plays} plays
-                    {fan.tipsXof > 0 ? ` · ${fan.tipsXof} XOF tips` : ""}
-                    {" · score "}
-                    {fan.score}
-                  </span>
-                </li>
-              ))}
+              {data.engagement.topFans.map((fan) => {
+                const selected = selectedFanId === fan.listenerId;
+                return (
+                  <li key={fan.listenerId}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedFanId(selected ? null : fan.listenerId)
+                      }
+                      className={`flex w-full items-center justify-between rounded-lg border px-4 py-2.5 text-left transition ${
+                        selected
+                          ? "border-[#1DB954]/45 bg-[#1DB954]/10"
+                          : "border-white/[0.08] hover:border-white/20"
+                      }`}
+                    >
+                      <span className="text-sm">{fan.displayName}</span>
+                      <span className="text-xs tabular-nums text-white/45">
+                        {fan.plays} plays
+                        {fan.likes > 0 ? ` · ${fan.likes} likes` : ""}
+                        {fan.tipsXof > 0 ? ` · ${fan.tipsXof} XOF tips` : ""}
+                        {" · score "}
+                        {fan.score}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
+
+            {selectedFanId ? (
+              <div className="mt-4 rounded-xl border border-[#1DB954]/25 bg-[#1DB954]/[0.06] p-4">
+                {fanLoading ? (
+                  <p className="text-sm text-white/40">Loading fan…</p>
+                ) : fanError ? (
+                  <p className="text-sm text-[#F5A623]">{fanError}</p>
+                ) : fanProfile ? (
+                  <FanDrillDown
+                    profile={fanProfile}
+                    onClose={() => setSelectedFanId(null)}
+                  />
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : (
           <p className="mt-4 text-sm text-white/35">No fan activity in this range yet.</p>
         )}
 
-        <EmptyState text="Fan club growth requires a fan club table — not configured yet." />
+        <EmptyState text="Fan club growth requires active members — create tiers in Portal." />
+        {data.engagement.followerGrowth.length > 0 ? (
+          <div className="mt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/45">
+              Follower growth
+            </h3>
+            <BarChart data={data.engagement.followerGrowth.slice(-14)} max={Math.max(1, ...data.engagement.followerGrowth.map((d) => d.count))} compact />
+          </div>
+        ) : null}
+        {data.engagement.fanClubGrowth.length > 0 ? (
+          <div className="mt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/45">
+              Fan club growth
+            </h3>
+            <BarChart data={data.engagement.fanClubGrowth} max={Math.max(1, ...data.engagement.fanClubGrowth.map((d) => d.count))} compact />
+          </div>
+        ) : null}
       </section>
     </div>
   );
@@ -560,6 +770,122 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
       {children}
     </h2>
+  );
+}
+
+function FanDrillDown({
+  profile,
+  onClose,
+}: {
+  profile: StudioFanProfile;
+  onClose: () => void;
+}) {
+  const place = [profile.city, profile.country].filter(Boolean).join(" · ");
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-base font-semibold">{profile.displayName}</p>
+          <p className="mt-0.5 text-xs text-white/45">
+            {place || "Location unknown"}
+            {profile.isFollower
+              ? ` · Follower${
+                  profile.followsSince
+                    ? ` since ${new Date(profile.followsSince).toLocaleDateString()}`
+                    : ""
+                }`
+              : " · Not following"}
+            {" · "}
+            {profile.window.label}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs text-white/40 hover:text-white/70"
+        >
+          Close
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <MiniStat label="Plays" value={String(profile.plays)} />
+        <MiniStat label="Likes" value={String(profile.likes)} />
+        <MiniStat label="Tips" value={`${profile.tipsXof.toLocaleString()} XOF`} />
+        <MiniStat
+          label="Spend"
+          value={`${profile.spendXof.toLocaleString()} XOF`}
+        />
+      </div>
+
+      <div>
+        <h4 className="text-[0.65rem] font-semibold uppercase tracking-wider text-white/40">
+          Favorite tracks
+        </h4>
+        {profile.favoriteTracks.length === 0 ? (
+          <p className="mt-2 text-sm text-white/35">No plays or likes in this range.</p>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {profile.favoriteTracks.map((t) => (
+              <li
+                key={t.trackId}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <Link
+                  href={`/songs/${t.trackId}`}
+                  className="min-w-0 truncate hover:text-[#1DB954]"
+                >
+                  {t.title}
+                </Link>
+                <span className="shrink-0 text-xs tabular-nums text-white/40">
+                  {t.plays} plays
+                  {t.likes > 0 ? ` · ${t.likes} likes` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div>
+        <h4 className="text-[0.65rem] font-semibold uppercase tracking-wider text-white/40">
+          Purchases & tips
+        </h4>
+        {profile.purchases.length === 0 ? (
+          <p className="mt-2 text-sm text-white/35">No purchases in this range.</p>
+        ) : (
+          <ul className="mt-2 space-y-1.5">
+            {profile.purchases.map((p, i) => (
+              <li
+                key={`${p.kind}-${p.at}-${i}`}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="min-w-0 truncate">
+                  <span className="text-white/35">{p.kind.replace("_", " ")}</span>
+                  {" · "}
+                  {p.title}
+                </span>
+                <span className="shrink-0 text-xs tabular-nums text-white/40">
+                  {p.amountXof.toLocaleString()} XOF
+                  {p.at
+                    ? ` · ${new Date(p.at).toLocaleDateString()}`
+                    : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/[0.08] bg-black/20 px-3 py-2">
+      <p className="text-[0.6rem] uppercase tracking-wider text-white/35">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold tabular-nums">{value}</p>
+    </div>
   );
 }
 

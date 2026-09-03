@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { TIP_AMOUNTS_XOF, TIP_MESSAGE_MAX } from "@/lib/dashboard/tips";
+import {
+  JOKO_PAYMENT_METHODS,
+  type JokoPaymentMethodId,
+} from "@/lib/joko/payments";
 
 type Props = {
   artistId: string;
@@ -29,6 +33,8 @@ export function ArtistTipButton({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
+  const [phone, setPhone] = useState("");
+  const [method, setMethod] = useState<JokoPaymentMethodId>("wave");
   const [pending, setPending] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +46,15 @@ export function ArtistTipButton({
 
   async function tip(amount: number) {
     if (!tipsReady || pending != null) return;
+    if (phone.replace(/\s+/g, "").length < 8) {
+      setError("Enter your mobile money / JOKO number.");
+      return;
+    }
     setPending(amount);
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch("/api/tips", {
+      const res = await fetch("/api/tips/pay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -52,12 +62,18 @@ export function ArtistTipButton({
           amount_xof: amount,
           message: note.trim() || undefined,
           track_id: trackId || undefined,
+          payment_method: method,
+          phone: phone.trim(),
         }),
       });
       const data = (await res.json()) as {
         error?: string;
         amount_xof?: number;
         authenticated?: boolean;
+        mode?: string;
+        status?: string;
+        payment_label?: string;
+        checkout_url?: string | null;
       };
 
       if (res.status === 401) {
@@ -69,14 +85,23 @@ export function ArtistTipButton({
         setError(data.error || "Could not send tip");
         return;
       }
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+      const via = data.payment_label || "JOKO";
       setMessage(
-        onTrack
-          ? `Demo tip · ${data.amount_xof ?? amount} XOF on ${onTrack} (not charged)`
-          : `Demo tip · ${data.amount_xof ?? amount} XOF recorded (not charged)`,
+        data.mode === "demo"
+          ? `Tip ${data.amount_xof ?? amount} XOF via ${via} (demo — credited when confirmed)`
+          : data.status === "pending"
+            ? `Tip pending on ${via} — artist credited when JOKO confirms`
+            : `Tipped ${data.amount_xof ?? amount} XOF via ${via}${
+                onTrack ? ` on ${onTrack}` : ""
+              }`,
       );
       setNote("");
       setOpen(false);
-      window.setTimeout(() => setMessage(null), 2500);
+      window.setTimeout(() => setMessage(null), 3500);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -103,6 +128,45 @@ export function ArtistTipButton({
     </label>
   );
 
+  const payFields = (
+    <div className={compact ? "mb-2 space-y-1.5" : "mb-2 space-y-2"}>
+      <label className="block">
+        <span className="sr-only">Payment method</span>
+        <select
+          value={method}
+          onChange={(e) => setMethod(e.target.value as JokoPaymentMethodId)}
+          disabled={pending != null}
+          className={
+            compact
+              ? "w-full rounded-lg border border-white/15 bg-black/40 px-2 py-1.5 text-xs text-white"
+              : "w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white"
+          }
+        >
+          {JOKO_PAYMENT_METHODS.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="block">
+        <span className="sr-only">Phone / wallet number</span>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Mobile money / JOKO number"
+          disabled={pending != null}
+          className={
+            compact
+              ? "w-full rounded-lg border border-white/15 bg-black/40 px-2 py-1.5 text-xs text-white placeholder:text-white/35"
+              : "w-full rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-white/35"
+          }
+        />
+      </label>
+    </div>
+  );
+
   const trackLine =
     onTrack && trackId ? (
       <p
@@ -122,26 +186,19 @@ export function ArtistTipButton({
       <div
         className={
           compact
-            ? `absolute right-0 z-30 w-52 rounded-xl border border-white/15 bg-[#071208] p-3 shadow-xl ${
+            ? `absolute right-0 z-30 w-56 rounded-xl border border-white/15 bg-[#071208] p-3 shadow-xl ${
                 dropUp ? "bottom-full mb-2" : "mt-2"
               }`
             : "mt-3"
         }
       >
         <p className="mb-2 text-[0.65rem] text-white/35">
-          Demo tip — recorded as XOF, not a real charge yet.
+          Pay with JOKO — Wave, Orange, MTN, JOKO wallet, or debit. Credits the
+          artist wallet when confirmed.
         </p>
         {trackLine}
+        {payFields}
         {noteField}
-        <p
-          className={
-            compact
-              ? "mb-2 text-[0.55rem] leading-snug text-white/35"
-              : "mb-2 text-xs text-white/40"
-          }
-        >
-          Demo support — recorded for the artist, not a real charge or payout.
-        </p>
         {compact ? (
           <div className="flex flex-col gap-1.5">
             {TIP_AMOUNTS_XOF.map((amt) => (
@@ -149,10 +206,10 @@ export function ArtistTipButton({
                 key={amt}
                 type="button"
                 disabled={pending != null}
-                onClick={() => tip(amt)}
+                onClick={() => void tip(amt)}
                 className="rounded-lg bg-[#1DB954] px-3 py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
               >
-                {pending === amt ? "…" : `Demo ${amt} XOF`}
+                {pending === amt ? "…" : `${amt} XOF`}
               </button>
             ))}
             {error ? (
@@ -168,10 +225,10 @@ export function ArtistTipButton({
                 key={amt}
                 type="button"
                 disabled={pending != null}
-                onClick={() => tip(amt)}
+                onClick={() => void tip(amt)}
                 className="rounded-full bg-[#1DB954] px-4 py-2 text-sm font-semibold text-black hover:bg-[#17a349] disabled:opacity-50"
               >
-                {pending === amt ? "…" : `Demo ${amt} XOF`}
+                {pending === amt ? "…" : `${amt} XOF`}
               </button>
             ))}
           </div>
@@ -231,7 +288,7 @@ export function ArtistTipButton({
         <p className="mt-2 text-sm text-[#1DB954]">{message}</p>
       ) : null}
       {error && !compact ? (
-        <p className="mt-2 text-sm text-[#1DB954]" role="alert">
+        <p className="mt-2 text-sm text-[#F5A623]" role="alert">
           {error}
         </p>
       ) : null}

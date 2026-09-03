@@ -1065,7 +1065,7 @@ export function PlaylistDetailClient({
                     }}
                     className="flex w-full min-w-0 items-center gap-3 text-left disabled:opacity-40"
                   >
-                    <TrackCover track={t} size="sm" />
+                    <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">
                         {trackTitle(t)}

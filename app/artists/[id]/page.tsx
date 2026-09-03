@@ -2,13 +2,25 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArtistFollowButton } from "@/components/artist-follow-button";
 import { ArtistMerchGrid } from "@/components/artist-merch-grid";
+import { ArtistTourEvents } from "@/components/artist-tour-events";
+import { FanClubPanel } from "@/components/fan-club-panel";
+import { RequestArtistCity } from "@/components/request-artist-city";
 import { ArtistTipButton } from "@/components/artist-tip-button";
+import { MessagePersonButton } from "@/components/message-person-button";
 import { PeopleBlockButton } from "@/components/people-block-button";
 import { PeopleSharedTracks } from "@/components/people-shared-tracks";
 import { RectLogo } from "@/components/rect-logo";
 import { TrackList } from "@/components/track-list";
 import { loadIsBlocked, loadUsersAreBlocked } from "@/lib/dashboard/blocks";
 import { loadArtistMerchItems } from "@/lib/dashboard/artist-merch";
+import { loadFanClubTiers } from "@/lib/dashboard/fan-club";
+import { loadPortalReleases } from "@/lib/dashboard/portal-releases";
+import {
+  fanHasRequestedCity,
+} from "@/lib/dashboard/tour-demand";
+import { loadTourEvents } from "@/lib/dashboard/tour-events";
+import { loadArtistActiveLiveRoom } from "@/lib/dashboard/live-rooms";
+import { loadArtistActiveRectLive } from "@/lib/dashboard/rect-live";
 import {
   loadFollowerCount,
   loadIsFollowing,
@@ -51,6 +63,7 @@ export default async function ArtistPortalPage({ params }: Props) {
     genres?: unknown;
     countries?: unknown;
     avatar_url?: string | null;
+    artist_banner_url?: string | null;
     account_type?: string | null;
     role?: string | null;
     city?: string | null;
@@ -61,7 +74,7 @@ export default async function ArtistPortalPage({ params }: Props) {
   const fullArtist = await db
     .from("users")
     .select(
-      "id, display_name, genres, countries, avatar_url, account_type, role, created_at, city, artist_bio, privacy_public_profile",
+      "id, display_name, genres, countries, avatar_url, artist_banner_url, account_type, role, created_at, city, artist_bio, privacy_public_profile",
     )
     .eq("id", id)
     .maybeSingle();
@@ -69,7 +82,7 @@ export default async function ArtistPortalPage({ params }: Props) {
   let artist: ArtistProfile | null = null;
   if (
     fullArtist.error &&
-    /privacy_public_profile|city|artist_bio|countries|avatar_url|column .* does not exist/i.test(
+    /artist_banner_url|privacy_public_profile|city|artist_bio|countries|avatar_url|column .* does not exist/i.test(
       fullArtist.error.message,
     )
   ) {
@@ -127,7 +140,7 @@ export default async function ArtistPortalPage({ params }: Props) {
         </header>
         <div className="mx-auto max-w-lg px-5 py-20 text-center">
           <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            Artist portal
+            Artist world
           </p>
           <h1 className="mt-3 font-[family-name:var(--font-syne)] text-3xl font-semibold">
             {PRIVATE_ARTIST_LABEL}
@@ -171,7 +184,7 @@ export default async function ArtistPortalPage({ params }: Props) {
         </header>
         <div className="mx-auto max-w-lg px-5 py-20 text-center">
           <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            Artist portal
+            Artist world
           </p>
           <h1 className="mt-3 font-[family-name:var(--font-syne)] text-3xl font-semibold">
             {blockOutgoing.blocked ? lockedName : "Profile unavailable"}
@@ -251,7 +264,7 @@ export default async function ArtistPortalPage({ params }: Props) {
       return isOwner || isPublishedTrack(t);
     });
 
-  const [countRes, followRes, tipsReady, activity, mixesRes, merchRes] =
+  const [countRes, followRes, tipsReady, activity, mixesRes, merchRes, fanClubRes, portalRes, tourRes, myCitiesRes, demandProbe, liveRes, rectLiveRes] =
     await Promise.all([
       loadFollowerCount(supabase, id),
       user && !isOwner
@@ -261,7 +274,22 @@ export default async function ArtistPortalPage({ params }: Props) {
       loadSharedListeningActivity(supabase, id, 6),
       loadPublicPlaylistsByOwner(supabase, id, 8),
       loadArtistMerchItems(db, id, { publicOnly: true }),
+      loadFanClubTiers(db, id),
+      loadPortalReleases(db, id, { publishedOnly: true }),
+      loadTourEvents(db, id, { upcomingOnly: true }),
+      user && !isOwner
+        ? fanHasRequestedCity(db, id, user.id)
+        : Promise.resolve({ cities: [] as string[], ready: true }),
+      db.from("artist_city_requests").select("id").limit(1),
+      loadArtistActiveLiveRoom(supabase, id),
+      loadArtistActiveRectLive(supabase, id),
     ]);
+
+  const cityRequestsReady =
+    !demandProbe.error ||
+    !/relation .* does not exist|Could not find the table|PGRST205/i.test(
+      demandProbe.error?.message ?? "",
+    );
   const followsReady = !countRes.missingTable && !followRes.missingTable;
   const publicMixes = mixesRes.playlists;
 
@@ -296,6 +324,19 @@ export default async function ArtistPortalPage({ params }: Props) {
         </div>
       </header>
 
+      {typeof artist.artist_banner_url === "string" &&
+      artist.artist_banner_url.trim() ? (
+        <div className="relative h-36 w-full overflow-hidden border-b border-white/10 sm:h-48">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={artist.artist_banner_url.trim()}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#040d06] via-[#040d06]/40 to-transparent" />
+        </div>
+      ) : null}
+
       <div className="mx-auto w-full max-w-5xl space-y-8 px-5 py-10 sm:px-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
           <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-full border border-white/15 bg-white/[0.04] sm:h-32 sm:w-32">
@@ -315,11 +356,33 @@ export default async function ArtistPortalPage({ params }: Props) {
           </div>
           <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            Artist portal
+            Artist world
           </p>
-          <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-5xl">
-            {name}
-          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-5xl">
+              {name}
+            </h1>
+            {rectLiveRes.live &&
+            (rectLiveRes.live.visibility === "public" || isOwner) ? (
+              <Link
+                href={`/artists/${id}/rect-live/${rectLiveRes.live.id}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#1DB954]/50 bg-[#1DB954]/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#1DB954]"
+              >
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1DB954]" />
+                RECT Live
+              </Link>
+            ) : null}
+            {liveRes.room &&
+            (liveRes.room.visibility === "public" || isOwner) ? (
+              <Link
+                href={`/artists/${id}/live/${liveRes.room.id}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-red-500/50 bg-red-500/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-red-300"
+              >
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+                Live Room
+              </Link>
+            ) : null}
+          </div>
           <p className="mt-2 text-sm text-white/45">
             {[
               artist.city?.trim() || null,
@@ -333,6 +396,28 @@ export default async function ArtistPortalPage({ params }: Props) {
               .join(" · ")}
             {isOwner && !publicOk ? " · Private to others" : ""}
           </p>
+          {rectLiveRes.live &&
+          (rectLiveRes.live.visibility === "public" ||
+            rectLiveRes.live.visibility === "fan_club" ||
+            isOwner) ? (
+            <Link
+              href={`/artists/${id}/rect-live/${rectLiveRes.live.id}`}
+              className="mt-4 inline-flex rounded-full bg-[#1DB954] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349]"
+            >
+              Enter RECT Live · {rectLiveRes.live.title}
+            </Link>
+          ) : null}
+          {liveRes.room &&
+          (liveRes.room.visibility === "public" ||
+            liveRes.room.visibility === "fan_club" ||
+            isOwner) ? (
+            <Link
+              href={`/artists/${id}/live/${liveRes.room.id}`}
+              className="mt-4 inline-flex rounded-full bg-red-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-400"
+            >
+              Enter Live Room · {liveRes.room.title}
+            </Link>
+          ) : null}
           {artist.artist_bio?.trim() ? (
             <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/60">
               {artist.artist_bio.trim()}
@@ -361,12 +446,20 @@ export default async function ArtistPortalPage({ params }: Props) {
               />
               <ArtistTipButton artistId={id} tipsReady={tipsReady} />
               {user ? (
-                <PeopleBlockButton
-                  personId={id}
-                  initialBlocked={false}
-                  blocksReady={!blockMutual.missingTable}
-                  loginNext={`/artists/${id}`}
-                />
+                <>
+                  <MessagePersonButton
+                    personId={id}
+                    dmsReady
+                    loginNext={`/artists/${id}`}
+                    className="mt-3"
+                  />
+                  <PeopleBlockButton
+                    personId={id}
+                    initialBlocked={false}
+                    blocksReady={!blockMutual.missingTable}
+                    loginNext={`/artists/${id}`}
+                  />
+                </>
               ) : null}
             </div>
           )}
@@ -449,6 +542,61 @@ export default async function ArtistPortalPage({ params }: Props) {
             >
               Open Your mixes →
             </Link>
+          </section>
+        ) : null}
+
+        <RequestArtistCity
+          artistId={id}
+          artistName={name}
+          isOwner={isOwner}
+          loginNext={`/artists/${id}`}
+          initialMyCities={myCitiesRes.cities}
+          demandReady={cityRequestsReady}
+        />
+
+        <ArtistTourEvents
+          events={tourRes.events}
+          isOwner={isOwner}
+          loginNext={`/artists/${id}`}
+          ready={tourRes.ready}
+        />
+
+        <FanClubPanel
+          artistId={id}
+          tiers={fanClubRes.tiers}
+          isOwner={isOwner}
+        />
+
+        {portalRes.releases.length > 0 ? (
+          <section>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+              Portal worlds
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {portalRes.releases.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={`/artists/${id}/world/${r.id}`}
+                    className="block rounded-xl border p-4 transition hover:border-[#1DB954]/40"
+                    style={{
+                      borderColor: `${r.themeColor}30`,
+                      background: `linear-gradient(135deg, ${r.themeColor}15, transparent)`,
+                    }}
+                  >
+                    <p className="text-xs uppercase text-white/40">{r.kind}</p>
+                    <p className="mt-1 font-medium">{r.title}</p>
+                    {r.description ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-white/45">
+                        {r.description}
+                      </p>
+                    ) : null}
+                    <span className="mt-2 inline-block text-xs text-[#1DB954]">
+                      Enter world →
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
         ) : null}
 

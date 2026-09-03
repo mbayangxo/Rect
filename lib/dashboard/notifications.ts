@@ -73,6 +73,8 @@ export type ArtistNotification = {
   actor_name: string;
   read_at: string | null;
   created_at: string | null;
+  /** Live Room deep link when kind = live_room */
+  live_room_id: string | null;
 };
 
 export type NotificationsLoadResult = {
@@ -418,7 +420,7 @@ export async function loadArtistNotifications(
     const { data, error } = await supabase
       .from("artist_notifications")
       .select(
-        "id, kind, amount_xof, body, track_id, playlist_id, related_playlist_id, tip_id, play_id, comment_id, playlist_comment_id, thanks_message, actor_id, read_at, created_at",
+        "id, kind, amount_xof, body, track_id, playlist_id, related_playlist_id, tip_id, play_id, comment_id, playlist_comment_id, thanks_message, actor_id, read_at, created_at, live_room_id",
       )
       .eq("recipient_id", userId)
       .order("created_at", { ascending: false })
@@ -432,6 +434,20 @@ export async function loadArtistNotifications(
           missingTable: true,
           error: null,
         };
+      }
+      // Older schema without live_room_id
+      if (/live_room_id|column .* does not exist/i.test(error.message)) {
+        const noLive = await supabase
+          .from("artist_notifications")
+          .select(
+            "id, kind, amount_xof, body, track_id, playlist_id, related_playlist_id, tip_id, play_id, comment_id, playlist_comment_id, thanks_message, actor_id, read_at, created_at",
+          )
+          .eq("recipient_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(limit);
+        if (!noLive.error) {
+          return mapNotificationRows(supabase, noLive.data ?? [], userId);
+        }
       }
       // Older schema without related_playlist_id / playlist_comment_id / …
       if (
@@ -1088,6 +1104,10 @@ async function mapNotificationRows(
           : "Someone",
         read_at: (r.read_at as string | null) ?? null,
         created_at: (r.created_at as string | null) ?? null,
+        live_room_id:
+          typeof r.live_room_id === "string" && r.live_room_id.trim()
+            ? r.live_room_id.trim()
+            : null,
       };
     });
 

@@ -1,14 +1,12 @@
 -- ============================================================
--- Artist play earnings — idempotent bootstrap
--- Run this if you see:
---   relation "public.artist_play_earnings" does not exist
+-- Artist play earnings — idempotent bootstrap (type-safe)
+-- Paste in Supabase → SQL Editor → Run
 --
--- Safe to re-run. Creates table + RPCs for Artist OS analytics.
--- Requires: users, tracks, plays, record_credited_play base (20260811).
--- TAALI is NOT involved — RECT-only play credit → artist XOF demo earnings.
+-- Fixes: uuid = text when playlist_tracks.track_id / tracks.artist_id
+-- are text while tracks.id / auth.uid() are uuid.
+-- Safe to re-run.
 -- ============================================================
 
--- Completion tracking (must exist before record_credited_play uses it)
 alter table public.plays
   add column if not exists listened_secs integer check (listened_secs is null or listened_secs >= 0);
 
@@ -70,9 +68,10 @@ begin
     raise exception 'track_and_play_required';
   end if;
 
-  select t.artist_id into v_artist
+  select nullif(trim(t.artist_id::text), '')::uuid
+  into v_artist
   from public.tracks t
-  where t.id = p_track_id;
+  where t.id::text = p_track_id::text;
 
   if v_artist is null then
     raise exception 'track_not_found';
@@ -105,7 +104,6 @@ $$;
 revoke all on function public.record_play_earning(uuid, uuid, integer) from public;
 grant execute on function public.record_play_earning(uuid, uuid, integer) to authenticated;
 
--- Ensure record_credited_play returns uuid play_id (plays.id is uuid)
 drop function if exists public.record_credited_play(uuid);
 drop function if exists public.record_credited_play(uuid, integer);
 
@@ -131,7 +129,9 @@ begin
     raise exception 'track_required';
   end if;
 
-  if not exists (select 1 from public.tracks t where t.id = p_track_id) then
+  if not exists (
+    select 1 from public.tracks t where t.id::text = p_track_id::text
+  ) then
     raise exception 'track_not_found';
   end if;
 
@@ -142,7 +142,7 @@ begin
   update public.user_play_balances
   set credits = credits - 1,
       updated_at = now()
-  where user_id = v_uid
+  where user_id::text = v_uid::text
     and credits > 0
   returning credits into v_new;
 
@@ -167,6 +167,7 @@ revoke all on function public.record_credited_play(uuid, integer) from public;
 grant execute on function public.record_credited_play(uuid, integer) to authenticated;
 
 -- Artists can count playlist saves on their tracks (analytics)
+-- Cast both sides: playlist_tracks.track_id is often text; tracks.id is uuid.
 drop policy if exists "playlist_tracks_select_artist_tracks" on public.playlist_tracks;
 create policy "playlist_tracks_select_artist_tracks"
   on public.playlist_tracks for select
@@ -174,8 +175,8 @@ create policy "playlist_tracks_select_artist_tracks"
   using (
     exists (
       select 1 from public.tracks t
-      where t.id = playlist_tracks.track_id
-        and t.artist_id = auth.uid()
+      where t.id::text = playlist_tracks.track_id::text
+        and t.artist_id::text = auth.uid()::text
     )
   );
 

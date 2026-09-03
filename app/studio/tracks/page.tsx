@@ -1,5 +1,6 @@
 import { StudioTracksList } from "@/components/studio/studio-tracks-list";
 import { loadArtistStudioStats } from "@/lib/dashboard/artist-stats";
+import { loadWriterSplitsForTracks } from "@/lib/dashboard/writer-splits";
 import {
   loadStudioPortalProfile,
   requireStudioArtist,
@@ -21,6 +22,10 @@ export default async function StudioTracksPage({ searchParams }: Props) {
     loadArtistStudioStats(supabase, userId),
     loadStudioPortalProfile(supabase, userId, displayName),
   ]);
+  const writers = await loadWriterSplitsForTracks(
+    supabase,
+    stats.tracks.map((t) => t.id),
+  );
 
   return (
     <>
@@ -41,6 +46,7 @@ export default async function StudioTracksPage({ searchParams }: Props) {
           needsPlaces={portal.countries.length < 1}
           loadError={stats.error}
           focusTrackId={focusTrackId}
+          writersByTrack={writers.byTrackId}
         />
       </div>
     </>

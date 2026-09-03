@@ -119,7 +119,7 @@ export function AddToPlaylist({
           >
             Sign in
           </Link>{" "}
-          to save playlists.
+          to save mixes.
         </p>
       ) : null}
       {missingTable ? (
@@ -130,7 +130,7 @@ export function AddToPlaylist({
       {loading ? <p className="text-sm text-white/40">Loading…</p> : null}
       {!loading && !needsAuth && !missingTable && playlists.length === 0 ? (
         <p className="text-sm text-white/45">
-          No playlists yet.{" "}
+          No mixes yet.{" "}
           <Link href="/playlists" className="text-[#1DB954] hover:underline">
             Create one
           </Link>
@@ -172,7 +172,7 @@ export function AddToPlaylist({
         href="/playlists"
         className="mt-3 inline-block text-xs text-white/40 hover:text-[#1DB954]"
       >
-        Manage playlists →
+        Manage mixes →
       </Link>
     </div>
   ) : null;
@@ -184,8 +184,8 @@ export function AddToPlaylist({
           type="button"
           onClick={() => setOpen((v) => !v)}
           className="rounded-full border border-white/20 px-2.5 py-1 text-xs text-white/55 hover:bg-white/10 hover:text-white"
-          aria-label={open ? "Close add to playlist" : "Add to playlist"}
-          title="Add to playlist"
+          aria-label={open ? "Close add to mix" : "Add to mix"}
+          title="Add to mix"
         >
           {open ? "×" : "+"}
         </button>
@@ -201,7 +201,7 @@ export function AddToPlaylist({
         onClick={() => setOpen((v) => !v)}
         className="rounded-full border border-white/20 px-4 py-2 text-sm font-medium text-white/80 hover:bg-white/10"
       >
-        {open ? "Close" : "Add to playlist"}
+        {open ? "Close" : "Add to mix"}
       </button>
       {panel}
     </div>

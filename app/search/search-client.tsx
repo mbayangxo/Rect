@@ -9,6 +9,7 @@ import {
   type FormEvent,
 } from "react";
 import { AddToPlaylist } from "@/components/add-to-playlist";
+import { AppBottomNav } from "@/components/app-bottom-nav";
 import { ArtistFollowButton } from "@/components/artist-follow-button";
 import { PeopleFollowButton } from "@/components/people-follow-button";
 import { usePlayer } from "@/components/player-provider";
@@ -33,19 +34,13 @@ import { personProfileHref } from "@/lib/dashboard/people";
 import { trackArtist, trackTitle, formatTrackDuration } from "@/lib/tracks";
 
 const BROWSE = [
-  { href: "/charts", label: "Charts", tone: "from-[#0F2B1A] to-[#060908]" },
-  { href: "/new", label: "New", tone: "from-[#1a2b14] to-[#060908]" },
-  { href: "/places", label: "Places", tone: "from-[#1a2410] to-[#060908]" },
-  { href: "/genres", label: "Genres", tone: "from-[#142b0f] to-[#060908]" },
-  { href: "/languages", label: "Languages", tone: "from-[#0f1a2b] to-[#06080a]" },
+  { href: "/discover", label: "Discover", tone: "from-[#0F2B1A] to-[#060908]" },
   { href: "/radio", label: "Wave", tone: "from-[#0a2e18] to-[#060908]" },
-  { href: "/following", label: "Following", tone: "from-[#1a2b0f] to-[#060908]" },
-  { href: "/inbox", label: "Inbox", tone: "from-[#0f1a14] to-[#060908]" },
-  { href: "/playlists", label: "Playlists", tone: "from-[#1a1f0f] to-[#060908]" },
-  { href: "/tips", label: "Tips", tone: "from-[#2b1f0f] to-[#090806]" },
-  { href: "/studio", label: "Studio", tone: "from-[#0f2b1a] to-[#060908]" },
-  { href: "/library", label: "Library", tone: "from-[#2B0F1A] to-[#090608]" },
-  { href: "/journal", label: "Journal", tone: "from-[#0F1A2B] to-[#06080A]" },
+  { href: "/charts", label: "Standings", tone: "from-[#1a2b14] to-[#060908]" },
+  { href: "/new", label: "New", tone: "from-[#142b0f] to-[#060908]" },
+  { href: "/genres", label: "Genres", tone: "from-[#0f1a2b] to-[#06080a]" },
+  { href: "/places", label: "Places", tone: "from-[#1a2410] to-[#060908]" },
+  { href: "/languages", label: "Languages", tone: "from-[#0F1A2B] to-[#06080A]" },
 ] as const;
 
 type Props = {
@@ -130,34 +125,24 @@ export function SearchClient({
   const playableSongs = initialTracks.filter((t) => t.audio_url);
 
   return (
-    <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
+    <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
       <header className="border-b border-white/10">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
           <Link href="/dashboard">
             <RectLogo size={34} showWordmark />
           </Link>
-          <nav className="flex gap-4 text-sm text-white/55">
-            <Link href="/dashboard" className="hover:text-white">
-              Home
-            </Link>
-            <Link href="/search" className="text-[#1DB954]">
-              Search
-            </Link>
-            <Link href="/charts" className="hover:text-white">
-              Charts
-            </Link>
-          </nav>
+          <p className="text-sm font-medium text-[#1DB954]">Search</p>
         </div>
       </header>
 
       <div className="mx-auto w-full max-w-6xl space-y-8 px-5 py-8 sm:px-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
+          <h1 className="font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
             Search
-          </p>
-          <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
-            Find music in the world
           </h1>
+          <p className="mt-2 text-sm text-white/45">
+            Find songs, artists, and mixes — or browse below.
+          </p>
         </div>
 
         <form
@@ -328,7 +313,7 @@ export function SearchClient({
                           disabled={!canPlay}
                           className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:opacity-40"
                         >
-                          <TrackCover track={t} size="sm" />
+                          <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium">
                               {trackTitle(t)}
@@ -586,6 +571,7 @@ export function SearchClient({
           </div>
         )}
       </div>
+      <AppBottomNav />
     </main>
   );
 }

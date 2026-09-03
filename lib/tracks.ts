@@ -10,6 +10,14 @@ export type TrackRow = {
   status?: string | null;
   created_at?: string | null;
   artist_name?: string | null;
+  /** Paid download price in XOF; null/0 = free offline download. */
+  download_price_xof?: number | null;
+  /** Plain-text lyrics; null/empty = none. */
+  lyrics?: string | null;
+  /** When the track appears on New / New Wave; null = immediate. */
+  launch_at?: string | null;
+  isrc_code?: string | null;
+  upc_code?: string | null;
 };
 
 /** Seed / fixture demos — never show on public landing or charts. */
@@ -39,6 +47,20 @@ export const TRACK_STATUS_PENDING = "pending";
 export function isPublishedTrack(t: Pick<TrackRow, "status">) {
   const s = (t.status || TRACK_STATUS_LIVE).trim().toLowerCase();
   return s !== "pending" && s !== "draft" && s !== "unpublished";
+}
+
+/** Public discovery: published and past launch date (or unscheduled). */
+export function isTrackLaunched(t: Pick<TrackRow, "launch_at">) {
+  if (!t.launch_at) return true;
+  const at = new Date(t.launch_at).getTime();
+  if (Number.isNaN(at)) return true;
+  return at <= Date.now();
+}
+
+export function isPubliclyDiscoverable(
+  t: Pick<TrackRow, "status" | "launch_at">,
+) {
+  return isPublishedTrack(t) && isTrackLaunched(t);
 }
 
 /** Map API/UI publish intents onto the DB-safe write value. */

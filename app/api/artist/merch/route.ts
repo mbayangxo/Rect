@@ -4,12 +4,19 @@ import {
   createMerchItem,
   loadArtistMerchItems,
   type MerchCategory,
+  type MerchMusicFormat,
 } from "@/lib/dashboard/artist-merch";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { createRouteClient } from "@/lib/supabase/route";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function parseMusicFormat(value: unknown): MerchMusicFormat | null {
+  if (value === "album" || value === "cd" || value === "vinyl") return value;
+  if (value === null || value === "") return null;
+  return null;
+}
 
 function parseCategory(value: unknown): MerchCategory | null {
   if (value === "clothing" || value === "digital" || value === "physical") {
@@ -69,11 +76,26 @@ export async function POST(request: Request) {
       ? null
       : Math.max(0, Math.round(Number(qtyRaw)));
 
+  const music_format = parseMusicFormat(body.music_format);
+  const track_id =
+    typeof body.track_id === "string" && body.track_id.trim()
+      ? body.track_id.trim()
+      : null;
+
+  if (music_format && !track_id) {
+    return NextResponse.json(
+      { error: "Link a track when selling album, CD, or vinyl." },
+      { status: 400 },
+    );
+  }
+
   const result = await createMerchItem(supabase, current.user.id, {
     title,
     description: typeof body.description === "string" ? body.description : null,
     price_xof,
     category,
+    music_format,
+    track_id,
     quantity_available: Number.isFinite(quantity_available as number)
       ? quantity_available
       : null,

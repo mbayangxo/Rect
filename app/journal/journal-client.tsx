@@ -216,7 +216,7 @@ export function JournalClient({
                     key={`shared-${e.id}`}
                     className="flex items-center gap-3 border-b border-white/[0.06] px-3 py-2.5 last:border-b-0"
                   >
-                    <TrackCover track={e} size="sm" />
+                    <TrackCover track={e} size="sm" href={`/songs/${e.id}`} />
                     <button
                       type="button"
                       disabled={!e.audio_url}
@@ -290,7 +290,7 @@ export function JournalClient({
                     <span className="w-14 shrink-0 text-[0.65rem] tabular-nums text-white/35">
                       {formatPlayedAt(e.played_at)}
                     </span>
-                    <TrackCover track={e} size="sm" />
+                    <TrackCover track={e} size="sm" href={`/songs/${e.id}`} />
                     <button
                       type="button"
                       disabled={!canPlay}

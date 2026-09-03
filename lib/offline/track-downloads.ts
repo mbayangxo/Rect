@@ -121,18 +121,38 @@ async function fetchBlob(url: string): Promise<Blob> {
   return res.blob();
 }
 
+/** Resolve audio URL via entitlement API (handles paid downloads). */
+export async function resolveTrackDownloadUrl(trackId: string): Promise<string> {
+  const res = await fetch(`/api/tracks/${trackId}/download`, {
+    cache: "no-store",
+  });
+  const data = (await res.json()) as {
+    error?: string;
+    url?: string;
+    code?: string;
+  };
+  if (!res.ok || !data.url) {
+    throw new Error(data.error ?? "Download not available.");
+  }
+  return data.url;
+}
+
 /** Save track audio (+ cover) for offline playback. Re-downloads if source URL changed. */
 export async function downloadTrack(
   track: TrackRow,
   onProgress?: (pct: number) => void,
+  options?: { useEntitlementApi?: boolean },
 ): Promise<void> {
   if (!isOfflineCapable()) {
     throw new Error("Offline storage is not available in this browser.");
   }
-  const audioUrl = track.audio_url?.trim();
-  if (!audioUrl) throw new Error("This track has no audio file yet.");
 
   onProgress?.(5);
+  let audioUrl = track.audio_url?.trim() ?? "";
+  if (options?.useEntitlementApi || !audioUrl) {
+    audioUrl = await resolveTrackDownloadUrl(track.id);
+  }
+  if (!audioUrl) throw new Error("This track has no audio file yet.");
   const db = await openDb();
   const existing = await idbGet<OfflineRecord>(db, track.id);
   if (existing && existing.sourceUrl === audioUrl) {

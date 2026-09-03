@@ -4,13 +4,49 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { RectLogo } from "@/components/rect-logo";
 
-const NAV = [
-  { href: "/studio/upload", label: "Upload", short: "Upload" },
-  { href: "/studio/tracks", label: "Tracks", short: "Tracks" },
-  { href: "/studio/store", label: "Store", short: "Store" },
-  { href: "/studio/analytics", label: "Analytics", short: "Stats" },
-  { href: "/studio/portal", label: "Portal", short: "Portal" },
-] as const;
+type NavItem = { href: string; label: string; short: string };
+type NavSection = { title: string; items: NavItem[] };
+
+const SECTIONS: NavSection[] = [
+  {
+    title: "Catalog",
+    items: [
+      { href: "/studio/upload", label: "Upload", short: "Upload" },
+      { href: "/studio/tracks", label: "Tracks", short: "Tracks" },
+      { href: "/studio/portal", label: "Portal", short: "Portal" },
+    ],
+  },
+  {
+    title: "Delivery",
+    items: [
+      { href: "/studio/delivery", label: "Releases · DSP", short: "DSP" },
+    ],
+  },
+  {
+    title: "Money",
+    items: [
+      { href: "/studio/wallet", label: "Wallet", short: "Wallet" },
+      { href: "/studio/accounting", label: "Accounting", short: "Books" },
+      { href: "/studio/store", label: "Store", short: "Store" },
+      { href: "/studio/tours", label: "Tours", short: "Tours" },
+    ],
+  },
+  {
+    title: "Insights",
+    items: [
+      { href: "/studio/analytics", label: "Analytics", short: "Stats" },
+    ],
+  },
+  {
+    title: "Presence",
+    items: [
+      { href: "/studio/live", label: "Live Room", short: "Live" },
+      { href: "/studio/rect-live", label: "RECT Live", short: "Pro" },
+    ],
+  },
+];
+
+const FLAT = SECTIONS.flatMap((s) => s.items);
 
 type Props = {
   displayName: string;
@@ -35,23 +71,32 @@ export function StudioNav({ displayName }: Props) {
           </p>
           <p className="mt-1 truncate text-sm text-white/50">{displayName}</p>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 p-3">
-          {NAV.map((item) => {
-            const active = isActive(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-                  active
-                    ? "bg-[#1DB954]/15 text-[#1DB954]"
-                    : "text-white/55 hover:bg-white/[0.04] hover:text-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
+          {SECTIONS.map((section) => (
+            <div key={section.title}>
+              <p className="mb-1 px-3 text-[0.55rem] font-semibold uppercase tracking-[0.2em] text-white/30">
+                {section.title}
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {section.items.map((item) => {
+                  const active = isActive(pathname, item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        active
+                          ? "bg-[#1DB954]/15 text-[#1DB954]"
+                          : "text-white/55 hover:bg-white/[0.04] hover:text-white"
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
           <Link
             href="/dashboard"
             className="mt-auto rounded-lg border border-white/10 px-3 py-2.5 text-sm text-white/45 hover:border-white/20 hover:text-white"
@@ -63,15 +108,15 @@ export function StudioNav({ displayName }: Props) {
 
       <nav
         aria-label="Artist OS"
-        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-white/10 bg-[#030a05]/95 backdrop-blur-md md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex overflow-x-auto border-t border-white/10 bg-[#030a05]/95 backdrop-blur-md md:hidden"
       >
-        {NAV.map((item) => {
+        {FLAT.map((item) => {
           const active = isActive(pathname, item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-1 flex-col items-center py-2.5 text-[0.65rem] font-medium ${
+              className={`flex min-w-[3.5rem] shrink-0 flex-col items-center px-1 py-2.5 text-[0.55rem] font-medium ${
                 active ? "text-[#1DB954]" : "text-white/45"
               }`}
             >
@@ -81,7 +126,7 @@ export function StudioNav({ displayName }: Props) {
         })}
         <Link
           href="/dashboard"
-          className="flex flex-1 flex-col items-center py-2.5 text-[0.65rem] font-medium text-white/35"
+          className="flex min-w-[3.5rem] shrink-0 flex-col items-center px-1 py-2.5 text-[0.55rem] font-medium text-white/35"
         >
           <span>RECT</span>
         </Link>

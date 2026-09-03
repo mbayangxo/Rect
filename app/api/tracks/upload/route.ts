@@ -206,6 +206,19 @@ export async function POST(request: Request) {
     .trim()
     .toUpperCase()
     .slice(0, 2);
+  const downloadPriceRaw = String(form.get("download_price_xof") ?? "").trim();
+  const lyricsRaw = String(form.get("lyrics") ?? "").trim();
+  const isrcRaw = String(form.get("isrc_code") ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "");
+  const upcRaw = String(form.get("upc_code") ?? "").trim();
+  const launchAtRaw = String(form.get("launch_at") ?? "").trim();
+  let launchAtIso: string | null = null;
+  if (launchAtRaw) {
+    const d = new Date(launchAtRaw);
+    if (!Number.isNaN(d.getTime())) launchAtIso = d.toISOString();
+  }
   const durationParsed = durationRaw ? Number(durationRaw) : NaN;
   const duration_secs =
     Number.isFinite(durationParsed) &&
@@ -423,6 +436,20 @@ export async function POST(request: Request) {
   if (territoryRaw && /^[A-Z]{2}$/.test(territoryRaw)) {
     insertPayload.territory_of_origin = territoryRaw;
   }
+  const downloadPrice = Number(downloadPriceRaw);
+  if (Number.isFinite(downloadPrice) && downloadPrice > 0) {
+    insertPayload.download_price_xof = Math.round(downloadPrice);
+  }
+  if (lyricsRaw.length > 20_000) {
+    return NextResponse.json(
+      { error: "Lyrics must be under 20,000 characters." },
+      { status: 400 },
+    );
+  }
+  if (lyricsRaw) insertPayload.lyrics = lyricsRaw;
+  if (isrcRaw) insertPayload.isrc_code = isrcRaw.slice(0, 15);
+  if (upcRaw) insertPayload.upc_code = upcRaw.slice(0, 14);
+  if (launchAtIso) insertPayload.launch_at = launchAtIso;
   if (writers) {
     insertPayload.writer_splits = writers.map((w) => ({
       name: w.name,
@@ -430,6 +457,7 @@ export async function POST(request: Request) {
     }));
   }
 
+  const strippedWarnings: string[] = [];
   let workingPayload = { ...insertPayload };
   const liveStatus = trackStatusForWrite("live");
   const draftStatus = trackStatusForWrite("pending");
@@ -460,10 +488,12 @@ export async function POST(request: Request) {
     if (error && /cover_art_url|column .* does not exist/i.test(error.message)) {
       delete workingPayload.cover_art_url;
       cover_art_url = null;
+      strippedWarnings.push("cover_art_url (run storage/cover migration)");
       continue;
     }
     if (error && /language|column .* does not exist/i.test(error.message)) {
       delete workingPayload.language;
+      strippedWarnings.push("language");
       continue;
     }
     if (
@@ -471,6 +501,21 @@ export async function POST(request: Request) {
       /duration_secs|column .* does not exist/i.test(error.message)
     ) {
       delete workingPayload.duration_secs;
+      strippedWarnings.push("duration_secs");
+      continue;
+    }
+    if (
+      error &&
+      /isrc_code|upc_code|launch_at|column .* does not exist/i.test(
+        error.message,
+      )
+    ) {
+      delete workingPayload.isrc_code;
+      delete workingPayload.upc_code;
+      delete workingPayload.launch_at;
+      strippedWarnings.push(
+        "ISRC/UPC/launch_at — run 20260831_artist_os_delivery_suite.sql",
+      );
       continue;
     }
     if (
@@ -482,6 +527,12 @@ export async function POST(request: Request) {
       delete workingPayload.master_owner;
       delete workingPayload.territory_of_origin;
       delete workingPayload.writer_splits;
+      strippedWarnings.push("master/territory/writer_splits");
+      continue;
+    }
+    if (error && /lyrics|column .* does not exist/i.test(error.message)) {
+      delete workingPayload.lyrics;
+      strippedWarnings.push("lyrics — run 20260830_track_lyrics.sql");
       continue;
     }
   }
@@ -583,5 +634,11 @@ export async function POST(request: Request) {
     published: publish,
     writers_saved: Boolean(writers),
     storage_mode: usingAdmin ? "service_role" : "user_rls",
+    warnings:
+      strippedWarnings.length > 0
+        ? [
+            `Some metadata was not saved (missing DB columns): ${[...new Set(strippedWarnings)].join("; ")}`,
+          ]
+        : undefined,
   });
 }

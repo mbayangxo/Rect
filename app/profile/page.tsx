@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppBottomNav } from "@/components/app-bottom-nav";
 import { ProfileSettings } from "@/components/profile-settings";
 import { RectLogo } from "@/components/rect-logo";
 import { loadBlockedPeople } from "@/lib/dashboard/blocks";
+import { loadPlayCreditBalance } from "@/lib/dashboard/credits";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -130,24 +132,51 @@ export default async function ProfilePage() {
     meta.role === "artist";
 
   const blockedRes = await loadBlockedPeople(supabase, user.id);
+  const creditsRes = await loadPlayCreditBalance(supabase);
 
   return (
-    <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
+    <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
       <header className="border-b border-white/10">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <Link href="/dashboard">
             <RectLogo size={34} showWordmark />
           </Link>
-          <nav className="flex gap-3 text-sm text-white/55">
-            <Link href="/dashboard" className="hover:text-white">
-              Home
-            </Link>
-            <Link href="/profile" className="text-[#1DB954]">
-              You
-            </Link>
-          </nav>
+          <p className="text-sm font-medium text-[#1DB954]">You</p>
         </div>
       </header>
+
+      <div className="mx-auto w-full max-w-5xl px-5 pt-8 sm:px-8">
+        <h1 className="font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight">
+          {displayName}
+        </h1>
+        <p className="mt-1 text-sm text-white/45">Account, inbox, and studio</p>
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Link href="/hearing-aid" className="app-hub-tile">
+            <span className="app-hub-tile-k">Inbox</span>
+            <span className="app-hub-tile-t">Hearing Aid</span>
+          </Link>
+          <Link href="/messages" className="app-hub-tile">
+            <span className="app-hub-tile-k">Chat</span>
+            <span className="app-hub-tile-t">Messages</span>
+          </Link>
+          <Link href="/profile/credits" className="app-hub-tile">
+            <span className="app-hub-tile-k">Credits</span>
+            <span className="app-hub-tile-t">
+              {creditsRes.missingTable ? "—" : creditsRes.credits} plays
+            </span>
+          </Link>
+          <Link
+            href={isArtist ? "/studio" : "/for-artists"}
+            className="app-hub-tile"
+          >
+            <span className="app-hub-tile-k">Create</span>
+            <span className="app-hub-tile-t">
+              {isArtist ? "Studio" : "For artists"}
+            </span>
+          </Link>
+        </div>
+      </div>
+
       <ProfileSettings
         displayName={displayName}
         email={user.email || ""}
@@ -160,7 +189,10 @@ export default async function ProfilePage() {
         blockedPeople={blockedRes.people}
         blocksReady={!blockedRes.missingTable}
         blocksError={blockedRes.error}
+        playCredits={creditsRes.credits}
+        creditsReady={!creditsRes.missingTable}
       />
+      <AppBottomNav />
     </main>
   );
 }

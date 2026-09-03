@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TrackCover } from "@/components/track-cover";
+import { TrackDownloadPriceEditor } from "@/components/studio/track-download-price-editor";
+import { TrackLyricsEditor } from "@/components/studio/track-lyrics-editor";
+import { TrackWritersEditor } from "@/components/track-writers-editor";
 import { TrackEditButton } from "@/components/track-edit-button";
 import { TrackPublishToggle } from "@/components/track-publish-toggle";
 import { usePlayer } from "@/components/player-provider";
 import type { ArtistStatTrack } from "@/lib/dashboard/artist-stats";
+import type { WriterSplit } from "@/lib/dashboard/writer-splits";
 import { isPublishedTrack, trackTitle } from "@/lib/tracks";
 
 type Props = {
@@ -15,6 +19,7 @@ type Props = {
   needsPlaces: boolean;
   loadError: string | null;
   focusTrackId?: string | null;
+  writersByTrack?: Record<string, WriterSplit[]>;
 };
 
 export function StudioTracksList({
@@ -22,6 +27,7 @@ export function StudioTracksList({
   needsPlaces,
   loadError,
   focusTrackId = null,
+  writersByTrack = {},
 }: Props) {
   const router = useRouter();
   const { track: current, playing, play, toggle } = usePlayer();
@@ -77,6 +83,12 @@ export function StudioTracksList({
         {tracks.map((t) => {
           const live = isPublishedTrack(t);
           const focused = focusTrackId === t.id;
+          const launchLabel =
+            t.launch_at && new Date(t.launch_at).getTime() > Date.now()
+              ? ` · Launches ${new Date(t.launch_at).toLocaleString()}`
+              : t.launch_at
+                ? ` · Launched ${new Date(t.launch_at).toLocaleDateString()}`
+                : "";
           return (
             <li
               key={t.id}
@@ -87,7 +99,7 @@ export function StudioTracksList({
               }`}
             >
               <div className="flex items-start gap-3">
-                <TrackCover track={t} size="sm" />
+                <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/songs/${t.id}`}
@@ -99,8 +111,35 @@ export function StudioTracksList({
                     {t.genre || "No genre"}
                     {t.language ? ` · ${t.language}` : ""}
                     {` · ${live ? "Published" : "Draft"}`}
+                    {launchLabel}
                     {` · ${t.play_count.toLocaleString()} play${t.play_count === 1 ? "" : "s"}`}
+                    {t.download_sales > 0
+                      ? ` · ${t.download_sales} download sale${t.download_sales === 1 ? "" : "s"}`
+                      : ""}
+                    {t.download_price_xof != null && t.download_price_xof > 0
+                      ? ` · ${t.download_price_xof.toLocaleString()} XOF download`
+                      : ""}
+                    {typeof t.lyrics === "string" && t.lyrics.trim()
+                      ? " · Lyrics"
+                      : ""}
+                    {t.isrc_code ? ` · ISRC ${t.isrc_code}` : ""}
                   </p>
+                  <TrackDownloadPriceEditor
+                    trackId={t.id}
+                    initialPriceXof={t.download_price_xof}
+                  />
+                  <TrackLyricsEditor
+                    trackId={t.id}
+                    initialLyrics={
+                      typeof t.lyrics === "string" ? t.lyrics : null
+                    }
+                    compact
+                  />
+                  <TrackWritersEditor
+                    trackId={t.id}
+                    initialWriters={writersByTrack[t.id] ?? []}
+                    compact
+                  />
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -132,6 +171,14 @@ export function StudioTracksList({
                       language={t.language}
                       hasPlaces={!needsPlaces}
                     />
+                    {live && t.audio_url ? (
+                      <Link
+                        href="/studio/delivery"
+                        className="rounded-full border border-[#1DB954]/35 px-3 py-1 text-[0.65rem] font-medium text-[#1DB954] hover:bg-[#1DB954]/10"
+                      >
+                        Add to DSP release
+                      </Link>
+                    ) : null}
                     <button
                       type="button"
                       disabled={deletingId === t.id}

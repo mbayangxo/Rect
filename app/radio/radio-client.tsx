@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AddToPlaylist } from "@/components/add-to-playlist";
+import { AppBottomNav } from "@/components/app-bottom-nav";
 import { GenreFilterChips } from "@/components/genre-filter-chips";
 import { LanguageFilterChips } from "@/components/language-filter-chips";
 import { PlaceFilterChips } from "@/components/place-filter-chips";
@@ -129,41 +130,30 @@ export function RadioClient({
   const waveLive = Boolean(nowOnAir && player.playing);
 
   return (
-    <main className="min-h-dvh bg-[#040d06] text-[#f8f8f8]">
+    <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
       <header className="border-b border-white/10">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 sm:px-8">
           <Link href="/dashboard">
             <RectLogo size={34} showWordmark />
           </Link>
-          <nav className="flex gap-4 text-sm text-white/55">
-            <Link href="/dashboard" className="hover:text-white">
-              Home
-            </Link>
-            <Link href="/search" className="hover:text-white">
-              Search
-            </Link>
-            <Link href="/radio" className="text-[#1DB954]">
-              Wave
-            </Link>
-            <Link href="/charts" className="hover:text-white">
-              Charts
-            </Link>
-          </nav>
+          <Link href="/search" className="text-sm text-white/55 hover:text-white">
+            Search
+          </Link>
         </div>
       </header>
 
       <div className="mx-auto w-full max-w-5xl space-y-8 px-5 py-10 sm:px-8">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            RECT Wave
+            Search · Wave
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
-            Stay on the Wave
+            Wave
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
             {personalized
-              ? "A continuous station from your places, languages, listening times, and genres — plus dialed frequencies from the live catalog."
-              : "Continuous stations built from live catalog tracks. Set places and genres in onboarding to tune Your Wave."}
+              ? "Press play on a station when you want it — nothing starts until you do."
+              : "Continuous stations from the live catalog. Press play when you want music."}
           </p>
           {creditsReady ? (
             <p className="mt-3 text-xs text-white/45">
@@ -261,7 +251,7 @@ export function RadioClient({
                 <p className="mt-1 text-sm text-white/45">{active.subtitle}</p>
                 {nowOnAir ? (
                   <div className="mt-5 flex items-center gap-3">
-                    <TrackCover track={nowOnAir} size="md" />
+                    <TrackCover track={nowOnAir} size="md" href={`/songs/${nowOnAir.id}`} />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">
                         {trackTitle(nowOnAir)}
@@ -274,7 +264,7 @@ export function RadioClient({
                   </div>
                 ) : active.tracks[0] ? (
                   <div className="mt-5 flex items-center gap-3 opacity-70">
-                    <TrackCover track={active.tracks[0]} size="md" />
+                    <TrackCover track={active.tracks[0]} size="md" href={`/songs/${active.tracks[0].id}`} />
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">
                         Starts with {trackTitle(active.tracks[0])}
@@ -393,7 +383,7 @@ export function RadioClient({
                         <span className="w-6 text-center text-xs tabular-nums text-white/35">
                           {i + 1}
                         </span>
-                        <TrackCover track={t} size="sm" />
+                        <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                         <button
                           type="button"
                           onClick={() => playStation(active, i)}
@@ -435,6 +425,7 @@ export function RadioClient({
           </>
         )}
       </div>
+      <AppBottomNav />
     </main>
   );
 }

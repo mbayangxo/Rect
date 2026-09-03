@@ -97,7 +97,7 @@ export function LanguageDetailClient({
                 <span className="w-5 shrink-0 text-xs text-white/35">
                   {i + 1}
                 </span>
-                <TrackCover track={t} size="sm" />
+                <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">
                     {trackTitle(t)}

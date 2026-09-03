@@ -29,6 +29,8 @@ type Props = {
   blockedPeople?: BlockedPerson[];
   blocksReady?: boolean;
   blocksError?: string | null;
+  playCredits?: number;
+  creditsReady?: boolean;
 };
 
 export function ProfileSettings({
@@ -43,6 +45,8 @@ export function ProfileSettings({
   blockedPeople: initialBlocked = [],
   blocksReady = false,
   blocksError = null,
+  playCredits = 0,
+  creditsReady = false,
 }: Props) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -261,6 +265,36 @@ export function ProfileSettings({
 
   return (
     <div className="mx-auto max-w-lg space-y-6 px-5 py-10 sm:px-8">
+      <section className="rounded-2xl border border-[#1DB954]/25 bg-[#1DB954]/[0.06] p-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-[0.65rem] font-medium uppercase tracking-[0.24em] text-[#1DB954]">
+              Play credits
+            </p>
+            <p className="mt-1 text-3xl font-semibold tabular-nums text-[#1DB954]">
+              {creditsReady ? playCredits : "—"}
+            </p>
+            <p className="mt-1 text-xs text-white/40">
+              1 credit = 1 stream · pay with mobile money via JOKO
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/profile/credits"
+              className="rounded-full bg-[#1DB954] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#17a349]"
+            >
+              Add credits
+            </Link>
+            <Link
+              href="/profile/credits"
+              className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-medium text-white/80 hover:border-[#1DB954]/50 hover:text-white"
+            >
+              Get play pack
+            </Link>
+          </div>
+        </div>
+      </section>
+
       <div className="flex items-start gap-4">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-white/15 bg-white/[0.04]">
           {avatarUrl ? (

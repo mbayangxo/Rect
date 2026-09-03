@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 
 type Props = {
   trackId: string;
-  initialLiked: boolean;
-  likesReady: boolean;
+  /** When omitted, button fetches like state on mount. */
+  initialLiked?: boolean;
+  /** When false, hide until parent has like map. Default true if initialLiked omitted (self-fetch). */
+  likesReady?: boolean;
   loginNext: string;
   compact?: boolean;
 };
@@ -19,14 +21,46 @@ export function TrackLikeButton({
   compact = false,
 }: Props) {
   const router = useRouter();
-  const [liked, setLiked] = useState(initialLiked);
+  const selfFetch = initialLiked === undefined;
+  const ready = likesReady ?? true;
+  const [liked, setLiked] = useState(Boolean(initialLiked));
+  const [loaded, setLoaded] = useState(!selfFetch);
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    setLiked(initialLiked);
-  }, [initialLiked, trackId]);
+    if (!selfFetch) {
+      setLiked(Boolean(initialLiked));
+      setLoaded(true);
+      return;
+    }
 
-  if (!likesReady) return null;
+    let cancelled = false;
+    setLoaded(false);
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/likes?track_id=${encodeURIComponent(trackId)}`,
+        );
+        if (!res.ok) {
+          if (!cancelled) setLoaded(true);
+          return;
+        }
+        const data = (await res.json()) as { liked?: boolean };
+        if (!cancelled) {
+          setLiked(Boolean(data.liked));
+          setLoaded(true);
+        }
+      } catch {
+        if (!cancelled) setLoaded(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [trackId, initialLiked, selfFetch]);
+
+  if (!ready || !loaded) return null;
 
   async function toggle() {
     if (pending) return;

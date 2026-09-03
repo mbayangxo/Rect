@@ -78,6 +78,43 @@ const checks = [
     run: () => client.from("track_writer_splits").select("track_id").limit(1),
     fix: "20260810_track_writer_splits.sql",
   },
+  {
+    name: "tracks.launch_at",
+    run: () => client.from("tracks").select("launch_at").limit(1),
+    fix: "20260831_artist_os_delivery_suite.sql",
+  },
+  {
+    name: "distribution_releases",
+    run: () => client.from("distribution_releases").select("id").limit(1),
+    fix: "20260831_artist_os_delivery_suite.sql",
+  },
+  {
+    name: "new_wave_tracks RPC",
+    run: async () => {
+      const { error } = await client.rpc("new_wave_tracks", { p_limit: 1 });
+      if (!error) return { error: null };
+      if (isMissingSchema(error.message)) return { error };
+      return { error: null };
+    },
+    fix: "20260831_artist_os_delivery_suite.sql",
+  },
+  {
+    name: "create_pending_artist_tip RPC",
+    run: async () => {
+      const { error } = await client.rpc("create_pending_artist_tip", {
+        p_artist_id: "00000000-0000-0000-0000-000000000000",
+        p_amount_xof: 100,
+        p_payment_method: "wave",
+      });
+      if (!error) return { error: null };
+      if (/not_authenticated|artist_|invalid_|cannot_/i.test(error.message)) {
+        return { error: null };
+      }
+      if (isMissingSchema(error.message)) return { error };
+      return { error: null };
+    },
+    fix: "20260831_joko_tips.sql",
+  },
 ];
 
 function isMissingSchema(message) {

@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import {
-  cancelPlayPackPurchase,
-  confirmPlayPackPurchase,
-} from "@/lib/dashboard/credits";
-import { createClient } from "@/lib/supabase/server";
+import { cancelPlayPackPurchase } from "@/lib/dashboard/credits";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { createRouteClient } from "@/lib/supabase/route";
+import { isJokoLive } from "@/lib/joko/payments";
 
 type Body = { purchase_id?: string | number };
 
-async function requireUser() {
-  const supabase = await createClient();
+async function requireUser(request: Request) {
+  const supabase = await createRouteClient(request);
   const {
     data: { user },
     error: userError,
@@ -25,7 +24,24 @@ async function requireUser() {
   return { supabase, user, error: null as null };
 }
 
+/**
+ * Manual confirm is demo-only. Live JOKO confirms via /api/joko/webhook.
+ */
 export async function POST(request: Request) {
+  const allowDemo =
+    !isJokoLive() &&
+    (process.env.NODE_ENV !== "production" ||
+      process.env.ALLOW_DEMO_PAYMENTS === "true");
+  if (!allowDemo) {
+    return NextResponse.json(
+      {
+        error:
+          "Manual confirm disabled. Wait for the JOKO webhook after payment.",
+      },
+      { status: 403 },
+    );
+  }
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -42,26 +58,25 @@ export async function POST(request: Request) {
     );
   }
 
-  const auth = await requireUser();
+  const auth = await requireUser(request);
   if (auth.error) return auth.error;
 
-  const result = await confirmPlayPackPurchase(auth.supabase, purchaseId);
-  if (!result.ok) {
-    const status =
-      result.code === "not_authenticated"
-        ? 401
-        : result.code === "purchase_not_found"
-          ? 404
-          : result.code === "missing_table"
-            ? 503
-            : 500;
+  const admin = createAdminClient();
+  if (!admin) {
     return NextResponse.json(
-      { error: result.error, code: result.code },
-      { status },
+      { error: "Server misconfigured for demo confirm." },
+      { status: 503 },
     );
   }
 
-  return NextResponse.json(result);
+  const { data, error } = await admin.rpc("confirm_play_pack_purchase_system", {
+    p_purchase_id: Number(purchaseId),
+  });
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json(data);
 }
 
 export async function DELETE(request: Request) {
@@ -81,7 +96,7 @@ export async function DELETE(request: Request) {
     );
   }
 
-  const auth = await requireUser();
+  const auth = await requireUser(request);
   if (auth.error) return auth.error;
 
   const result = await cancelPlayPackPurchase(auth.supabase, purchaseId);

@@ -22,10 +22,10 @@ function FeaturedPanel({
   const hasMixes = playlists.length > 0;
 
   return (
-    <section className="w-full space-y-8">
+    <section className="w-full space-y-10">
       <div>
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
-          Featured
+          On RECT now
         </h2>
 
         {error ? (
@@ -44,10 +44,10 @@ function FeaturedPanel({
             </p>
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Link
-                href="/search"
+                href="/radio"
                 className="rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white/70 hover:border-[#1DB954]/50 hover:text-white"
               >
-                Browse Search
+                Open Wave
               </Link>
               <Link
                 href="/auth/signup"
@@ -67,10 +67,10 @@ function FeaturedPanel({
               Public mixes
             </h2>
             <Link
-              href="/search"
+              href="/charts"
               className="text-xs text-[#1DB954] hover:underline"
             >
-              Find more →
+              Standings →
             </Link>
           </div>
           <ul className="grid gap-2 sm:grid-cols-2">
@@ -157,11 +157,11 @@ export default async function HomePage() {
     <div className="relative min-h-full overflow-x-hidden bg-[#040d06] text-[#f8f8f8]">
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#1DB954]/15 blur-[100px]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(29,185,84,0.18),transparent_55%),radial-gradient(ellipse_at_90%_20%,rgba(29,185,84,0.08),transparent_40%),linear-gradient(180deg,#06140a_0%,#040d06_45%,#030a05_100%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -bottom-32 -left-16 h-72 w-72 rounded-full bg-[#1DB954]/10 blur-[90px]"
+        className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(rgba(255,255,255,0.35)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.35)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_75%)]"
       />
 
       <div className="relative mx-auto w-full max-w-6xl px-5 pb-36 pt-8 sm:px-8 lg:px-10">
@@ -176,13 +176,13 @@ export default async function HomePage() {
                   href="/charts"
                   className="hidden text-white/70 transition hover:text-white sm:inline"
                 >
-                  Charts
+                  Standings
                 </Link>
                 <Link
-                  href="/search"
+                  href="/radio"
                   className="hidden text-white/70 transition hover:text-white sm:inline"
                 >
-                  Search
+                  Wave
                 </Link>
                 <Link
                   href="/dashboard"
@@ -213,14 +213,16 @@ export default async function HomePage() {
 
         <div className="md:hidden">
           <section className="mb-10">
-            <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight">
+            <p className="font-display text-5xl font-semibold tracking-tight text-[#1DB954]">
+              RECT
+            </p>
+            <h1 className="mt-3 font-display text-3xl font-semibold leading-[1.1] tracking-tight">
               A world of music.
             </h1>
-            <ul className="mt-6 space-y-2 text-sm text-white/55">
-              <li>Listen inside a curated sonic world</li>
-              <li>Support artists directly</li>
-              <li>Charts, portals, and culture — connected</li>
-            </ul>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/55">
+              Listen with intention. Support artists directly. Charts, portals,
+              and culture — connected.
+            </p>
             {!user ? (
               <div className="mt-8 flex flex-col gap-3">
                 <Link
@@ -242,21 +244,48 @@ export default async function HomePage() {
                   Are you an artist?
                 </Link>
               </div>
-            ) : profile?.role === "artist" ? (
-              <Link
-                href="/studio"
-                className="mt-8 block rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
-              >
-                Artist library
-              </Link>
-            ) : null}
+            ) : (
+              <div className="mt-8 flex flex-col gap-3">
+                <Link
+                  href="/dashboard"
+                  className="rounded-full bg-[#1DB954] py-3 text-center text-sm font-semibold text-black hover:bg-[#17a349]"
+                >
+                  Enter Hearth
+                </Link>
+                <div className="flex gap-3">
+                  <Link
+                    href="/radio"
+                    className="flex-1 rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
+                  >
+                    Wave
+                  </Link>
+                  <Link
+                    href="/charts"
+                    className="flex-1 rounded-full border border-white/15 py-3 text-center text-sm font-semibold text-white hover:border-[#1DB954]"
+                  >
+                    Standings
+                  </Link>
+                </div>
+                {profile?.role === "artist" ? (
+                  <Link
+                    href="/studio"
+                    className="pt-1 text-center text-xs text-white/40 hover:text-white/70"
+                  >
+                    Artist studio →
+                  </Link>
+                ) : null}
+              </div>
+            )}
           </section>
           <FeaturedPanel tracks={tracks} playlists={playlists} error={error} />
         </div>
 
         <div className="hidden md:grid md:grid-cols-2 md:items-start md:gap-14 lg:gap-20">
           <section className="pt-4">
-            <h1 className="font-display text-5xl font-semibold leading-[1.05] tracking-tight lg:text-6xl">
+            <p className="font-display text-7xl font-semibold tracking-tight text-[#1DB954] lg:text-8xl">
+              RECT
+            </p>
+            <h1 className="mt-4 font-display text-4xl font-semibold leading-[1.05] tracking-tight lg:text-5xl">
               A world of music.
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-white/55">
@@ -286,14 +315,38 @@ export default async function HomePage() {
                   Are you an artist? Upload on RECT for Artists →
                 </Link>
               </div>
-            ) : profile?.role === "artist" ? (
-              <Link
-                href="/studio"
-                className="mt-10 inline-block rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
-              >
-                Artist library
-              </Link>
-            ) : null}
+            ) : (
+              <div className="mt-10 flex flex-col items-start gap-3">
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    href="/dashboard"
+                    className="rounded-full bg-[#1DB954] px-7 py-3 text-sm font-semibold text-black hover:bg-[#17a349]"
+                  >
+                    Enter Hearth
+                  </Link>
+                  <Link
+                    href="/radio"
+                    className="rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
+                  >
+                    Wave
+                  </Link>
+                  <Link
+                    href="/charts"
+                    className="rounded-full border border-white/15 px-7 py-3 text-sm font-semibold text-white hover:border-[#1DB954]"
+                  >
+                    Standings
+                  </Link>
+                </div>
+                {profile?.role === "artist" ? (
+                  <Link
+                    href="/studio"
+                    className="text-xs text-white/40 hover:text-white/70"
+                  >
+                    Artist studio →
+                  </Link>
+                ) : null}
+              </div>
+            )}
           </section>
 
           <FeaturedPanel tracks={tracks} playlists={playlists} error={error} />

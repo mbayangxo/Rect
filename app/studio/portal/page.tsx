@@ -1,4 +1,8 @@
+import { StudioFanClubManager } from "@/components/studio/studio-fan-club-manager";
 import { StudioPortalEditor } from "@/components/studio/studio-portal-editor";
+import { StudioPortalWorlds } from "@/components/studio/studio-portal-worlds";
+import { loadFanClubTiers } from "@/lib/dashboard/fan-club";
+import { loadPortalReleases } from "@/lib/dashboard/portal-releases";
 import {
   loadStudioPortalProfile,
   requireStudioArtist,
@@ -18,6 +22,8 @@ export default async function StudioPortalPage({ searchParams }: Props) {
     await requireStudioArtist("/studio/portal");
   const profile = await loadStudioPortalProfile(supabase, userId, displayName);
   const needsPlaces = profile.countries.length < 1;
+  const fanClub = await loadFanClubTiers(supabase, userId, { includeInactive: true });
+  const portalWorlds = await loadPortalReleases(supabase, userId);
 
   return (
     <>
@@ -25,10 +31,11 @@ export default async function StudioPortalPage({ searchParams }: Props) {
         My portal
       </p>
       <h1 className="mt-2 font-[family-name:var(--font-syne)] text-2xl font-semibold tracking-tight sm:text-3xl">
-        Public profile
+        Artist profile & worlds
       </h1>
       <p className="mt-2 text-sm text-white/45">
-        How fans see you on RECT SOUND — name, bio, places, genres, and images.
+        Your official RECT artist profile for fans — plus separate portal worlds
+        for releases, remixes, and personal drops.
       </p>
       {needsPlaces ? (
         <p className="mt-4 rounded-lg border border-[#F5A623]/30 bg-[#F5A623]/10 px-4 py-3 text-sm text-[#F5A623]">
@@ -36,11 +43,16 @@ export default async function StudioPortalPage({ searchParams }: Props) {
           music.
         </p>
       ) : null}
-      <div className="mt-8">
+      <div className="mt-8 space-y-12">
         <StudioPortalEditor
           artistId={userId}
           profile={profile}
           emphasizeSetup={setupPlaces || needsPlaces}
+        />
+        <StudioFanClubManager initialTiers={fanClub.tiers} />
+        <StudioPortalWorlds
+          artistId={userId}
+          initialReleases={portalWorlds.releases}
         />
       </div>
     </>

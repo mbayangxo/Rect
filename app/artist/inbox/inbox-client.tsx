@@ -34,6 +34,7 @@ type Props = {
   unreadCount: number;
   loadError: string | null;
   missingTable: boolean;
+  eyebrow?: string;
   title?: string;
   subtitle?: string;
   homeHref?: string;
@@ -72,6 +73,7 @@ export function ArtistInboxClient({
   unreadCount: initialUnread,
   loadError,
   missingTable,
+  eyebrow = "Inbox",
   title = "Activity",
   subtitle = "Follows, likes, and tips",
   homeHref = "/artist",
@@ -99,7 +101,7 @@ export function ArtistInboxClient({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const followBackNext =
-    homeHref === "/artist" ? "/artist/inbox" : "/inbox";
+    homeHref === "/artist" ? "/artist/inbox" : "/hearing-aid";
 
   function followBack(actorId: string | null | undefined) {
     if (!actorId || !peopleFollowsReady) return null;
@@ -183,7 +185,7 @@ export function ArtistInboxClient({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-              Inbox
+              {eyebrow}
             </p>
             <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight">
               {title}
@@ -286,6 +288,45 @@ export function ArtistInboxClient({
                             />
                           ) : null}
                           {followBack(n.actor_id)}
+                        </>
+                      ) : n.kind === "live_room" ? (
+                        <>
+                          {n.actor_id ? (
+                            <Link
+                              href={personProfileHref(n.actor_id)}
+                              className="hover:text-[#1DB954] hover:underline"
+                            >
+                              {n.actor_name}
+                            </Link>
+                          ) : (
+                            n.actor_name
+                          )}{" "}
+                          went live
+                          {n.body ? (
+                            <>
+                              {" "}
+                              · <span className="text-white/70">{n.body}</span>
+                            </>
+                          ) : null}
+                          {n.live_room_id && n.actor_id ? (
+                            <div className="mt-2">
+                              <Link
+                                href={`/artists/${n.actor_id}/live/${n.live_room_id}`}
+                                className="inline-flex rounded-full bg-red-500/90 px-3 py-1.5 text-xs font-semibold text-white"
+                              >
+                                Enter Live Room
+                              </Link>
+                            </div>
+                          ) : n.actor_id ? (
+                            <div className="mt-2">
+                              <Link
+                                href={`/artists/${n.actor_id}`}
+                                className="text-xs text-[#1DB954] hover:underline"
+                              >
+                                Open World →
+                              </Link>
+                            </div>
+                          ) : null}
                         </>
                       ) : n.kind === "release" ? (
                         <>
