@@ -146,6 +146,13 @@ export type StudioAnalytics = {
     followers: number;
     avgCompletionPct: number | null;
   };
+  /** Compare current range vs previous equal-length window. */
+  compare: {
+    streamsCurrent: number;
+    streamsPrevious: number;
+    deltaPct: number | null;
+    previousLabel: string;
+  };
   delivery: {
     ready: boolean;
     taaliLive: boolean;
@@ -287,6 +294,12 @@ function emptyAnalytics(window: AnalyticsTimeWindow): StudioAnalytics {
       likes: 0,
       followers: 0,
       avgCompletionPct: null,
+    },
+    compare: {
+      streamsCurrent: 0,
+      streamsPrevious: 0,
+      deltaPct: null,
+      previousLabel: "Prior period",
     },
     delivery: {
       ready: false,
@@ -1122,6 +1135,40 @@ export async function loadStudioAnalytics(
           );
         })(),
       },
+      compare: (() => {
+        if (!window.from) {
+          return {
+            streamsCurrent: streamsInRange,
+            streamsPrevious: 0,
+            deltaPct: null,
+            previousLabel: "Prior period",
+          };
+        }
+        const fromMs = new Date(window.from).getTime();
+        const toMs = new Date(window.to ?? new Date().toISOString()).getTime();
+        const span = Math.max(0, toMs - fromMs);
+        const prevTo = new Date(fromMs).toISOString();
+        const prevFrom = new Date(fromMs - span).toISOString();
+        let streamsPrevious = 0;
+        for (const p of validPlays) {
+          const at = p.created_at ?? "";
+          if (at >= prevFrom && at < prevTo) streamsPrevious += 1;
+        }
+        const deltaPct =
+          streamsPrevious === 0
+            ? streamsInRange > 0
+              ? 100
+              : null
+            : Math.round(
+                ((streamsInRange - streamsPrevious) / streamsPrevious) * 100,
+              );
+        return {
+          streamsCurrent: streamsInRange,
+          streamsPrevious,
+          deltaPct,
+          previousLabel: `Prior ${window.label.toLowerCase()}`,
+        };
+      })(),
       delivery: {
         ready: !deliveryRes.missingTable,
         taaliLive: deliveryRes.taaliLive || isTaaliLive(),

@@ -362,6 +362,16 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
             value={data.overview.streamsInRange.toLocaleString()}
           />
           <StatCard
+            label="vs prior period"
+            value={
+              data.compare.deltaPct == null
+                ? "—"
+                : `${data.compare.deltaPct > 0 ? "+" : ""}${data.compare.deltaPct}%`
+            }
+            sub={`${data.compare.streamsPrevious.toLocaleString()} → ${data.compare.streamsCurrent.toLocaleString()} · ${data.compare.previousLabel}`}
+            accent={(data.compare.deltaPct ?? 0) > 0}
+          />
+          <StatCard
             label="Revenue all time"
             value={`${data.overview.totalRevenueXof.toLocaleString()} XOF`}
             accent
