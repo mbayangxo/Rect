@@ -72,7 +72,7 @@ export async function loadArtistStudioStats(
     const { data: trackData, error: trackError } = await db
       .from("tracks")
       .select(
-        "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code",
+        "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code, qc_status, qc_lufs_integrated, qc_true_peak_dbtp, qc_issues",
       )
       .eq("artist_id", artistId)
       .order("created_at", { ascending: false });
@@ -81,17 +81,36 @@ export async function loadArtistStudioStats(
     let rowsError = trackError;
     if (
       trackError &&
-      /download_price_xof|lyrics|language|launch_at|isrc_code|upc_code|column .* does not exist/i.test(trackError.message)
+      /qc_status|qc_lufs|qc_true_peak|qc_issues|download_price_xof|lyrics|language|launch_at|isrc_code|upc_code|column .* does not exist/i.test(
+        trackError.message,
+      )
     ) {
-      const lean = await db
+      const mid = await db
         .from("tracks")
         .select(
-          "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
+          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code",
         )
         .eq("artist_id", artistId)
         .order("created_at", { ascending: false });
-      rowsSource = lean.data as typeof rowsSource;
-      rowsError = lean.error;
+      if (
+        mid.error &&
+        /download_price_xof|lyrics|language|launch_at|isrc_code|upc_code|column .* does not exist/i.test(
+          mid.error.message,
+        )
+      ) {
+        const lean = await db
+          .from("tracks")
+          .select(
+            "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
+          )
+          .eq("artist_id", artistId)
+          .order("created_at", { ascending: false });
+        rowsSource = lean.data as typeof rowsSource;
+        rowsError = lean.error;
+      } else {
+        rowsSource = mid.data as typeof rowsSource;
+        rowsError = mid.error;
+      }
     }
 
     if (rowsError) {

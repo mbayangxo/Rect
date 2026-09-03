@@ -6,6 +6,7 @@ import { useState } from "react";
 import { TrackCover } from "@/components/track-cover";
 import { TrackDownloadPriceEditor } from "@/components/studio/track-download-price-editor";
 import { TrackLyricsEditor } from "@/components/studio/track-lyrics-editor";
+import { TrackQcBadge } from "@/components/studio/track-qc-badge";
 import { TrackWritersEditor } from "@/components/track-writers-editor";
 import { TrackEditButton } from "@/components/track-edit-button";
 import { TrackPublishToggle } from "@/components/track-publish-toggle";
@@ -124,6 +125,13 @@ export function StudioTracksList({
                       : ""}
                     {t.isrc_code ? ` · ISRC ${t.isrc_code}` : ""}
                   </p>
+                  <div className="mt-1.5">
+                    <TrackQcBadge
+                      status={t.qc_status}
+                      lufs={t.qc_lufs_integrated}
+                      peak={t.qc_true_peak_dbtp}
+                    />
+                  </div>
                   <TrackDownloadPriceEditor
                     trackId={t.id}
                     initialPriceXof={t.download_price_xof}
@@ -170,7 +178,31 @@ export function StudioTracksList({
                       genre={t.genre}
                       language={t.language}
                       hasPlaces={!needsPlaces}
+                      qcStatus={t.qc_status}
                     />
+                    <button
+                      type="button"
+                      className="rounded-full border border-white/15 px-3 py-1 text-[0.65rem] text-white/45 hover:border-white/30"
+                      onClick={() => {
+                        void (async () => {
+                          const res = await fetch(`/api/tracks/${t.id}/qc`, {
+                            method: "POST",
+                          });
+                          const data = (await res.json()) as {
+                            error?: string;
+                            qc?: { summary?: string };
+                          };
+                          if (!res.ok) {
+                            window.alert(data.error || "QC failed");
+                            return;
+                          }
+                          window.alert(data.qc?.summary || "QC updated");
+                          router.refresh();
+                        })();
+                      }}
+                    >
+                      Re-run QC
+                    </button>
                     {live && t.audio_url ? (
                       <Link
                         href="/studio/delivery"

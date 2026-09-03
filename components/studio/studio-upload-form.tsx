@@ -139,6 +139,8 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
         error?: string;
         track?: { id?: string };
         warnings?: string[];
+        published?: boolean;
+        qc?: { summary?: string; status?: string };
       };
 
       if (res.status === 401) {
@@ -149,8 +151,14 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
         setError(data.error || "Upload failed.");
         return;
       }
-      if (data.warnings?.length) {
-        window.alert(data.warnings.join("\n"));
+      const notes = [
+        ...(data.warnings ?? []),
+        ...(data.qc?.summary && !(data.warnings?.length)
+          ? [data.qc.summary]
+          : []),
+      ];
+      if (notes.length) {
+        window.alert(notes.join("\n"));
       }
 
       router.push("/studio/tracks");

@@ -72,6 +72,7 @@ Individual files (if you prefer):
 | 19 | **`20260903_artist_store_layout.sql`** | Store layout template (grid/rail/featured) |
 | 20 | **`20260903_listening_parties.sql`** | Listening parties host/join/chat |
 | 21 | **`20260903_rect_labels.sql`** | RECT Labels mutual accept + roster |
+| 22 | **`20260903_track_audio_qc.sql`** | Upload QC (LUFS / peak / silence) |
 
 Optional extras:
 

@@ -25,7 +25,7 @@ Work **slice by slice, end to end** — no half-wired surfaces.
 5. **Listening parties** — host / join / chat / gifs · `/parties`  
 6. **RECT Labels** — mutual accept, roster · `/studio/label` (splits analytics later)  
 7. **Analytics 1–5** — completion (live), geo (partial), funnel/compare/label rollup next  
-8. **Upload QC + RECT Punch** — LUFS / peak / silence gates, then Taali gets the master  
+8. **Upload QC + RECT Punch** — LUFS / peak / silence gates live on upload + publish; RECT Punch mastering preset later  
 
 ## Upload QC (what it means)
 

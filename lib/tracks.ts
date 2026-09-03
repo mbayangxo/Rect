@@ -18,6 +18,11 @@ export type TrackRow = {
   launch_at?: string | null;
   isrc_code?: string | null;
   upc_code?: string | null;
+  /** Upload QC: pending | pass | warn | fail */
+  qc_status?: string | null;
+  qc_lufs_integrated?: number | null;
+  qc_true_peak_dbtp?: number | null;
+  qc_issues?: unknown;
 };
 
 /** Seed / fixture demos — never show on public landing or charts. */

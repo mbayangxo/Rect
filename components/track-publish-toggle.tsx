@@ -14,6 +14,7 @@ type Props = {
   language?: string | null;
   /** Artist has at least one place set. */
   hasPlaces?: boolean;
+  qcStatus?: string | null;
 };
 
 export function TrackPublishToggle({
@@ -24,6 +25,7 @@ export function TrackPublishToggle({
   genre = null,
   language = null,
   hasPlaces = true,
+  qcStatus = null,
 }: Props) {
   const router = useRouter();
   const published =
@@ -38,6 +40,7 @@ export function TrackPublishToggle({
       : null,
   );
   const [live, setLive] = useState(published);
+  const qcFail = (qcStatus || "").toLowerCase() === "fail";
 
   async function toggle() {
     setPending(true);
@@ -46,6 +49,13 @@ export function TrackPublishToggle({
     const next = live ? "pending" : "live";
 
     if (next === "live") {
+      if (qcFail) {
+        setError(
+          "Upload QC failed — fix loudness/peak/silence, then re-upload.",
+        );
+        setPending(false);
+        return;
+      }
       if (!hasCover) {
         setError("Add cover art before going live.");
         setPending(false);
@@ -104,12 +114,14 @@ export function TrackPublishToggle({
         className={`rounded-full px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wide disabled:opacity-50 ${
           live
             ? "border border-[#1DB954]/40 text-[#1DB954]"
-            : emphasize
-              ? "bg-[#1DB954] text-black ring-2 ring-[#1DB954]/50 ring-offset-2 ring-offset-[#040d06]"
-              : "bg-[#1DB954] text-black"
+            : qcFail
+              ? "border border-[#F5A623]/40 text-[#F5A623]"
+              : emphasize
+                ? "bg-[#1DB954] text-black ring-2 ring-[#1DB954]/50 ring-offset-2 ring-offset-[#040d06]"
+                : "bg-[#1DB954] text-black"
         }`}
       >
-        {pending ? "…" : live ? "Unpublish" : "Publish"}
+        {pending ? "…" : live ? "Unpublish" : qcFail ? "QC fail" : "Publish"}
       </button>
       <p className="mt-1 text-[0.55rem] uppercase tracking-[0.12em] text-white/35">
         {live ? "Live" : "Draft"}
