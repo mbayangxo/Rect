@@ -465,9 +465,38 @@ a.immersion-artist:hover {
 }
 
 .immersion-line.on {
-  color: #f8f8f8;
+  color: #f3f1ea;
   transform: scale(1.04);
-  text-shadow: 0 0 28px rgba(29, 185, 84, 0.35);
+  text-shadow: 0 0 28px var(--rect-glow);
+}
+
+.immersion-lyrics-kicker {
+  margin: 0;
+  padding: 0.85rem 1.25rem 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rect-sand);
+  opacity: 0.85;
+}
+
+.immersion-range {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  appearance: none;
+  accent-color: var(--rect);
+  cursor: pointer;
+}
+
+.immersion-play {
+  width: 3.75rem !important;
+  height: 3.75rem !important;
+  background: var(--rect) !important;
+  color: #06100a !important;
+  font-size: 1.1rem;
+  font-weight: 800;
 }
 
 .immersion-lyrics-empty {
@@ -497,7 +526,7 @@ a.immersion-artist:hover {
 
 .immersion-controls {
   padding: 0.75rem 1.25rem 1.5rem;
-  background: linear-gradient(to top, rgba(4, 13, 6, 0.95), transparent);
+  background: linear-gradient(to top, rgba(6, 16, 10, 0.95), transparent);
 }
 
 .immersion-seek {
@@ -507,15 +536,6 @@ a.immersion-artist:hover {
   font-size: 0.65rem;
   font-variant-numeric: tabular-nums;
   color: rgba(248, 248, 248, 0.45);
-}
-
-.immersion-range {
-  flex: 1;
-  height: 4px;
-  border-radius: 999px;
-  appearance: none;
-  accent-color: #1db954;
-  cursor: pointer;
 }
 
 .immersion-transport {
@@ -532,21 +552,12 @@ a.immersion-artist:hover {
   border-radius: 999px;
   border: none;
   background: rgba(255, 255, 255, 0.08);
-  color: #f8f8f8;
+  color: #f3f1ea;
   cursor: pointer;
 }
 
 .immersion-transport button:disabled {
   opacity: 0.3;
-}
-
-.immersion-play {
-  width: 3.75rem !important;
-  height: 3.75rem !important;
-  background: #1db954 !important;
-  color: #040d06 !important;
-  font-size: 1.1rem;
-  font-weight: 800;
 }
 
 .immersion-actions {
@@ -556,5 +567,164 @@ a.immersion-artist:hover {
   justify-content: center;
   gap: 0.45rem;
   margin-top: 0.85rem;
+}
+
+/* Home shelves — horizontal composition rails */
+.home-shelf {
+  margin-bottom: 1.75rem;
+}
+
+.home-shelf-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.home-shelf-kicker {
+  margin: 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(232, 217, 168, 0.55);
+}
+
+.home-shelf-title {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-syne), system-ui, sans-serif;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: #f3f1ea;
+}
+
+.home-shelf-more {
+  font-size: 0.75rem;
+  color: var(--rect-sand);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-shelf-more:hover {
+  text-decoration: underline;
+}
+
+.home-shelf-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: rgba(243, 241, 234, 0.4);
+}
+
+.home-shelf-rail {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0.25rem;
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-shelf-rail::-webkit-scrollbar {
+  height: 0;
+}
+
+.home-shelf-item {
+  flex: 0 0 auto;
+  width: 8.5rem;
+  scroll-snap-align: start;
+  position: relative;
+}
+
+.home-shelf-card {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.home-shelf-art {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0.65rem;
+  background: #0a1a12 center / cover no-repeat;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.home-shelf-play {
+  position: absolute;
+  right: 0.4rem;
+  bottom: 0.4rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--rect);
+  color: #06100a;
+  font-size: 0.65rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.home-shelf-card:hover .home-shelf-play,
+.home-shelf-card:focus-visible .home-shelf-play {
+  opacity: 1;
+}
+
+.home-shelf-copy {
+  display: block;
+  margin-top: 0.45rem;
+}
+
+.home-shelf-song {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-shelf-meta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  color: rgba(243, 241, 234, 0.42);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-shelf-card-link {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  z-index: 1;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--rect-sand);
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.home-shelf-item:hover .home-shelf-card-link {
+  opacity: 1;
 }
 

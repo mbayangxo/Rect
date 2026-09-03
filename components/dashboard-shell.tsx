@@ -10,6 +10,7 @@ import { AppDrawerNav } from "@/components/app-drawer-nav";
 import { HearthHero } from "@/components/hearth/hearth-hero";
 import { HearthPulse } from "@/components/hearth/hearth-pulse";
 import { HearthTrackGrid } from "@/components/hearth/hearth-track-grid";
+import { HomeShelf, type ShelfTrack } from "@/components/hearth/home-shelf";
 import { InboxPlaylistActions } from "@/components/inbox-playlist-actions";
 import { InboxTrackPlay } from "@/components/inbox-track-play";
 import { usePlayer } from "@/components/player-provider";
@@ -22,6 +23,7 @@ import type {
 } from "@/lib/dashboard/trending";
 import type { ArtistPortal } from "@/lib/dashboard/artists";
 import type { LiveRoom } from "@/lib/dashboard/live-rooms";
+import type { NewWaveTrack } from "@/lib/dashboard/new-wave";
 import {
   formatPlayedAt,
   type JournalEntry,
@@ -79,6 +81,7 @@ type Props = {
   liveNow?: LiveRoom[];
   trendingTracks?: TrendingTrack[];
   trendingPortals?: TrendingPortal[];
+  newWaveTracks?: NewWaveTrack[];
 };
 
 function formatTime(secs: number) {
@@ -125,6 +128,7 @@ export function DashboardShell({
   liveNow = [],
   trendingTracks = [],
   trendingPortals = [],
+  newWaveTracks = [],
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -329,6 +333,68 @@ export function DashboardShell({
           creditBalance={creditBalance}
           creditsReady={creditsReady}
         />
+
+        <div className="home-shelves" aria-label="Home shelves">
+          {continueItems.length > 0 ? (
+            <HomeShelf
+              kicker="Pick up"
+              title="Continue listening"
+              seeAllHref="/journal"
+              seeAllLabel="Journal →"
+              tracks={continueItems.map(
+                (t): ShelfTrack => ({
+                  ...t,
+                  subtitle: formatPlayedAt(t.played_at),
+                }),
+              )}
+              onPlay={(track, index) => {
+                const list = continueItems.filter((x) => x.audio_url);
+                const idx = list.findIndex((x) => x.id === track.id);
+                player.playQueue(list, idx >= 0 ? idx : index);
+              }}
+            />
+          ) : null}
+
+          {newWaveTracks.length > 0 ? (
+            <HomeShelf
+              kicker="Just dropped"
+              title="New Wave"
+              seeAllHref="/new-wave"
+              seeAllLabel="Full mix →"
+              tracks={newWaveTracks.map(
+                (t): ShelfTrack => ({
+                  ...t,
+                  subtitle: t.artist_name,
+                }),
+              )}
+              onPlay={(track, index) => {
+                const list = newWaveTracks.filter((x) => x.audio_url);
+                const idx = list.findIndex((x) => x.id === track.id);
+                player.playQueue(list, idx >= 0 ? idx : index);
+              }}
+            />
+          ) : null}
+
+          {friendsListening.length > 0 ? (
+            <HomeShelf
+              kicker="With friends"
+              title="Friends listening"
+              seeAllHref="/following"
+              seeAllLabel="Following →"
+              tracks={friendsListening.map(
+                (t): ShelfTrack => ({
+                  ...t,
+                  subtitle: t.listener_name,
+                }),
+              )}
+              onPlay={(track, index) => {
+                const list = friendsListening.filter((x) => x.audio_url);
+                const idx = list.findIndex((x) => x.id === track.id);
+                player.playQueue(list, idx >= 0 ? idx : index);
+              }}
+            />
+          ) : null}
+        </div>
 
         <HearthPulse
           rooms={liveNow}

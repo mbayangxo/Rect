@@ -164,13 +164,14 @@ export function ImmersiveStage({
           ↓
         </button>
         <div className="immersion-top-meta">
-          <p className="immersion-eyebrow">Immersed</p>
+          <p className="immersion-eyebrow">Now playing</p>
           <p className="immersion-now">
-            {playing ? "Playing" : "Paused"} · RECT
+            {playing ? "Playing" : "Paused"}
+            {lines.length > 0 ? " · Lyrics" : ""}
           </p>
         </div>
-        <Link href={`/songs/${track.id}`} className="immersion-song-link">
-          Song page
+        <Link href={`/songs/${track.id}/card`} className="immersion-song-link">
+          Card
         </Link>
       </header>
 
@@ -237,7 +238,9 @@ export function ImmersiveStage({
 
         <div className="immersion-lyrics-col">
           {lines.length > 0 ? (
-            <div className="immersion-lyrics-scroll">
+            <>
+              <p className="immersion-lyrics-kicker">Lyrics</p>
+              <div className="immersion-lyrics-scroll">
               {lines.map((line, i) => (
                 <p
                   key={`${i}-${line.slice(0, 12)}`}
@@ -251,13 +254,14 @@ export function ImmersiveStage({
                   {line}
                 </p>
               ))}
-            </div>
+              </div>
+            </>
           ) : (
             <div className="immersion-lyrics-empty">
               <p className="immersion-lyrics-empty-t">No lyrics yet</p>
               <p className="immersion-lyrics-empty-b">
-                When the artist adds lyrics, they light up here with the
-                music — a RECT stage, not a tiny caption.
+                When the artist adds lyrics in Studio, they rise with the music
+                here — RECT’s stage, not a caption.
               </p>
             </div>
           )}
@@ -277,7 +281,7 @@ export function ImmersiveStage({
             className="immersion-range"
             aria-label="Seek"
             style={{
-              background: `linear-gradient(to right, #1DB954 ${pct}%, rgba(255,255,255,0.15) ${pct}%)`,
+              background: `linear-gradient(to right, var(--rect) ${pct}%, rgba(255,255,255,0.15) ${pct}%)`,
             }}
           />
           <span>{formatClock(duration)}</span>

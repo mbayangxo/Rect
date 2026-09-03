@@ -26,6 +26,7 @@ import {
   tasteFromProfile,
 } from "@/lib/dashboard/taste";
 import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
+import { loadNewWaveTracks } from "@/lib/dashboard/new-wave";
 import { loadPublicLiveNow } from "@/lib/dashboard/live-rooms";
 import {
   loadTrendingPortals,
@@ -104,6 +105,7 @@ export default async function DashboardPage() {
     liveNowRes,
     trendingTracksRes,
     trendingPortalsRes,
+    newWaveRes,
   ] = await Promise.all([
     loadFeaturedTracks(supabase, taste),
     loadArtistPortals(supabase, taste),
@@ -119,6 +121,7 @@ export default async function DashboardPage() {
     loadPublicLiveNow(supabase, 16),
     loadTrendingTracks(supabase, 10),
     loadTrendingPortals(supabase, 8),
+    loadNewWaveTracks(supabase, 12),
   ]);
 
   const releaseUnread = inboxRes.notifications.filter(
@@ -267,6 +270,7 @@ export default async function DashboardPage() {
       liveNow={liveNowRes.rooms}
       trendingTracks={trendingTracksRes.tracks}
       trendingPortals={trendingPortalsRes.portals}
+      newWaveTracks={newWaveRes.tracks}
     />
   );
 }

@@ -42,8 +42,8 @@ export function HearthPulse({
     <section className="hearth-pulse" aria-label="What's happening">
       <div className="hearth-zone-head">
         <div>
-          <p className="hearth-zone-kicker">Right now</p>
-          <h2 className="hearth-zone-title">The pulse</h2>
+          <p className="hearth-zone-kicker">Popular now</p>
+          <h2 className="hearth-zone-title">Trending</h2>
         </div>
         <Link href="/discover" className="hearth-zone-link">
           Full discover →
