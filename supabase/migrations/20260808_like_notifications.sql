@@ -9,7 +9,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in ('follow', 'tip', 'release', 'like'));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_track_like(p_track_id text)
 returns jsonb

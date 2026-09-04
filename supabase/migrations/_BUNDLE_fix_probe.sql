@@ -1,5 +1,5 @@
 -- RECT — fix Aug 8/9 social + studio probe gaps (one paste)
--- Generated: 2026-09-01T20:59:25.105Z
+-- Generated: 2026-09-04T15:50:12.240Z
 -- Files: 69
 -- Supabase SQL Editor → paste this entire file → Run
 
@@ -230,7 +230,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in ('follow', 'tip', 'release', 'like'));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_track_like(p_track_id text)
 returns jsonb
@@ -1623,9 +1626,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow', 'tip', 'release', 'like', 'comment', 'people_follow', 'playlist_follow'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_playlist_follow(p_playlist_id uuid)
 returns jsonb
@@ -1844,21 +1848,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.invite_playlist_collaborator(
   p_playlist_id uuid,
@@ -2938,25 +2931,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_playlist_comment(
   p_playlist_id uuid,
@@ -3117,27 +3095,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_playlist_comment_reply(
   p_parent_comment_id bigint,
@@ -3422,14 +3383,8 @@ alter table public.artist_notifications
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
   check (
-    kind in (
-      'follow',
-      'tip',
-      'release',
-      'like',
-      'comment',
-      'people_follow'
-    )
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
   );
 
 create or replace function public.notify_track_comment(
@@ -3552,18 +3507,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_comment_reply(
   p_parent_comment_id bigint,
@@ -3708,23 +3655,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.toggle_comment_like(p_comment_id bigint)
 returns jsonb
@@ -3939,22 +3873,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_playlist_collab_add(
   p_playlist_id uuid,
@@ -4466,35 +4388,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_track_listen(p_track_id text)
 returns jsonb
@@ -4634,36 +4531,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'activity_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_play_thanks(
   p_play_id text,
@@ -4852,37 +4723,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_like_thanks(
   p_liker_id uuid,
@@ -5075,38 +4919,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_mix_thanks(
   p_playlist_id uuid,
@@ -5261,39 +5077,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'comment_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create table if not exists public.comment_thanks (
   comment_id bigint not null references public.track_comments (id) on delete cascade,
@@ -5576,40 +5363,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'comment_thanks',
-    'playlist_comment_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create table if not exists public.playlist_comment_thanks (
   comment_id bigint not null references public.playlist_comments (id) on delete cascade,
@@ -6086,19 +5843,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 -- Optional link from notification → tip row
 alter table public.artist_notifications
@@ -6467,31 +6215,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_share_thanks(
   p_notification_id bigint,
@@ -6639,41 +6366,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'playlist_follow_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'comment_thanks',
-    'playlist_comment_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_playlist_follow_thanks(
   p_notification_id bigint,
@@ -6817,42 +6513,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'playlist_follow_thanks',
-    'people_follow_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'comment_thanks',
-    'playlist_comment_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_people_follow_thanks(
   p_notification_id bigint,
@@ -6993,46 +6657,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'playlist_follow_thanks',
-    'people_follow_thanks',
-    'follow_thanks',
-    'comment_like_thanks',
-    'playlist_comment_like_thanks',
-    'playlist_copy_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'comment_thanks',
-    'playlist_comment_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_follow_thanks(
   p_notification_id bigint,
@@ -7173,44 +6801,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'playlist_follow_thanks',
-    'people_follow_thanks',
-    'comment_like_thanks',
-    'playlist_comment_like_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'comment_thanks',
-    'playlist_comment_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_comment_like_thanks(
   p_notification_id bigint,
@@ -7880,7 +7474,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in ('follow', 'tip', 'release', 'like', 'comment', 'people_follow'));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_people_follow(p_person_id uuid)
 returns jsonb
@@ -7958,17 +7555,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_track_share(
   p_recipient_id uuid,
@@ -8182,32 +7772,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'friend_mix',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_friend_mix_published(
   p_playlist_id uuid
@@ -8330,33 +7898,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_playlist_copy(
   p_playlist_id uuid
@@ -8470,45 +8015,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'playlist_follow_thanks',
-    'people_follow_thanks',
-    'comment_like_thanks',
-    'playlist_comment_like_thanks',
-    'playlist_copy_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'comment_thanks',
-    'playlist_comment_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.send_playlist_copy_thanks(
   p_notification_id bigint,
@@ -9105,24 +8615,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'comment_like',
-    'playlist_track_add'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_playlist_followers_track_add(
   p_playlist_id uuid,
@@ -9244,34 +8740,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_playlist_collab_request(
   p_playlist_id uuid
@@ -9851,30 +9323,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.respond_playlist_collab(
   p_playlist_id uuid,

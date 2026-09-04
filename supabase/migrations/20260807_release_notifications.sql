@@ -12,7 +12,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in ('follow', 'tip', 'release'));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create index if not exists artist_notifications_track_id_idx
   on public.artist_notifications (track_id)

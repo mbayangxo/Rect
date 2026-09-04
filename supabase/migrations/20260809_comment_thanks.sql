@@ -13,39 +13,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'listen',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'share_thanks',
-    'activity_thanks',
-    'like_thanks',
-    'comment_thanks',
-    'mix_thanks',
-    'friend_mix',
-    'playlist_copy',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'playlist_collab_declined',
-    'playlist_collab_left',
-    'playlist_collab_removed',
-    'playlist_collab_request',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create table if not exists public.comment_thanks (
   comment_id bigint not null references public.track_comments (id) on delete cascade,
