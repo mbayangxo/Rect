@@ -13,18 +13,6 @@ export default async function NewWavePage() {
   } = await supabase.auth.getUser();
   const result = await loadNewWaveShows(supabase, user?.id ?? null, 24);
 
-  let isArtist = false;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("users")
-      .select("account_type, role")
-      .eq("id", user.id)
-      .maybeSingle();
-    const at = String(profile?.account_type || "").toLowerCase();
-    const role = String(profile?.role || "").toLowerCase();
-    isArtist = at === "artist" || role === "artist";
-  }
-
   return (
     <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
       <header className="border-b border-white/10">
@@ -37,8 +25,8 @@ export default async function NewWavePage() {
               New Wave
             </h1>
             <p className="mt-1 text-sm text-white/45">
-              Fresh radio shows on Wave — stations and live rooms worth tuning
-              into now.
+              New radio shows on Wave — fresh stations to tune into. Not music
+              drops (that&apos;s New Sounds).
             </p>
           </div>
           <div className="flex flex-col items-end gap-1 text-sm">
@@ -48,34 +36,10 @@ export default async function NewWavePage() {
             <Link href="/new-sounds" className="text-white/40 hover:text-white">
               New Sounds (music) →
             </Link>
-            {isArtist ? (
-              <Link
-                href="/studio/live"
-                className="mt-1 rounded-full border border-[var(--rect)]/40 px-3 py-1 text-xs font-medium text-[var(--rect)] hover:bg-[var(--rect)]/10"
-              >
-                Go live on Wave →
-              </Link>
-            ) : null}
           </div>
         </div>
       </header>
       <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8">
-        {isArtist ? (
-          <p className="mb-6 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/50">
-            Host a show: open{" "}
-            <Link href="/studio/live" className="text-[var(--rect)] hover:underline">
-              Live Room
-            </Link>{" "}
-            or{" "}
-            <Link
-              href="/studio/rect-live"
-              className="text-[var(--rect)] hover:underline"
-            >
-              RECT Live
-            </Link>{" "}
-            in Artist — your room appears here while you&apos;re live.
-          </p>
-        ) : null}
         <NewWaveShowsClient shows={result.shows} loadError={result.error} />
       </div>
     </main>
