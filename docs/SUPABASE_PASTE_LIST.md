@@ -102,6 +102,16 @@ npm run db:apply -- 20260831_artist_os_delivery_suite.sql
 
 ---
 
+## Mistaken paste (Kebu shop → RECT)
+
+If you pasted Kebu `APPLY_SHOP_ORDERS` / shop SQL into **RECT**, run:
+
+`supabase/migrations/_UNDO_KEBU_SHOP_FROM_RECT.sql`
+
+Then verify with `_VERIFY_RECT_CONNECTED.sql`. Do **not** paste Kebu SQL into RECT (or RECT SQL into Kebu).
+
+---
+
 ## Verify after paste
 
 ```bash
