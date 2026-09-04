@@ -7,68 +7,92 @@ import { RectLogo } from "@/components/rect-logo";
 type NavItem = { href: string; label: string; short: string };
 type NavSection = { title: string; items: NavItem[] };
 
-const SECTIONS: NavSection[] = [
-  {
-    title: "Catalog",
-    items: [
-      { href: "/studio/upload", label: "Upload", short: "Upload" },
-      { href: "/studio/tracks", label: "Tracks", short: "Tracks" },
-      { href: "/studio/portal", label: "World", short: "World" },
-    ],
-  },
-  {
-    title: "Delivery",
-    items: [
-      { href: "/studio/delivery", label: "Releases · DSP", short: "DSP" },
-      { href: "/studio/label", label: "RECT Label", short: "Label" },
-    ],
-  },
-  {
-    title: "Money",
-    items: [
-      { href: "/studio/wallet", label: "Wallet", short: "Wallet" },
-      { href: "/studio/accounting", label: "Accounting", short: "Books" },
-      { href: "/studio/store", label: "Store", short: "Store" },
-      { href: "/studio/tours", label: "Tours", short: "Tours" },
-    ],
-  },
-  {
-    title: "Insights",
-    items: [
-      { href: "/studio/analytics", label: "Analytics", short: "Stats" },
-    ],
-  },
-  {
-    title: "Presence",
-    items: [
-      { href: "/studio/live", label: "Live Room", short: "Live" },
-      { href: "/studio/rect-live", label: "RECT Live", short: "Pro" },
-      { href: "/parties", label: "Listening parties", short: "Party" },
-    ],
-  },
-];
+function buildSections(ownsLabel: boolean): NavSection[] {
+  const moneyItems: NavItem[] = [
+    { href: "/studio/wallet", label: "Business & Personal", short: "Wallets" },
+    { href: "/studio/accounting", label: "Accounting", short: "Books" },
+    { href: "/studio/store", label: "Store", short: "Store" },
+    { href: "/studio/tours", label: "Tours", short: "Tours" },
+  ];
 
-/** Mobile bottom bar — max 4 destinations + overflow in More (/studio). */
+  const sections: NavSection[] = [
+    {
+      title: "Catalog",
+      items: [
+        { href: "/studio/upload", label: "Upload", short: "Upload" },
+        { href: "/studio/tracks", label: "Tracks", short: "Tracks" },
+        { href: "/studio/portal", label: "World", short: "World" },
+      ],
+    },
+    {
+      title: "Delivery",
+      items: [
+        { href: "/studio/delivery", label: "Releases · DSP", short: "DSP" },
+      ],
+    },
+    {
+      title: "Money",
+      items: moneyItems,
+    },
+    {
+      title: "Insights",
+      items: [
+        { href: "/studio/analytics", label: "Analytics", short: "Stats" },
+      ],
+    },
+    {
+      title: "Presence",
+      items: [
+        { href: "/studio/live", label: "Live Room", short: "Live" },
+        { href: "/studio/rect-live", label: "RECT Live", short: "Pro" },
+        { href: "/parties", label: "Listening parties", short: "Party" },
+      ],
+    },
+  ];
+
+  // Label is its own org unit — wallet only for owners
+  sections.splice(2, 0, {
+    title: "Label",
+    items: ownsLabel
+      ? [
+          { href: "/studio/label", label: "Roster", short: "Roster" },
+          {
+            href: "/studio/label/wallet",
+            label: "Label wallet",
+            short: "Label $",
+          },
+        ]
+      : [{ href: "/studio/label", label: "RECT Label", short: "Label" }],
+  });
+
+  return sections;
+}
+
 const MOBILE_TABS: NavItem[] = [
   { href: "/studio/upload", label: "Upload", short: "Upload" },
   { href: "/studio/analytics", label: "Analytics", short: "Stats" },
-  { href: "/studio/wallet", label: "Wallet", short: "Money" },
+  { href: "/studio/wallet", label: "Wallets", short: "Money" },
   { href: "/studio", label: "More", short: "More" },
 ];
 
 type Props = {
   displayName: string;
+  ownsLabel?: boolean;
 };
 
 function isActive(pathname: string, href: string) {
   if (href === "/studio") {
     return pathname === "/studio" || pathname === "/studio/";
   }
+  if (href === "/studio/label") {
+    return pathname === "/studio/label" || pathname === "/studio/label/";
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function StudioNav({ displayName }: Props) {
+export function StudioNav({ displayName, ownsLabel = false }: Props) {
   const pathname = usePathname() ?? "";
+  const sections = buildSections(ownsLabel);
 
   return (
     <>
@@ -86,7 +110,7 @@ export function StudioNav({ displayName }: Props) {
           </p>
         </div>
         <nav className="flex flex-1 flex-col gap-4 overflow-y-auto p-3">
-          {SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.title}>
               <p className="mb-1 px-3 text-[0.55rem] font-semibold uppercase tracking-[0.2em] text-white/30">
                 {section.title}

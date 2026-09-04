@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { ArtistWalletSummary } from "@/lib/dashboard/artist-wallet";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  ArtistWalletSummary,
+  WalletLedgerRow,
+} from "@/lib/dashboard/artist-wallet";
 
 type Props = {
   initial: ArtistWalletSummary;
 };
 
+type Scope = "business" | "personal";
+
 export function StudioWalletDashboard({ initial }: Props) {
   const [wallet, setWallet] = useState(initial);
+  const [scope, setScope] = useState<Scope>("business");
   const [amount, setAmount] = useState("");
   const [phone, setPhone] = useState(initial.payoutPhone ?? "");
   const [pending, setPending] = useState(false);
@@ -32,6 +38,16 @@ export function StudioWalletDashboard({ initial }: Props) {
     return () => window.clearInterval(id);
   }, []);
 
+  const scopeBalance =
+    scope === "business" ? wallet.businessXof : wallet.personalXof;
+  const scopeLedger: WalletLedgerRow[] = useMemo(
+    () =>
+      scope === "business"
+        ? wallet.businessLedger ?? []
+        : wallet.personalLedger ?? [],
+    [scope, wallet.businessLedger, wallet.personalLedger],
+  );
+
   async function requestPayout() {
     setPending(true);
     setError(null);
@@ -43,6 +59,7 @@ export function StudioWalletDashboard({ initial }: Props) {
         body: JSON.stringify({
           amount_xof: Number(amount),
           payout_phone: phone,
+          scope,
         }),
       });
       const data = (await res.json()) as {
@@ -74,7 +91,9 @@ export function StudioWalletDashboard({ initial }: Props) {
         {wallet.error}
         <p className="mt-2 text-xs text-white/45">
           Run{" "}
-          <code className="text-[0.9em]">npm run db:apply -- 20260830_monetization_stack.sql</code>
+          <code className="text-[0.9em]">
+            npm run db:apply -- 20260830_monetization_stack.sql
+          </code>
         </p>
       </div>
     );
@@ -82,15 +101,65 @@ export function StudioWalletDashboard({ initial }: Props) {
 
   return (
     <div className="space-y-8">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Balance" value={`${wallet.balanceXof.toLocaleString()} XOF`} accent />
-        <Stat label="Streams" value={`${wallet.streamsXof.toLocaleString()} XOF`} />
-        <Stat label="Downloads" value={`${wallet.downloadsXof.toLocaleString()} XOF`} />
-        <Stat label="Merch" value={`${wallet.merchXof.toLocaleString()} XOF`} />
-        <Stat label="Fan club" value={`${wallet.fanClubXof.toLocaleString()} XOF`} />
-        <Stat label="Tickets" value={`${wallet.ticketsXof.toLocaleString()} XOF`} />
-        <Stat label="Tips" value={`${wallet.tipsXof.toLocaleString()} XOF`} />
-        <Stat label="Pending payout" value={`${wallet.payoutsPendingXof.toLocaleString()} XOF`} />
+      <div className="flex gap-2 rounded-full border border-white/10 bg-white/[0.03] p-1">
+        <ScopeTab
+          active={scope === "business"}
+          onClick={() => setScope("business")}
+          label="Business wallet"
+          sub={`${wallet.businessXof.toLocaleString()} XOF`}
+        />
+        <ScopeTab
+          active={scope === "personal"}
+          onClick={() => setScope("personal")}
+          label="Personal wallet"
+          sub={`${wallet.personalXof.toLocaleString()} XOF`}
+        />
+      </div>
+
+      <p className="text-xs text-white/40">
+        {scope === "business"
+          ? "Business wallet — catalog streams, downloads, merch, fan club, and tickets. Label earnings live on Label wallet (owners only)."
+          : "Personal wallet — tips and fan support to you as a person. Separate from business catalog revenue."}
+      </p>
+
+      {scope === "business" ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Stat
+            label="Business balance"
+            value={`${wallet.businessXof.toLocaleString()} XOF`}
+            accent
+          />
+          <Stat label="Streams" value={`${wallet.streamsXof.toLocaleString()} XOF`} />
+          <Stat
+            label="Downloads"
+            value={`${wallet.downloadsXof.toLocaleString()} XOF`}
+          />
+          <Stat label="Merch" value={`${wallet.merchXof.toLocaleString()} XOF`} />
+          <Stat
+            label="Fan club"
+            value={`${wallet.fanClubXof.toLocaleString()} XOF`}
+          />
+          <Stat
+            label="Tickets"
+            value={`${wallet.ticketsXof.toLocaleString()} XOF`}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <Stat
+            label="Personal balance"
+            value={`${wallet.personalXof.toLocaleString()} XOF`}
+            accent
+          />
+          <Stat label="Tips" value={`${wallet.tipsXof.toLocaleString()} XOF`} />
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Stat
+          label="Pending payout"
+          value={`${wallet.payoutsPendingXof.toLocaleString()} XOF`}
+        />
         <Stat
           label="Next payout window"
           value={
@@ -101,18 +170,12 @@ export function StudioWalletDashboard({ initial }: Props) {
         />
       </div>
 
-      <p className="text-xs text-white/35">
-        Live balance refreshes every 5 seconds. Fan money flows through JOKO
-        (streams, downloads, merch, fan club, tips via Wave / Orange / MTN / JOKO
-        wallet / debit) and FEKK (tour tickets).
-      </p>
-
       <section className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-5">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">
-          Request JOKO payout
+          Request JOKO payout · {scope === "business" ? "Business" : "Personal"}
         </h2>
         <p className="mt-1 text-xs text-white/35">
-          Minimum 500 XOF · requested / pending settlement until JOKO pays out
+          Available now: {scopeBalance.toLocaleString()} XOF · minimum 500 XOF
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="block text-xs text-white/45">
@@ -136,35 +199,41 @@ export function StudioWalletDashboard({ initial }: Props) {
           </label>
         </div>
         {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
-        {message ? <p className="mt-3 text-sm text-[#1DB954]">{message}</p> : null}
+        {message ? (
+          <p className="mt-3 text-sm text-[var(--rect)]">{message}</p>
+        ) : null}
         <button
           type="button"
           disabled={pending}
           onClick={() => void requestPayout()}
-          className="mt-4 rounded-full bg-[#1DB954] px-6 py-2.5 text-sm font-semibold text-black disabled:opacity-50"
+          className="mt-4 rounded-full bg-[var(--rect)] px-6 py-2.5 text-sm font-semibold text-black disabled:opacity-50"
         >
           {pending ? "Requesting…" : "Request payout via JOKO"}
         </button>
       </section>
 
-      {wallet.ledger.length > 0 ? (
+      {scopeLedger.length > 0 ? (
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wider text-white/45">
-            Recent earnings
+            Recent · {scope === "business" ? "Business" : "Personal"}
           </h2>
           <ul className="mt-3 space-y-2">
-            {wallet.ledger.map((row) => (
+            {scopeLedger.map((row) => (
               <li
                 key={row.id}
                 className="flex items-center justify-between rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm"
               >
                 <span className="text-white/70">
                   {row.description ?? row.kind}
-                  <span className="ml-2 text-xs uppercase text-white/30">{row.kind}</span>
+                  <span className="ml-2 text-xs uppercase text-white/30">
+                    {row.kind}
+                  </span>
                 </span>
                 <span
-                  className={`tabular-nums font-medium ${
-                    row.amountXof >= 0 ? "text-[#1DB954]" : "text-[#F5A623]"
+                  className={`font-medium tabular-nums ${
+                    row.amountXof >= 0
+                      ? "text-[var(--rect)]"
+                      : "text-[#F5A623]"
                   }`}
                 >
                   {row.amountXof >= 0 ? "+" : ""}
@@ -176,7 +245,9 @@ export function StudioWalletDashboard({ initial }: Props) {
         </section>
       ) : (
         <p className="text-sm text-white/35">
-          No wallet ledger entries yet — earnings appear after fan plays, downloads, merch, or fan club payments.
+          {scope === "business"
+            ? "No business earnings yet — streams, downloads, merch, and tickets land here."
+            : "No personal tips yet — fan support to you appears here."}
         </p>
       )}
 
@@ -191,12 +262,14 @@ export function StudioWalletDashboard({ initial }: Props) {
                 key={p.id}
                 className="flex items-center justify-between rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm"
               >
-                <span>
-                  {p.amountXof.toLocaleString()} XOF
-                  <span className="ml-2 text-xs text-white/35">{p.status}</span>
+                <span className="text-white/60">
+                  {p.status}
+                  {p.scheduledFor
+                    ? ` · ${new Date(p.scheduledFor).toLocaleDateString()}`
+                    : ""}
                 </span>
-                <span className="text-xs text-white/40">
-                  {new Date(p.createdAt).toLocaleDateString()}
+                <span className="tabular-nums text-white/80">
+                  {p.amountXof.toLocaleString()} XOF
                 </span>
               </li>
             ))}
@@ -207,21 +280,50 @@ export function StudioWalletDashboard({ initial }: Props) {
   );
 }
 
+function ScopeTab({
+  active,
+  onClick,
+  label,
+  sub,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  sub: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-1 flex-col items-start rounded-full px-4 py-2.5 text-left transition ${
+        active
+          ? "bg-[var(--rect)]/20 text-[var(--rect)]"
+          : "text-white/45 hover:text-white"
+      }`}
+    >
+      <span className="text-xs font-semibold">{label}</span>
+      <span className="text-[0.65rem] tabular-nums opacity-80">{sub}</span>
+    </button>
+  );
+}
+
 function Stat({
   label,
   value,
-  accent = false,
+  accent,
 }: {
   label: string;
   value: string;
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
-      <p className="text-[0.65rem] uppercase tracking-wider text-white/40">{label}</p>
+    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3">
+      <p className="text-[0.65rem] uppercase tracking-wider text-white/35">
+        {label}
+      </p>
       <p
-        className={`mt-1 text-lg font-semibold tabular-nums ${
-          accent ? "text-[#1DB954]" : ""
+        className={`mt-1 text-sm font-semibold tabular-nums ${
+          accent ? "text-[var(--rect)]" : "text-white"
         }`}
       >
         {value}

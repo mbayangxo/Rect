@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { StudioLabelsClient } from "@/components/studio/studio-labels-client";
 import {
   loadArtistLabelMemberships,
@@ -26,9 +27,18 @@ export default async function StudioLabelsPage() {
         Labels & roster
       </h1>
       <p className="mt-2 text-sm text-white/45">
-        Mutual accept only — both label and artist must say yes. Splits and
-        rollup analytics come after roster is solid.
+        Mutual accept only — both label and artist must say yes. Roster split %
+        credits the <span className="text-white/70">Label wallet</span> (owners
+        only) — never fans or regular artist Business/Personal wallets.
       </p>
+      {owned.label ? (
+        <Link
+          href="/studio/label/wallet"
+          className="mt-4 inline-flex text-sm text-[var(--rect)] hover:underline"
+        >
+          Open Label wallet →
+        </Link>
+      ) : null}
       <div className="mt-8">
         <StudioLabelsClient
           label={owned.label}
@@ -38,6 +48,9 @@ export default async function StudioLabelsPage() {
           userId={userId}
         />
       </div>
+    </>
+  );
+}
     </>
   );
 }

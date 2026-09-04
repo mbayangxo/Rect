@@ -76,6 +76,7 @@ Individual files (if you prefer):
 | 23 | **`20260904_hearing_aids_and_punch.sql`** | Podcasts (`content_kind`) + RECT Punch columns |
 | 24 | **`20260904_listener_behavior_affinity.sql`** | Behavior affinity RPC + play progress (`listened_secs`) |
 | 25 | **`20260904_label_revenue_split_wallet.sql`** | Label split % → auto wallet credit on streams/tips/etc. |
+| 26 | **`20260904_wallets_personal_business_label.sql`** | Personal + Business artist wallets · Label wallet tables (owners only) |
 
 Optional extras:
 

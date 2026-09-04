@@ -9,8 +9,17 @@ const LINKS = [
   { href: "/studio/portal", label: "World", hint: "Decorate your portal" },
   { href: "/studio/delivery", label: "DSP Delivery", hint: "Via Taali" },
   { href: "/studio/label", label: "RECT Label", hint: "Roster · mutual accept" },
+  {
+    href: "/studio/label/wallet",
+    label: "Label wallet",
+    hint: "Owners only · roster splits",
+  },
   { href: "/studio/analytics", label: "Analytics", hint: "Listeners & plays" },
-  { href: "/studio/wallet", label: "Wallet", hint: "JOKO payouts" },
+  {
+    href: "/studio/wallet",
+    label: "Business & Personal",
+    hint: "Artist wallets · JOKO",
+  },
   { href: "/studio/accounting", label: "Accounting", hint: "Monthly books" },
   { href: "/studio/store", label: "Store", hint: "Merch" },
   { href: "/studio/tours", label: "Tours", hint: "Events & tickets" },

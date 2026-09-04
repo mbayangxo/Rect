@@ -110,5 +110,6 @@ Listen loop · Wave / New Wave · New Sounds · Hearing Aids · Inbox · Parties
 - Label invite by **artist name search** (not UUID-only)  
 - Home / Discover: Live Rooms **and** RECT Lives trend by viewers  
 - Home **Trending** + **Discover**: New Wave, New Sounds, Hearing Aids, and all sonic shelves that are hot right now  
+- **Wallets separated:** fans = play credits; artists = Business + Personal; label owners = Label wallet
 - Player: compact bottom bar (no auto-immerse); Home no giant mid-page player; RECT gold on key surfaces  
 - Showcase artists/songs/lyrics when the live catalog is empty
