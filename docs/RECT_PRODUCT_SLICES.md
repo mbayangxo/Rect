@@ -69,6 +69,11 @@ Still need these if not already run (see `docs/SUPABASE_PASTE_LIST.md`):
 
 ## Out of scope / later (not blockers)
 
-- Label revenue split → wallet automation  
-- New Wave as a full show-builder (today: stations + live rooms discovery)  
-- Consumer “learning” settings UI (ranking already uses behavior)
+- Label revenue split → wallet automation (split % is stored; invite + accept UX is live)  
+- Full New Wave show-builder (host path: Live Room / RECT Live → appears on New Wave)
+
+## Polish shipped
+
+- Profile **Listening taste** — learned genres / languages / dayparts from plays  
+- Label invite by **artist name search** (not UUID-only)  
+- New Wave **Go live** CTA for artists → `/studio/live`

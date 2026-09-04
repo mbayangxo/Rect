@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/components/app-bottom-nav";
+import { ProfileListeningTaste } from "@/components/profile-listening-taste";
 import { ProfileSettings } from "@/components/profile-settings";
 import { RectLogo } from "@/components/rect-logo";
 import { loadBlockedPeople } from "@/lib/dashboard/blocks";
@@ -176,6 +177,8 @@ export default async function ProfilePage() {
           </Link>
         </div>
       </div>
+
+      <ProfileListeningTaste />
 
       <ProfileSettings
         displayName={displayName}

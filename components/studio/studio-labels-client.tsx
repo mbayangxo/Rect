@@ -1,8 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LabelMembership, RectLabel } from "@/lib/dashboard/rect-labels";
+
+type ArtistHit = {
+  id: string;
+  display_name: string;
+  avatar_url: string | null;
+};
 
 type Props = {
   label: RectLabel | null;
@@ -21,11 +27,56 @@ export function StudioLabelsClient({
 }: Props) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [artistQuery, setArtistQuery] = useState("");
   const [artistId, setArtistId] = useState("");
+  const [artistLabel, setArtistLabel] = useState("");
+  const [hits, setHits] = useState<ArtistHit[]>([]);
+  const [searching, setSearching] = useState(false);
   const [splitPct, setSplitPct] = useState("20");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (artistId) {
+      setHits([]);
+      return;
+    }
+    const q = artistQuery.trim();
+    if (q.length < 2) {
+      setHits([]);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      setSearching(true);
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/labels/search-artists?q=${encodeURIComponent(q)}`,
+          );
+          const data = (await res.json()) as {
+            artists?: ArtistHit[];
+            error?: string;
+          };
+          if (cancelled) return;
+          if (!res.ok) {
+            setHits([]);
+            return;
+          }
+          setHits(data.artists ?? []);
+        } catch {
+          if (!cancelled) setHits([]);
+        } finally {
+          if (!cancelled) setSearching(false);
+        }
+      })();
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [artistQuery, artistId]);
 
   async function createLabel() {
     setPending(true);
@@ -71,6 +122,9 @@ export function StudioLabelsClient({
         return;
       }
       setArtistId("");
+      setArtistLabel("");
+      setArtistQuery("");
+      setHits([]);
       setMessage("Invite sent — waiting for artist accept.");
       router.refresh();
     } catch (e) {
@@ -115,7 +169,6 @@ export function StudioLabelsClient({
       (m) => m.status === "pending" && m.awaiting_user_id === userId,
     ),
   ];
-  // de-dupe by id
   const pendingUnique = [
     ...new Map(pendingForMe.map((m) => [m.id, m])).values(),
   ];
@@ -167,12 +220,54 @@ export function StudioLabelsClient({
             </h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-            <input
-              value={artistId}
-              onChange={(e) => setArtistId(e.target.value)}
-              placeholder="Artist user id (UUID)"
-              className="rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[var(--rect)]/50"
-            />
+            <div className="relative">
+              <input
+                value={artistId ? artistLabel : artistQuery}
+                onChange={(e) => {
+                  setArtistId("");
+                  setArtistLabel("");
+                  setArtistQuery(e.target.value);
+                }}
+                placeholder="Search artist by name"
+                className="w-full rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[var(--rect)]/50"
+                autoComplete="off"
+              />
+              {searching ? (
+                <p className="mt-1 text-[0.65rem] text-white/35">Searching…</p>
+              ) : null}
+              {hits.length > 0 && !artistId ? (
+                <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-white/15 bg-[#0a120c] shadow-lg">
+                  {hits.map((h) => (
+                    <li key={h.id}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-white/[0.06]"
+                        onClick={() => {
+                          setArtistId(h.id);
+                          setArtistLabel(h.display_name);
+                          setArtistQuery(h.display_name);
+                          setHits([]);
+                        }}
+                      >
+                        {h.avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={h.avatar_url}
+                            alt=""
+                            className="h-7 w-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-[0.65rem]">
+                            {h.display_name.slice(0, 1).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="truncate">{h.display_name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
             <input
               type="number"
               min={0}
@@ -192,8 +287,8 @@ export function StudioLabelsClient({
             </button>
           </div>
           <p className="text-xs text-white/35">
-            Split % is the label share (artist keeps the rest). Locked after both
-            accept — editable later in money tools.
+            Search by artist display name. Split % is the label share (artist
+            keeps the rest).
           </p>
         </section>
       )}
@@ -210,7 +305,8 @@ export function StudioLabelsClient({
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 px-4 py-3"
               >
                 <span className="text-sm">
-                  {m.label_name || "Label"} ↔ {m.artist_name || m.artist_id.slice(0, 8)}
+                  {m.label_name || "Label"} ↔{" "}
+                  {m.artist_name || m.artist_id.slice(0, 8)}
                   <span className="text-white/35">
                     {" "}
                     · {m.revenue_split_label_pct}% label
