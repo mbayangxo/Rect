@@ -128,6 +128,8 @@ export const ARTIST_OS = [
   "20260903_track_audio_qc.sql",
   "20260904_hearing_aids_and_punch.sql",
   "20260904_listener_behavior_affinity.sql",
+  "20260904_label_revenue_split_wallet.sql",
+  "20260904_wallets_personal_business_label.sql",
 ];
 
 /** Full RECT schema (core → social → studio → artist OS). Skips seed/probe bundles. */
