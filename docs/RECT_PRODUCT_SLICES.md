@@ -109,4 +109,5 @@ Listen loop · Wave / New Wave (radio) · New Sounds · Hearing Aids · Inbox ·
 
 - Profile **Listening taste** — learned genres / languages / dayparts from plays  
 - Label invite by **artist name search** (not UUID-only)  
-- Home / Discover: Live Rooms **and** RECT Lives trend by viewers
+- Home / Discover: Live Rooms **and** RECT Lives trend by viewers  
+- Home **Trending** + **Discover**: New Wave, New Sounds, Hearing Aids, and all sonic shelves that are hot right now

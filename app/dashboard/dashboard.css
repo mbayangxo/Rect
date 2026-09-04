@@ -1713,6 +1713,29 @@
   color: var(--w3);
 }
 
+.hearth-pulse-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.hearth-pulse-label-row .hearth-pulse-label {
+  margin: 0;
+}
+
+.hearth-pulse-more {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: var(--rect, #1db954);
+  text-decoration: none;
+}
+
+.hearth-pulse-more:hover {
+  text-decoration: underline;
+}
+
 .hearth-live-dot {
   width: 6px;
   height: 6px;

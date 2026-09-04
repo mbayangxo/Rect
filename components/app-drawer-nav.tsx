@@ -74,6 +74,7 @@ export function AppDrawerNav({
         title="Search"
         items={[
           { href: "/search", label: "Search & browse" },
+          { href: "/discover", label: "Discover · trending" },
           { href: "/radio", label: "Wave · radio" },
           { href: "/new-wave", label: "New Wave · shows" },
           { href: "/hearing-aids", label: "Hearing Aids" },

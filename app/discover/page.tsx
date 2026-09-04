@@ -161,14 +161,15 @@ export default async function DiscoverPage() {
       <div className="mx-auto w-full max-w-5xl space-y-10 px-5 py-10 sm:px-8">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            Home · Discover
+            Home · Discover · Trending
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight">
             Discover
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
-            Live Rooms & RECT Live, New Wave, New Sounds, your city, THE
-            ALKEBULAN, Your Wave, mood mixes, Fan mixes, and Hearing Aids.
+            Everything sonically trending on RECT — Live Rooms & RECT Live, New
+            Wave, New Sounds, your city, THE ALKEBULAN, Your Wave, mood mixes,
+            Fan mixes, Hearing Aids, and Worlds.
           </p>
         </div>
 

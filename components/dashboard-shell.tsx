@@ -512,6 +512,9 @@ export function DashboardShell({
           trendingTracks={trendingTracks}
           trendingPortals={trendingPortals}
           featured={featured}
+          newWaveShows={newWaveShows}
+          newSoundsTracks={newSoundsTracks}
+          hearingAids={hearingAids}
         />
 
         <div className="dash-layout flex flex-col gap-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-10">
