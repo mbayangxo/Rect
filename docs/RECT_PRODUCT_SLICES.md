@@ -7,7 +7,7 @@ Work **slice by slice, end to end** — no half-wired surfaces.
 | Name | What it is | Route today |
 |------|------------|-------------|
 | **Wave** | Live / visual **radio** (shows, stations, now-playing). Same as Radio — not a second product. | `/radio` |
-| **New Wave** | **New radio shows** on Wave (stations + live rooms). Not music launches. | `/new-wave` |
+| **New Wave** | **New radio shows** on Wave (discovery → Wave stations). Not music launches. | `/new-wave` |
 | **New Sounds** | Music launch shelf (scheduled track drops). | `/new-sounds` |
 | **Hearing Aids** | **Podcasts / talk episodes** (on-demand). Not the social inbox. | `/hearing-aids` |
 | **Inbox** | Social notifications (follows, shares, tips…). | `/inbox` (`/hearing-aid` redirects here) |
