@@ -216,26 +216,63 @@ export async function submitDistributionRelease(
     return { ok: false, error: "Release has no tracks." };
   }
 
-  const { data: tracks, error: tracksErr } = await supabase
-    .from("tracks")
-    .select("id, title, audio_url, isrc_code")
-    .in("id", trackIds)
-    .eq("artist_id", artistId);
+  type TrackAudioRow = {
+    id: unknown;
+    title: unknown;
+    audio_url: unknown;
+    isrc_code?: unknown;
+    punch_status?: unknown;
+    punch_audio_url?: unknown;
+  };
 
-  if (tracksErr) return { ok: false, error: tracksErr.message };
+  let trackRows: TrackAudioRow[] = [];
+  {
+    const full = await supabase
+      .from("tracks")
+      .select("id, title, audio_url, isrc_code, punch_status, punch_audio_url")
+      .in("id", trackIds)
+      .eq("artist_id", artistId);
+    if (
+      full.error &&
+      /punch_status|punch_audio_url|column .* does not exist/i.test(
+        full.error.message,
+      )
+    ) {
+      const lean = await supabase
+        .from("tracks")
+        .select("id, title, audio_url, isrc_code")
+        .in("id", trackIds)
+        .eq("artist_id", artistId);
+      if (lean.error) return { ok: false, error: lean.error.message };
+      trackRows = (lean.data ?? []) as TrackAudioRow[];
+    } else if (full.error) {
+      return { ok: false, error: full.error.message };
+    } else {
+      trackRows = (full.data ?? []) as TrackAudioRow[];
+    }
+  }
 
-  const byId = new Map((tracks ?? []).map((t) => [String(t.id), t]));
+  const byId = new Map(trackRows.map((t) => [String(t.id), t]));
   const payloadTracks = (links ?? [])
     .map((l) => {
       const t = byId.get(String(l.track_id));
-      if (!t?.audio_url) return null;
+      if (!t) return null;
+      const punched =
+        String(t.punch_status ?? "") === "ready" &&
+        typeof t.punch_audio_url === "string" &&
+        t.punch_audio_url.trim()
+          ? t.punch_audio_url.trim()
+          : null;
+      const audioUrl =
+        punched || (typeof t.audio_url === "string" ? t.audio_url : null);
+      if (!audioUrl) return null;
       return {
         trackId: String(t.id),
         title: String(t.title ?? "Track"),
         isrc:
           (typeof l.isrc === "string" && l.isrc) ||
           (typeof t.isrc_code === "string" ? t.isrc_code : null),
-        audioUrl: String(t.audio_url),
+        audioUrl,
         trackNumber: Number(l.track_number) || 1,
       };
     })

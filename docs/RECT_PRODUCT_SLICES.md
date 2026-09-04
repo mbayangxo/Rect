@@ -9,40 +9,36 @@ Work **slice by slice, end to end** — no half-wired surfaces.
 | **Wave** | Live / visual **radio** (shows, stations, now-playing). Same as Radio — not a second product. | `/radio` |
 | **New Wave** | **New radio shows** on Wave (stations + live rooms). Not music launches. | `/new-wave` |
 | **New Sounds** | Music launch shelf (scheduled track drops). | `/new-sounds` |
-| **Hearing Aids** | **Podcasts / talk episodes** (on-demand). Not the social inbox. | TBD under Wave → Hearing Aids |
-| **Inbox** | Social notifications (follows, shares, tips…). | `/inbox` |
+| **Hearing Aids** | **Podcasts / talk episodes** (on-demand). Not the social inbox. | `/hearing-aids` |
+| **Inbox** | Social notifications (follows, shares, tips…). | `/inbox` (`/hearing-aid` redirects here) |
 | **RECT Music** | Fan listening app (plays, wallet via JOKO, Wave, library). | this app (consumer) |
 | **RECT Artist** | **Separate site** for artists (upload, World, store, wallet, analytics). Not a drawer item inside RECT Music. Entry: `/for-artists` → `/studio`. | `/studio` |
-| **RECT Label** | Future: mutual accept with artists, roster, splits. | TBD |
+| **RECT Label** | Mutual accept, roster · `/studio/label` | `/studio/label` |
+| **RECT Punch** | Optional mastering after Upload QC; Delivery prefers punched master for Taali. | request on upload / tracks |
 | **Taali** | Separate distribution company/API. RECT submits releases; Taali delivers to DSPs. | `taali/` |
 
-## Slice order
+## Slice order (status)
 
-1. **Listen loop polish** — nav, Home shelves, Search chips, listening card, player + lyrics, RECT aesthetic  
-2. **Naming + Artist site split** — New Sounds / New Wave / RECT Artist separate from Music  
-3. **Decorate my World** — photos, likeness, portal layout end to end  
-4. **Decorate store** — templates + merch products end to end  
-5. **Listening parties** — host / join / chat / gifs · `/parties`  
-6. **RECT Labels** — mutual accept, roster · `/studio/label` (splits analytics later)  
-7. **Analytics 1–5** — completion (live), geo (partial), funnel/compare/label rollup next  
-8. **Upload QC + RECT Punch** — LUFS / peak / silence gates live on upload + publish; RECT Punch mastering preset later  
+1. **Listen loop polish** — done  
+2. **Naming + Artist site split** — done  
+3. **Decorate my World** — done  
+4. **Decorate store** — done  
+5. **Listening parties** — done (`/parties`)  
+6. **RECT Labels** — done (mutual accept + roster)  
+7. **Analytics** — completion, geo (partial), funnel, compare, label rollup — done  
+8. **Upload QC** — LUFS / peak / silence gates — done  
+9. **Hearing Aids** — podcasts — done (`/hearing-aids`)  
+10. **RECT Punch** — request queue + Delivery prefers `punch_audio_url` when ready; partner mastering fills the file later  
 
-## Upload QC (what it means)
+## Upload QC + Punch
 
-Before a track goes live (or to Taali), we **measure the audio file**:
-
-- Sample rate / channels  
-- Loudness (LUFS) — aim ~−14 integrated (stream-safe)  
-- True peak ≤ −1 dBTP (no clipping on DSP)  
-- Silence / junk detection  
-
-**Gate go-live:** warn or block publish if too quiet, clipping, or broken.  
-**RECT Punch:** optional mastering preset / partner so RECT has a signature (like Apple’s bass bias) — *after* core listen loop is stable.  
-**DSP path:** Taali ships the **mastered** file, not a phone demo.
+- Measure on upload: sample rate, LUFS (~−14), true peak ≤ −1 dBTP, silence  
+- Fail → draft + block Publish  
+- Punch: optional request after QC; Taali ships punched master when `punch_status=ready`  
 
 ## RECT Music vs RECT Artist
 
 - Fans use **RECT Music**.  
-- Artists enter **RECT Artist** via `/for-artists` (not nested as a casual Music feature).  
-- Labels are **RECT Label** (later): invite/accept artists, shared analytics + money splits. Both sides must accept.  
+- Artists enter **RECT Artist** via `/for-artists`.  
+- Labels: invite/accept both sides.  
 - Taali is infrastructure, not a RECT account type.

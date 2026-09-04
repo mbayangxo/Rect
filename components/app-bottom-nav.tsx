@@ -20,6 +20,7 @@ const TABS = [
       p.startsWith("/charts") ||
       p.startsWith("/new") ||
       p.startsWith("/parties") ||
+      p.startsWith("/hearing-aids") ||
       p.startsWith("/genres") ||
       p.startsWith("/places") ||
       p.startsWith("/languages"),
@@ -42,7 +43,6 @@ const TABS = [
     match: (p: string) =>
       p.startsWith("/profile") ||
       p.startsWith("/inbox") ||
-      p.startsWith("/hearing-aid") ||
       p.startsWith("/messages"),
     icon: "●",
   },

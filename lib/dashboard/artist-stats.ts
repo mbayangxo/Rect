@@ -72,7 +72,7 @@ export async function loadArtistStudioStats(
     const { data: trackData, error: trackError } = await db
       .from("tracks")
       .select(
-        "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code, qc_status, qc_lufs_integrated, qc_true_peak_dbtp, qc_issues",
+        "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code, qc_status, qc_lufs_integrated, qc_true_peak_dbtp, qc_issues, content_kind, punch_status, punch_audio_url",
       )
       .eq("artist_id", artistId)
       .order("created_at", { ascending: false });
@@ -81,35 +81,24 @@ export async function loadArtistStudioStats(
     let rowsError = trackError;
     if (
       trackError &&
-      /qc_status|qc_lufs|qc_true_peak|qc_issues|download_price_xof|lyrics|language|launch_at|isrc_code|upc_code|column .* does not exist/i.test(
+      /content_kind|punch_status|punch_audio_url|qc_status|qc_lufs|qc_true_peak|qc_issues|download_price_xof|lyrics|language|launch_at|isrc_code|upc_code|column .* does not exist/i.test(
         trackError.message,
       )
     ) {
-      const mid = await db
-        .from("tracks")
-        .select(
-          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code",
-        )
-        .eq("artist_id", artistId)
-        .order("created_at", { ascending: false });
-      if (
-        mid.error &&
-        /download_price_xof|lyrics|language|launch_at|isrc_code|upc_code|column .* does not exist/i.test(
-          mid.error.message,
-        )
-      ) {
-        const lean = await db
+      const attempts = [
+        "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code, qc_status, qc_lufs_integrated, qc_true_peak_dbtp, qc_issues",
+        "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at, isrc_code, upc_code",
+        "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
+      ];
+      for (const cols of attempts) {
+        const retry = await db
           .from("tracks")
-          .select(
-            "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-          )
+          .select(cols)
           .eq("artist_id", artistId)
           .order("created_at", { ascending: false });
-        rowsSource = lean.data as typeof rowsSource;
-        rowsError = lean.error;
-      } else {
-        rowsSource = mid.data as typeof rowsSource;
-        rowsError = mid.error;
+        rowsSource = retry.data as typeof rowsSource;
+        rowsError = retry.error;
+        if (!rowsError) break;
       }
     }
 

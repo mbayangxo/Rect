@@ -39,7 +39,7 @@ export async function loadNewSoundsTracks(
       const { data: tracks } = await db
         .from("tracks")
         .select(
-          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at",
+          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at, content_kind",
         )
         .in("id", ids);
 
@@ -74,7 +74,7 @@ export async function loadNewSoundsTracks(
   const { data, error } = await db
     .from("tracks")
     .select(
-      "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at",
+      "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at, content_kind",
     )
     .or("status.eq.live,status.eq.published,status.is.null")
     .not("audio_url", "is", null)
@@ -82,6 +82,64 @@ export async function loadNewSoundsTracks(
     .limit(Math.max(limit * 2, 60));
 
   if (error) {
+    // Missing content_kind column — fall back without podcast filter.
+    if (/content_kind|column .* does not exist/i.test(error.message)) {
+      const lean = await db
+        .from("tracks")
+        .select(
+          "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at",
+        )
+        .or("status.eq.live,status.eq.published,status.is.null")
+        .not("audio_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(Math.max(limit * 2, 60));
+      if (lean.error) {
+        // retry without launch_at
+        const bare = await db
+          .from("tracks")
+          .select(
+            "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at",
+          )
+          .or("status.eq.live,status.eq.published,status.is.null")
+          .not("audio_url", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(Math.max(limit * 2, 60));
+        if (bare.error) {
+          return { tracks: [], error: bare.error.message, viaRpc: false };
+        }
+        const rows = ((bare.data ?? []) as TrackRow[])
+          .filter(
+            (t) => isPublishedTrack(t) && !isDemoTrack(t) && isTrackLaunched(t),
+          )
+          .slice(0, limit);
+        return {
+          tracks: await enrich(db, rows, new Map()),
+          error: null,
+          viaRpc: false,
+        };
+      }
+      const rows = ((lean.data ?? []) as TrackRow[])
+        .filter(
+          (t) => isPublishedTrack(t) && !isDemoTrack(t) && isTrackLaunched(t),
+        )
+        .sort((a, b) => {
+          const aAt = a.launch_at || a.created_at || "";
+          const bAt = b.launch_at || b.created_at || "";
+          return bAt.localeCompare(aAt);
+        })
+        .slice(0, limit);
+      const launchAt = new Map(
+        rows.map((t) => [
+          t.id,
+          (t.launch_at || t.created_at || null) as string | null,
+        ]),
+      );
+      return {
+        tracks: await enrich(db, rows, launchAt),
+        error: null,
+        viaRpc: false,
+      };
+    }
     const lean = await db
       .from("tracks")
       .select(
@@ -105,7 +163,13 @@ export async function loadNewSoundsTracks(
   }
 
   const rows = ((data ?? []) as TrackRow[])
-    .filter((t) => isPublishedTrack(t) && !isDemoTrack(t) && isTrackLaunched(t))
+    .filter(
+      (t) =>
+        isPublishedTrack(t) &&
+        !isDemoTrack(t) &&
+        isTrackLaunched(t) &&
+        (t.content_kind || "music") !== "podcast",
+    )
     .sort((a, b) => {
       const aAt = a.launch_at || a.created_at || "";
       const bAt = b.launch_at || b.created_at || "";

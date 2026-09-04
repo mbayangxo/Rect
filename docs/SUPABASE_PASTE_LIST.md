@@ -73,6 +73,7 @@ Individual files (if you prefer):
 | 20 | **`20260903_listening_parties.sql`** | Listening parties host/join/chat |
 | 21 | **`20260903_rect_labels.sql`** | RECT Labels mutual accept + roster |
 | 22 | **`20260903_track_audio_qc.sql`** | Upload QC (LUFS / peak / silence) |
+| 23 | **`20260904_hearing_aids_and_punch.sql`** | Podcasts (`content_kind`) + RECT Punch columns |
 
 Optional extras:
 

@@ -6,6 +6,7 @@ import { useState } from "react";
 import { TrackCover } from "@/components/track-cover";
 import { TrackDownloadPriceEditor } from "@/components/studio/track-download-price-editor";
 import { TrackLyricsEditor } from "@/components/studio/track-lyrics-editor";
+import { TrackPunchButton } from "@/components/studio/track-punch-button";
 import { TrackQcBadge } from "@/components/studio/track-qc-badge";
 import { TrackWritersEditor } from "@/components/track-writers-editor";
 import { TrackEditButton } from "@/components/track-edit-button";
@@ -112,6 +113,7 @@ export function StudioTracksList({
                     {t.genre || "No genre"}
                     {t.language ? ` · ${t.language}` : ""}
                     {` · ${live ? "Published" : "Draft"}`}
+                    {(t.content_kind || "") === "podcast" ? " · Podcast" : ""}
                     {launchLabel}
                     {` · ${t.play_count.toLocaleString()} play${t.play_count === 1 ? "" : "s"}`}
                     {t.download_sales > 0
@@ -179,6 +181,12 @@ export function StudioTracksList({
                       language={t.language}
                       hasPlaces={!needsPlaces}
                       qcStatus={t.qc_status}
+                    />
+                    <TrackPunchButton
+                      trackId={t.id}
+                      punchStatus={t.punch_status}
+                      qcStatus={t.qc_status}
+                      contentKind={t.content_kind}
                     />
                     <button
                       type="button"

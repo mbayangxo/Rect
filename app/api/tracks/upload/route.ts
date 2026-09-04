@@ -220,6 +220,16 @@ export async function POST(request: Request) {
     .replace(/\s+/g, "");
   const upcRaw = String(form.get("upc_code") ?? "").trim();
   const launchAtRaw = String(form.get("launch_at") ?? "").trim();
+  const contentKindRaw = String(form.get("content_kind") ?? "music")
+    .trim()
+    .toLowerCase();
+  const content_kind =
+    contentKindRaw === "podcast" ? "podcast" : "music";
+  const requestPunch =
+    String(form.get("request_punch") ?? "").trim() === "1" ||
+    String(form.get("request_punch") ?? "")
+      .trim()
+      .toLowerCase() === "true";
   let launchAtIso: string | null = null;
   if (launchAtRaw) {
     const d = new Date(launchAtRaw);
@@ -494,6 +504,13 @@ export async function POST(request: Request) {
   if (isrcRaw) insertPayload.isrc_code = isrcRaw.slice(0, 15);
   if (upcRaw) insertPayload.upc_code = upcRaw.slice(0, 14);
   if (launchAtIso) insertPayload.launch_at = launchAtIso;
+  insertPayload.content_kind = content_kind;
+  if (requestPunch && content_kind === "music") {
+    insertPayload.punch_status = "requested";
+    insertPayload.punch_requested_at = new Date().toISOString();
+    insertPayload.punch_notes =
+      "RECT Punch requested — partner mastering queue (demo until Punch rail is live).";
+  }
   if (writers) {
     insertPayload.writer_splits = writers.map((w) => ({
       name: w.name,
@@ -605,6 +622,23 @@ export async function POST(request: Request) {
       delete workingPayload.qc_issues;
       strippedWarnings.push(
         "audio QC — run 20260903_track_audio_qc.sql in Supabase",
+      );
+      continue;
+    }
+    if (
+      error &&
+      /content_kind|punch_status|punch_audio_url|punch_requested_at|punch_notes|column .* does not exist/i.test(
+        error.message,
+      )
+    ) {
+      delete workingPayload.content_kind;
+      delete workingPayload.punch_status;
+      delete workingPayload.punch_audio_url;
+      delete workingPayload.punch_requested_at;
+      delete workingPayload.punch_ready_at;
+      delete workingPayload.punch_notes;
+      strippedWarnings.push(
+        "Hearing Aids / Punch — run 20260904_hearing_aids_and_punch.sql",
       );
       continue;
     }

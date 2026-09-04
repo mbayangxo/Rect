@@ -23,6 +23,11 @@ export type TrackRow = {
   qc_lufs_integrated?: number | null;
   qc_true_peak_dbtp?: number | null;
   qc_issues?: unknown;
+  /** music (default) or podcast (Hearing Aids). */
+  content_kind?: string | null;
+  /** RECT Punch mastering status. */
+  punch_status?: string | null;
+  punch_audio_url?: string | null;
 };
 
 /** Seed / fixture demos — never show on public landing or charts. */
@@ -83,12 +88,22 @@ export function trackStatusForWrite(
  * Push live-catalog filters into a tracks query BEFORE .limit().
  * Prevents pending drafts from crowding out real uploads.
  * Matches isPublishedTrack: live | published | null (legacy).
+ * (Podcasts filtered in app via isMusicTrack when content_kind is present.)
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withLiveCatalogTracks(query: any) {
   return query
     .or("status.eq.live,status.eq.published,status.is.null")
     .not("audio_url", "is", null);
+}
+
+export function isMusicTrack(t: Pick<TrackRow, "content_kind">) {
+  const k = (t.content_kind || "music").toLowerCase();
+  return k !== "podcast";
+}
+
+export function isPodcastTrack(t: Pick<TrackRow, "content_kind">) {
+  return (t.content_kind || "").toLowerCase() === "podcast";
 }
 
 export function trackTitle(t: TrackRow) {
