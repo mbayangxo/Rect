@@ -50,10 +50,22 @@ export async function POST(request: Request) {
         error.message,
       )
     ) {
-      // Fallback direct update if RPC missing but policy exists
+      // Fallback: never shrink listened_secs (match RPC greatest())
+      const capped = Math.min(secs, 86400);
+      const { data: existing } = await supabase
+        .from("plays")
+        .select("id, listened_secs")
+        .eq("id", playId)
+        .eq("listener_id", user.id)
+        .maybeSingle();
+      if (!existing) {
+        return NextResponse.json({ error: "Play not found." }, { status: 404 });
+      }
+      const prev = Number(existing.listened_secs) || 0;
+      const nextSecs = Math.max(prev, capped);
       const { data: row, error: upErr } = await supabase
         .from("plays")
-        .update({ listened_secs: Math.min(secs, 86400) })
+        .update({ listened_secs: nextSecs })
         .eq("id", playId)
         .eq("listener_id", user.id)
         .select("id, listened_secs")

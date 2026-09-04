@@ -330,6 +330,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     async (trackId: string) => {
       if (recordedFor.current === trackId) return;
       recordedFor.current = trackId;
+      const genAtStart = startGenRef.current;
       try {
         const res = await fetch("/api/plays", {
           method: "POST",
@@ -361,7 +362,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             credits_remaining?: number | null;
             play_id?: string | null;
           } | null;
+          const stillSameTrack =
+            trackRef.current?.id === trackId &&
+            startGenRef.current === genAtStart;
           if (
+            stillSameTrack &&
             typeof data?.play_id === "string" &&
             data.play_id.trim()
           ) {
@@ -426,6 +431,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     progressReportRef.current = (secs: number, force = false) => {
       const pair = playIdForTrack.current;
       if (!pair?.playId) return;
+      if (trackRef.current?.id !== pair.trackId) return;
       const rounded = Math.max(0, Math.round(secs));
       if (!force && rounded < lastProgressSecs.current + 10) return;
       const now = Date.now();

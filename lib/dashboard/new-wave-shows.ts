@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { loadPublicLiveNow } from "@/lib/dashboard/live-rooms";
+import { loadListenerTasteWithBehavior } from "@/lib/dashboard/behavior";
 import { loadRadioStations, type RadioStation } from "@/lib/dashboard/radio";
-import { loadListenerTaste, tasteFromProfile } from "@/lib/dashboard/taste";
+import { tasteFromProfile } from "@/lib/dashboard/taste";
 
 export type NewWaveShow = {
   id: string;
@@ -31,8 +31,8 @@ function stationToShow(s: RadioStation): NewWaveShow {
 }
 
 /**
- * New Wave — new / featured radio shows on Wave (not music launches).
- * Music launches live under New Sounds.
+ * New Wave — new / featured radio stations on Wave (not music launches).
+ * Music launches live under New Sounds. Live rooms stay on Home / Artist.
  */
 export async function loadNewWaveShows(
   supabase: SupabaseClient,
@@ -41,41 +41,25 @@ export async function loadNewWaveShows(
 ): Promise<{ shows: NewWaveShow[]; error: string | null }> {
   let taste = tasteFromProfile(null);
   if (userId) {
-    taste = await loadListenerTaste(supabase, userId, null);
+    taste = await loadListenerTasteWithBehavior(supabase, userId, null);
   }
 
-  const [stationsRes, liveRes] = await Promise.all([
-    loadRadioStations(supabase, taste),
-    loadPublicLiveNow(supabase, 8),
-  ]);
-
-  const shows: NewWaveShow[] = [];
-
-  for (const room of liveRes.rooms) {
-    shows.push({
-      id: `live:${room.id}`,
-      title: room.title,
-      subtitle: room.artist_name || "Live on Wave",
-      href: `/artists/${room.artist_id}/live/${room.id}`,
-      cover_url: room.stage_photo_url || room.artist_avatar || null,
-      kind: "live",
-      meta: `${room.mode} · ${room.viewer_count} listening`,
-    });
-  }
-
+  const stationsRes = await loadRadioStations(supabase, taste);
   const stations = stationsRes.stations.filter((s) => s.tracks.length > 0);
   // Prefer non–Your Wave stations as “new shows”, then fill with flagship.
   const ordered = [
     ...stations.filter((s) => !s.forYou),
     ...stations.filter((s) => s.forYou),
   ];
+
+  const shows: NewWaveShow[] = [];
   for (const s of ordered) {
     if (shows.length >= limit) break;
     shows.push(stationToShow(s));
   }
 
   return {
-    shows: shows.slice(0, limit),
+    shows,
     error: stationsRes.error,
   };
 }

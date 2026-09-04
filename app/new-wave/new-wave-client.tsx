@@ -16,7 +16,7 @@ export function NewWaveShowsClient({ shows, loadError }: Props) {
   if (shows.length === 0) {
     return (
       <p className="text-sm text-white/45">
-        No new Wave shows yet. Tune into{" "}
+        No new Wave radio shows yet. Tune into{" "}
         <Link href="/radio" className="text-[var(--rect)] hover:underline">
           Wave
         </Link>{" "}

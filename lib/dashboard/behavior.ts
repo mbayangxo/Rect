@@ -150,16 +150,30 @@ async function loadBehaviorAffinityFallback(
     { genre: string | null; language: string | null; content_kind: string | null }
   >();
   if (trackIds.length > 0) {
-    const { data: tracks } = await supabase
+    let { data: tracks, error: trackErr } = await supabase
       .from("tracks")
       .select("id, genre, language, content_kind")
       .in("id", trackIds.slice(0, 200));
-    for (const t of tracks ?? []) {
-      trackMeta.set(t.id as string, {
-        genre: (t.genre as string | null) ?? null,
-        language: (t.language as string | null) ?? null,
-        content_kind: (t.content_kind as string | null) ?? null,
-      });
+    if (
+      trackErr &&
+      /content_kind|column .* does not exist/i.test(trackErr.message)
+    ) {
+      const lean = await supabase
+        .from("tracks")
+        .select("id, genre, language")
+        .in("id", trackIds.slice(0, 200));
+      tracks = lean.data as typeof tracks;
+      trackErr = lean.error;
+    }
+    if (!trackErr) {
+      for (const t of tracks ?? []) {
+        trackMeta.set(t.id as string, {
+          genre: (t.genre as string | null) ?? null,
+          language: (t.language as string | null) ?? null,
+          content_kind:
+            (t as { content_kind?: string | null }).content_kind ?? null,
+        });
+      }
     }
   }
 
@@ -206,16 +220,30 @@ async function loadBehaviorAffinityFallback(
   ].filter((id) => !trackMeta.has(id));
 
   if (likeTrackIds.length > 0) {
-    const { data: more } = await supabase
+    let { data: more, error: moreErr } = await supabase
       .from("tracks")
       .select("id, genre, language, content_kind")
       .in("id", likeTrackIds.slice(0, 100));
-    for (const t of more ?? []) {
-      trackMeta.set(t.id as string, {
-        genre: (t.genre as string | null) ?? null,
-        language: (t.language as string | null) ?? null,
-        content_kind: (t.content_kind as string | null) ?? null,
-      });
+    if (
+      moreErr &&
+      /content_kind|column .* does not exist/i.test(moreErr.message)
+    ) {
+      const lean = await supabase
+        .from("tracks")
+        .select("id, genre, language")
+        .in("id", likeTrackIds.slice(0, 100));
+      more = lean.data as typeof more;
+      moreErr = lean.error;
+    }
+    if (!moreErr) {
+      for (const t of more ?? []) {
+        trackMeta.set(t.id as string, {
+          genre: (t.genre as string | null) ?? null,
+          language: (t.language as string | null) ?? null,
+          content_kind:
+            (t as { content_kind?: string | null }).content_kind ?? null,
+        });
+      }
     }
   }
 

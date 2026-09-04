@@ -37,36 +37,62 @@ export async function loadNewSoundsTracks(
       const ids = rpcData
         .map((r: { track_id?: string }) => r.track_id)
         .filter(Boolean) as string[];
-      const { data: tracks } = await db
+      let { data: tracks, error: enrichErr } = await db
         .from("tracks")
         .select(
           "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at, content_kind",
         )
         .in("id", ids);
 
-      const byId = new Map(
-        ((tracks ?? []) as TrackRow[]).map((t) => [t.id, t]),
-      );
-      const ordered: TrackRow[] = [];
-      const launchAt = new Map<string, string | null>();
-      for (const row of rpcData as {
-        track_id: string;
-        launch_at?: string | null;
-      }[]) {
-        const t = byId.get(row.track_id);
-        if (t && isMusicTrack(t)) {
-          ordered.push(t);
-          launchAt.set(
-            t.id,
-            typeof row.launch_at === "string" ? row.launch_at : null,
-          );
+      if (
+        enrichErr &&
+        /content_kind|column .* does not exist/i.test(enrichErr.message)
+      ) {
+        const lean = await db
+          .from("tracks")
+          .select(
+            "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at",
+          )
+          .in("id", ids);
+        tracks = lean.data as typeof tracks;
+        enrichErr = lean.error;
+      }
+
+      if (enrichErr || !tracks || tracks.length === 0) {
+        // Fall through to catalog query — don't return empty viaRpc.
+      } else {
+        const byId = new Map(
+          ((tracks ?? []) as TrackRow[]).map((t) => [t.id, t]),
+        );
+        const ordered: TrackRow[] = [];
+        const launchAt = new Map<string, string | null>();
+        for (const row of rpcData as {
+          track_id: string;
+          launch_at?: string | null;
+        }[]) {
+          const t = byId.get(row.track_id);
+          if (
+            t &&
+            isMusicTrack(t) &&
+            isPublishedTrack(t) &&
+            !isDemoTrack(t) &&
+            isTrackLaunched(t)
+          ) {
+            ordered.push(t);
+            launchAt.set(
+              t.id,
+              typeof row.launch_at === "string" ? row.launch_at : null,
+            );
+          }
+        }
+        if (ordered.length > 0) {
+          return {
+            tracks: await enrich(db, ordered.slice(0, limit), launchAt),
+            error: null,
+            viaRpc: true,
+          };
         }
       }
-      return {
-        tracks: await enrich(db, ordered.slice(0, limit), launchAt),
-        error: null,
-        viaRpc: true,
-      };
     }
   } catch {
     /* fall through */
