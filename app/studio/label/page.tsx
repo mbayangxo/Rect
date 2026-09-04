@@ -51,6 +51,3 @@ export default async function StudioLabelsPage() {
     </>
   );
 }
-    </>
-  );
-}
