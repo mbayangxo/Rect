@@ -50,6 +50,13 @@ Still need these if not already run (see `docs/SUPABASE_PASTE_LIST.md`):
 - `20260904_listener_behavior_affinity.sql`  
 - Or re-paste updated `_BUNDLE_artist_os.sql`
 
+## Bugfixes (latest)
+
+- New Wave = Wave **stations only** (live rooms removed from that shelf)  
+- Play progress won’t attach to the wrong track after skip  
+- Progress fallback never shrinks `listened_secs`  
+- New Sounds RPC empty/demo leak + behavior affinity without `content_kind`
+
 ## Behavior learning
 
 - RPC `listener_behavior_affinity` · merge via `loadListenerTasteWithBehavior`  
