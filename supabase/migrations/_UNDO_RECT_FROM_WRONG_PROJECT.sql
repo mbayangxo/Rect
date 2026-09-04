@@ -154,9 +154,10 @@ drop function if exists public.track_is_publicly_live(text, timestamptz);
 drop function if exists public.create_pending_artist_tip(uuid, integer, text, text, text);
 drop function if exists public.set_tip_joko_reference(bigint, text);
 drop function if exists public.confirm_artist_tip_system(bigint);
-drop function if exists public.credit_tip_to_wallet();
 
+-- Trigger must go before the function it calls
 drop trigger if exists artist_tips_credit_wallet on public.artist_tips;
+drop function if exists public.credit_tip_to_wallet() cascade;
 
 -- ── account_type: remove label if Kebu never wanted it ───────
 -- Only if you are SURE Kebu should not have 'label'. Adjust as needed.
