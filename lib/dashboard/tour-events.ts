@@ -322,3 +322,107 @@ export async function setTourTicketFekkReference(
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
+
+export type PopularTourEvent = TourEvent & {
+  artist_name: string | null;
+  artist_avatar: string | null;
+};
+
+/**
+ * Upcoming public tour events ranked by tickets sold (popular shows).
+ */
+export async function loadPopularUpcomingTourEvents(
+  supabase: SupabaseClient,
+  limit = 12,
+): Promise<{
+  events: PopularTourEvent[];
+  ready: boolean;
+  error: string | null;
+}> {
+  const since = new Date(Date.now() - 6 * 3600_000).toISOString();
+  const { data, error } = await supabase
+    .from("artist_tour_events")
+    .select(SELECT)
+    .eq("active", true)
+    .gte("starts_at", since)
+    .order("tickets_sold", { ascending: false })
+    .order("starts_at", { ascending: true })
+    .limit(Math.max(limit * 2, 24));
+
+  if (error) {
+    if (isMissing(error.message)) {
+      return { events: [], ready: false, error: null };
+    }
+    // Older schemas may lack tickets_sold ordering — fall back.
+    if (/tickets_sold|column .* does not exist/i.test(error.message)) {
+      const lean = await supabase
+        .from("artist_tour_events")
+        .select(SELECT)
+        .eq("active", true)
+        .gte("starts_at", since)
+        .order("starts_at", { ascending: true })
+        .limit(Math.max(limit * 2, 24));
+      if (lean.error) {
+        if (isMissing(lean.error.message)) {
+          return { events: [], ready: false, error: null };
+        }
+        return { events: [], ready: false, error: lean.error.message };
+      }
+      return enrichTourEvents(supabase, lean.data ?? [], limit);
+    }
+    return { events: [], ready: false, error: error.message };
+  }
+
+  return enrichTourEvents(supabase, data ?? [], limit);
+}
+
+async function enrichTourEvents(
+  supabase: SupabaseClient,
+  raw: unknown[],
+  limit: number,
+): Promise<{
+  events: PopularTourEvent[];
+  ready: boolean;
+  error: string | null;
+}> {
+  const events = raw
+    .map((r) => rowToEvent(r as Record<string, unknown>))
+    .slice(0, limit);
+
+  const artistIds = [
+    ...new Set(events.map((e) => e.artist_id).filter(Boolean)),
+  ];
+  const nameById = new Map<string, string>();
+  const avatarById = new Map<string, string | null>();
+
+  if (artistIds.length > 0) {
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, display_name, avatar_url")
+      .in("id", artistIds);
+    for (const u of users ?? []) {
+      const id = u.id as string;
+      const name =
+        typeof u.display_name === "string" && u.display_name.trim()
+          ? u.display_name.trim()
+          : null;
+      if (name) nameById.set(id, name);
+      avatarById.set(
+        id,
+        typeof u.avatar_url === "string" && u.avatar_url.trim()
+          ? u.avatar_url.trim()
+          : null,
+      );
+    }
+  }
+
+  return {
+    events: events.map((e) => ({
+      ...e,
+      artist_name: nameById.get(e.artist_id) ?? null,
+      artist_avatar: avatarById.get(e.artist_id) ?? null,
+    })),
+    ready: true,
+    error: null,
+  };
+}

@@ -16,6 +16,12 @@ Work **slice by slice, end to end** — no half-wired surfaces.
 | **RECT Label** | Mutual accept, roster · `/studio/label` | `/studio/label` |
 | **RECT Punch** | Optional mastering after Upload QC; Delivery prefers punched master for Taali. | request on upload / tracks |
 | **Taali** | Separate distribution company/API. RECT submits releases; Taali delivers to DSPs. | `taali/` |
+| **Your mixes** | Your own playlists (private or public). | `/playlists` |
+| **Friends mixes** | Public playlists from people you follow. | Home / Discover / Following |
+| **Fan mixes** | Public playlists trending on Discover (saves / activity) — broader than Friends mixes. | Discover |
+| **Your Wave** | Personalized continuous Wave radio mix (taste + behavior). Not a playlist table. | `/radio` flagship |
+| **Mood mixes** | Wave daypart energy stations: Morning · Afternoon · Evening · Late Night. | Wave / Discover |
+| **THE ALKEBULAN** | Continental Africa chart (not labeled “Africa”). | Charts / Discover |
 
 ## Slice order (status)
 
@@ -90,7 +96,7 @@ Still need these if not already run (see `docs/SUPABASE_PASTE_LIST.md`):
 
 ### Built end-to-end (code)
 
-Listen loop · Wave / New Wave (radio) · New Sounds · Hearing Aids · Inbox · Parties · World/Store decorate · Labels (invite/accept/roster/rollup) · Analytics · Upload QC · Punch → Delivery → Taali · Behavior learning · Live Rooms + RECT Live trending on Home/Discover · Profile listening taste · Label name search  
+Listen loop · Wave / New Wave (radio) · New Sounds · Hearing Aids · Inbox · Parties · World/Store decorate · Labels (invite/accept/roster/rollup) · Analytics · Upload QC · Punch → Delivery → Taali · Behavior learning · Live Rooms + RECT Live trending on Home/Discover · Discover shelves (city · THE ALKEBULAN · Your Wave · Mood mixes · Fan mixes · Hearing Aids · tour shows) · Profile listening taste · Label name search  
 
 ### Left (ops / later product)
 

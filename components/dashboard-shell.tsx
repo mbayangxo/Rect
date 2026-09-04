@@ -21,8 +21,10 @@ import { TrackLikeButton } from "@/components/track-like-button";
 import type { ArtistPortal } from "@/lib/dashboard/artists";
 import type { LivePresenceItem } from "@/lib/dashboard/live-presence";
 import type { LiveRoom } from "@/lib/dashboard/live-rooms";
+import type { HearingAidEpisode } from "@/lib/dashboard/hearing-aids";
 import type { NewSoundsTrack } from "@/lib/dashboard/new-sounds";
 import type { NewWaveShow } from "@/lib/dashboard/new-wave-shows";
+import type { PopularTourEvent } from "@/lib/dashboard/tour-events";
 import type {
   TrendingPortal,
   TrendingTrack,
@@ -85,6 +87,8 @@ type Props = {
   newSoundsTracks?: NewSoundsTrack[];
   newWaveShows?: NewWaveShow[];
   liveParties?: NewWaveShow[];
+  hearingAids?: HearingAidEpisode[];
+  tourEvents?: PopularTourEvent[];
 };
 
 function formatTime(secs: number) {
@@ -133,6 +137,8 @@ export function DashboardShell({
   newSoundsTracks = [],
   newWaveShows = [],
   liveParties = [],
+  hearingAids = [],
+  tourEvents = [],
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -395,6 +401,71 @@ export function DashboardShell({
               seeAllLabel="Host or join →"
               shows={liveParties}
             />
+          ) : null}
+
+          {hearingAids.length > 0 ? (
+            <HomeShelf
+              kicker="Talk · podcasts"
+              title="Hearing Aids"
+              seeAllHref="/hearing-aids"
+              seeAllLabel="All episodes →"
+              tracks={hearingAids.map(
+                (t): ShelfTrack => ({
+                  ...t,
+                  subtitle: t.artist_name,
+                }),
+              )}
+              onPlay={(track, index) => {
+                const list = hearingAids.filter((x) => x.audio_url);
+                const idx = list.findIndex((x) => x.id === track.id);
+                player.playQueue(list, idx >= 0 ? idx : index);
+              }}
+            />
+          ) : null}
+
+          {tourEvents.length > 0 ? (
+            <section className="home-shelf" aria-label="Tour events">
+              <div className="home-shelf-head">
+                <div>
+                  <p className="home-shelf-kicker">On the road</p>
+                  <h2 className="home-shelf-title">Popular upcoming shows</h2>
+                </div>
+                <Link href="/discover" className="home-shelf-more">
+                  Discover →
+                </Link>
+              </div>
+              <ul className="home-shelf-rail">
+                {tourEvents.map((e) => (
+                  <li key={e.id} className="home-shelf-item">
+                    <Link
+                      href={`/artists/${e.artist_id}`}
+                      className="home-shelf-card"
+                    >
+                      <span
+                        className="home-shelf-art"
+                        style={
+                          e.cover_url
+                            ? { backgroundImage: `url(${e.cover_url})` }
+                            : e.artist_avatar
+                              ? {
+                                  backgroundImage: `url(${e.artist_avatar})`,
+                                }
+                              : undefined
+                        }
+                      >
+                        <span className="home-shelf-play">◉</span>
+                      </span>
+                      <span className="home-shelf-copy">
+                        <span className="home-shelf-name">{e.title}</span>
+                        <span className="home-shelf-sub">
+                          {[e.artist_name, e.city].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ) : null}
 
           {friendsListening.length > 0 ? (

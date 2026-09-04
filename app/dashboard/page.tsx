@@ -29,11 +29,13 @@ import {
   packCountryFromTaste,
 } from "@/lib/dashboard/taste";
 import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
+import { loadHearingAidEpisodes } from "@/lib/dashboard/hearing-aids";
 import { loadNewSoundsTracks } from "@/lib/dashboard/new-sounds";
 import { loadNewWaveShows } from "@/lib/dashboard/new-wave-shows";
 import { loadPublicLiveNow } from "@/lib/dashboard/live-rooms";
 import { mergeTrendingLivePresence } from "@/lib/dashboard/live-presence";
 import { loadPublicRectLivesNow } from "@/lib/dashboard/rect-live";
+import { loadPopularUpcomingTourEvents } from "@/lib/dashboard/tour-events";
 import {
   loadTrendingPortals,
   loadTrendingTracks,
@@ -112,6 +114,8 @@ export default async function DashboardPage() {
     newSoundsRes,
     newWaveShowsRes,
     partiesRes,
+    hearingAidsRes,
+    tourEventsRes,
   ] = await Promise.all([
     loadFeaturedTracks(supabase, taste),
     loadArtistPortals(supabase, taste),
@@ -131,6 +135,8 @@ export default async function DashboardPage() {
     loadNewSoundsTracks(supabase, 12),
     loadNewWaveShows(supabase, current.user.id, 10),
     loadLiveParties(supabase, 8),
+    loadHearingAidEpisodes(supabase, 8),
+    loadPopularUpcomingTourEvents(supabase, 8),
   ]);
 
   const livePresence = mergeTrendingLivePresence(
@@ -260,6 +266,8 @@ export default async function DashboardPage() {
         kind: "live" as const,
         meta: "party",
       }))}
+      hearingAids={hearingAidsRes.episodes}
+      tourEvents={tourEventsRes.events}
     />
   );
 }
