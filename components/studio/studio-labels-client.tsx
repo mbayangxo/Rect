@@ -306,7 +306,7 @@ export function StudioLabelsClient({
               >
                 <span className="text-sm">
                   {m.label_name || "Label"} ↔{" "}
-                  {m.artist_name || m.artist_id.slice(0, 8)}
+                  {m.artist_name || "Artist"}
                   <span className="text-white/35">
                     {" "}
                     · {m.revenue_split_label_pct}% label
@@ -350,7 +350,7 @@ export function StudioLabelsClient({
                   key={m.id}
                   className="flex justify-between rounded-xl border border-white/[0.08] px-4 py-3 text-sm"
                 >
-                  <span>{m.artist_name || m.artist_id.slice(0, 8)}</span>
+                  <span>{m.artist_name || "Artist"}</span>
                   <span className="text-white/40 capitalize">
                     {m.status}
                     {m.status === "accepted"

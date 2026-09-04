@@ -299,7 +299,7 @@ export default async function ChartsPage({ searchParams }: Props) {
             <Link href="/search" className="hover:text-white">
               Search
             </Link>
-            <Link href="/charts" className="text-[#1DB954]">
+            <Link href="/charts" className="text-[var(--rect)]">
               Charts
             </Link>
             <Link href="/profile" className="hover:text-white">
@@ -311,7 +311,7 @@ export default async function ChartsPage({ searchParams }: Props) {
 
       <div className="mx-auto w-full max-w-5xl space-y-8 px-5 py-10 sm:px-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--rect)]">
             RECT SOUND Charts
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -330,7 +330,7 @@ export default async function ChartsPage({ searchParams }: Props) {
             {!personalized ? (
               <Link
                 href="/preferences"
-                className="text-[#1DB954] hover:underline"
+                className="text-[var(--rect)] hover:underline"
               >
                 Set taste
               </Link>
@@ -339,7 +339,7 @@ export default async function ChartsPage({ searchParams }: Props) {
           {user ? (
             <Link
               href="/charts/my"
-              className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#1DB954]/35 px-4 py-2 text-sm font-medium text-[#1DB954] hover:bg-[#1DB954]/10"
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--rect)]/35 px-4 py-2 text-sm font-medium text-[var(--rect)] hover:bg-[var(--rect)]/10"
             >
               My personal chart →
             </Link>
@@ -349,7 +349,7 @@ export default async function ChartsPage({ searchParams }: Props) {
               Your plays stay off these boards.{" "}
               <Link
                 href="/profile"
-                className="text-[#1DB954] hover:underline"
+                className="text-[var(--rect)] hover:underline"
               >
                 Turn on Appear on charts
               </Link>{" "}
@@ -410,7 +410,7 @@ export default async function ChartsPage({ searchParams }: Props) {
             <a
               key={b.id}
               href={`#${b.title.toLowerCase().replace(/\s+/g, "-")}`}
-              className="shrink-0 rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/55 hover:border-[#1DB954]/50 hover:text-[#1DB954]"
+              className="shrink-0 rounded-full border border-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white/55 hover:border-[var(--rect)]/50 hover:text-[var(--rect)]"
             >
               {b.title}
             </a>
@@ -418,7 +418,7 @@ export default async function ChartsPage({ searchParams }: Props) {
         </div>
 
         {allFailed ? (
-          <div className="rounded-2xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-6 py-8 text-center text-sm text-[#1DB954]">
+          <div className="rounded-2xl border border-[var(--rect)]/30 bg-[var(--rect)]/10 px-6 py-8 text-center text-sm text-[var(--rect)]">
             Could not load charts. {firstError}
           </div>
         ) : !anyTracks ? (
@@ -432,13 +432,13 @@ export default async function ChartsPage({ searchParams }: Props) {
             <div className="mt-5 flex flex-wrap justify-center gap-3">
               <Link
                 href="/search"
-                className="rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white/70 hover:border-[#1DB954]/50 hover:text-white"
+                className="rounded-full border border-white/20 px-4 py-2 text-xs font-medium text-white/70 hover:border-[var(--rect)]/50 hover:text-white"
               >
                 Browse Search
               </Link>
               <Link
                 href="/places/senegal"
-                className="rounded-full bg-[#1DB954] px-4 py-2 text-xs font-semibold text-black hover:bg-[#17a349]"
+                className="rounded-full bg-[var(--rect)] px-4 py-2 text-xs font-semibold text-black hover:bg-[var(--rect-sand)]"
               >
                 Senegal hub
               </Link>

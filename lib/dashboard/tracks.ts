@@ -355,7 +355,17 @@ export async function loadFeaturedTracks(
   supabase: SupabaseClient,
   taste?: ListenerTaste | null,
 ) {
-  return loadRankedTracks(supabase, 6, taste);
+  const res = await loadRankedTracks(supabase, 6, taste);
+  if (res.ok && res.tracks.length > 0) return res;
+  const { showcaseAsRanked } = await import("@/lib/showcase/catalog");
+  const tracks = showcaseAsRanked(6);
+  return {
+    ok: true as const,
+    tracks,
+    empty: tracks.length === 0,
+    error: null,
+    source: "plays_aggregate" as const,
+  };
 }
 
 /** CONNECTION 3 — Dakar chart (Senegal / Dakar artists by play_count). */

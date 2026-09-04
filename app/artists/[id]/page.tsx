@@ -40,6 +40,12 @@ import { tipsTableReady } from "@/lib/dashboard/tips";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { isDemoTrack, isPublishedTrack, isPodcastTrack, withLiveCatalogTracks, type TrackRow } from "@/lib/tracks";
+import {
+  getShowcaseArtist,
+  isShowcaseId,
+  showcaseTracksForArtist,
+} from "@/lib/showcase/catalog";
+import { AppBottomNav } from "@/components/app-bottom-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +55,58 @@ type Props = {
 
 export default async function ArtistPortalPage({ params }: Props) {
   const { id } = await params;
+
+  if (isShowcaseId(id)) {
+    const artist = getShowcaseArtist(id);
+    if (!artist) notFound();
+    const tracks = showcaseTracksForArtist(id);
+    return (
+      <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
+        <header className="border-b border-white/10">
+          <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-5 py-4 sm:px-8">
+            <Link href="/dashboard">
+              <RectLogo size={32} showWordmark />
+            </Link>
+            <Link href="/discover" className="text-sm text-[var(--rect)]">
+              Discover →
+            </Link>
+          </div>
+        </header>
+        <div className="mx-auto w-full max-w-4xl px-5 py-10 sm:px-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={artist.avatar_url}
+              alt=""
+              className="h-28 w-28 rounded-full border border-white/15 bg-white/5 object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[var(--rect)]">
+                Showcase · artist
+              </p>
+              <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+                {artist.display_name}
+              </h1>
+              <p className="mt-2 max-w-xl text-sm text-white/50">{artist.bio}</p>
+              <p className="mt-2 text-xs text-white/35">
+                {[...artist.countries, ...artist.genres].join(" · ")}
+              </p>
+            </div>
+          </div>
+          <section className="mt-10">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+              Songs
+            </h2>
+            <div className="mt-4">
+              <TrackList tracks={tracks} />
+            </div>
+          </section>
+        </div>
+        <AppBottomNav />
+      </main>
+    );
+  }
+
   const supabase = await createClient();
   const admin = createAdminClient();
   const db = admin ?? supabase;

@@ -46,6 +46,12 @@ import {
   trackTitle,
   type TrackRow,
 } from "@/lib/tracks";
+import {
+  getShowcaseTrack,
+  isShowcaseId,
+} from "@/lib/showcase/catalog";
+import { AppBottomNav } from "@/components/app-bottom-nav";
+import { RectLogo } from "@/components/rect-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +59,57 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function SongPage({ params }: Props) {
   const { id } = await params;
+
+  if (isShowcaseId(id)) {
+    const showcase = getShowcaseTrack(id);
+    if (!showcase) notFound();
+    return (
+      <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
+        <header className="border-b border-white/10">
+          <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-4 sm:px-8">
+            <Link href="/dashboard">
+              <RectLogo size={32} showWordmark />
+            </Link>
+            <Link href="/discover" className="text-sm text-[var(--rect)]">
+              Discover →
+            </Link>
+          </div>
+        </header>
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-10 sm:px-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
+            <TrackCover track={showcase} size="lg" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[var(--rect)]">
+                Showcase · song
+              </p>
+              <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight">
+                {trackTitle(showcase)}
+              </h1>
+              <Link
+                href={`/artists/${showcase.artist_id}`}
+                className="mt-2 block text-lg text-white/70 hover:text-[var(--rect)]"
+              >
+                {trackArtist(showcase)}
+              </Link>
+              <p className="mt-2 text-sm text-white/40">
+                {[showcase.genre, showcase.language, formatTrackDuration(showcase.duration_secs)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <div className="mt-5">
+                <TrackPlayButton track={showcase} />
+              </div>
+            </div>
+          </div>
+          {showcase.lyrics ? (
+            <SongLyrics lyrics={showcase.lyrics} />
+          ) : null}
+        </div>
+        <AppBottomNav />
+      </main>
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

@@ -1,6 +1,6 @@
 /* RECT SOUND dashboard — design tokens from reference */
 .dash-app {
-  --g: #1db954;
+  --g: var(--rect);
   --glow: rgba(29, 185, 84, 0.25);
   --bg: #040d06;
   --s1: #071208;

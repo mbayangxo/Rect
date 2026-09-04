@@ -82,7 +82,7 @@ Still need these if not already run (see `docs/SUPABASE_PASTE_LIST.md`):
 
 ## Out of scope / later (not blockers)
 
-- Label revenue split → wallet automation (split % is stored; invite + accept UX is live)
+- Taali live DSP confirmation depends on `TAALI_API_*` env  
 
 ## Naming lock (do not mix)
 
@@ -96,12 +96,11 @@ Still need these if not already run (see `docs/SUPABASE_PASTE_LIST.md`):
 
 ### Built end-to-end (code)
 
-Listen loop · Wave / New Wave (radio) · New Sounds · Hearing Aids · Inbox · Parties · World/Store decorate · Labels (invite/accept/roster/rollup) · Analytics · Upload QC · Punch → Delivery → Taali · Behavior learning · Live Rooms + RECT Live trending on Home/Discover · Discover shelves (city · THE ALKEBULAN · Your Wave · Mood mixes · Fan mixes · Hearing Aids · tour shows) · Profile listening taste · Label name search  
+Listen loop · Wave / New Wave · New Sounds · Hearing Aids · Inbox · Parties · World/Store · Labels (invite/accept/roster/rollup) · **Label split → wallet** · Analytics · Upload QC · Punch → Delivery · Taali · Behavior learning · Live Rooms + RECT Live · Discover sonic shelves · Showcase catalog · Compact bottom player · Brand gold accent  
 
 ### Left (ops / later product)
 
-- **You:** paste SQL (`20260904_hearing_aids_and_punch.sql`, `20260904_listener_behavior_affinity.sql`, or artist-os bundle)  
-- Label revenue-split → auto wallet (split % stored only)  
+- **You:** paste SQL (`20260904_hearing_aids_and_punch.sql`, `20260904_listener_behavior_affinity.sql`, `20260904_label_revenue_split_wallet.sql`, or artist-os bundle)  
 - Taali live DSP confirmation depends on `TAALI_API_*` env  
 - Pro media SFU for fan video on RECT Live (chat/presence live today)  
 
@@ -110,4 +109,6 @@ Listen loop · Wave / New Wave (radio) · New Sounds · Hearing Aids · Inbox ·
 - Profile **Listening taste** — learned genres / languages / dayparts from plays  
 - Label invite by **artist name search** (not UUID-only)  
 - Home / Discover: Live Rooms **and** RECT Lives trend by viewers  
-- Home **Trending** + **Discover**: New Wave, New Sounds, Hearing Aids, and all sonic shelves that are hot right now
+- Home **Trending** + **Discover**: New Wave, New Sounds, Hearing Aids, and all sonic shelves that are hot right now  
+- Player: compact bottom bar (no auto-immerse); Home no giant mid-page player; RECT gold on key surfaces  
+- Showcase artists/songs/lyrics when the live catalog is empty

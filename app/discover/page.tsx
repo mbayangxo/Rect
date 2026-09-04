@@ -160,7 +160,7 @@ export default async function DiscoverPage() {
 
       <div className="mx-auto w-full max-w-5xl space-y-10 px-5 py-10 sm:px-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--rect)]">
             Home · Discover · Trending
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight">

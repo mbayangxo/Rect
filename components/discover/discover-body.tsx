@@ -329,14 +329,14 @@ export function DiscoverBody({
 
       <p className="text-xs text-white/35">
         Your mixes live in{" "}
-        <Link href="/playlists" className="text-[#1DB954] hover:underline">
+        <Link href="/playlists" className="text-[var(--rect)] hover:underline">
           Your mixes
         </Link>
         . Friends mixes are public playlists from people you follow. Fan mixes
         are the public ones trending on Discover. Mood mixes are Wave daypart
         stations (Morning · Afternoon · Evening · Late Night). Africa chart is{" "}
         <span className="text-white/55">THE ALKEBULAN</span>. Podcasts are{" "}
-        <Link href="/hearing-aids" className="text-[#1DB954] hover:underline">
+        <Link href="/hearing-aids" className="text-[var(--rect)] hover:underline">
           Hearing Aids
         </Link>
         .
