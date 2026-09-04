@@ -83,14 +83,16 @@ export async function loadNewReleases(
     let trackError = error;
     if (
       error &&
-      /language|launch_at|column .* does not exist/i.test(error.message)
+      /content_kind|language|launch_at|column .* does not exist/i.test(error.message)
     ) {
+      const skipKind = /content_kind/i.test(error.message);
       const lean = await withLiveCatalogTracks(
         db
           .from("tracks")
           .select(
             "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
           ),
+        { includePodcasts: skipKind },
       )
         .order("created_at", { ascending: false })
         .limit(Math.max(limit * 3, 80));

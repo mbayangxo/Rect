@@ -88,13 +88,21 @@ export function trackStatusForWrite(
  * Push live-catalog filters into a tracks query BEFORE .limit().
  * Prevents pending drafts from crowding out real uploads.
  * Matches isPublishedTrack: live | published | null (legacy).
- * (Podcasts filtered in app via isMusicTrack when content_kind is present.)
+ * Music discovery only — Hearing Aids podcasts stay on /hearing-aids.
+ * Pass includePodcasts when content_kind column is missing (fallback retry).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withLiveCatalogTracks(query: any) {
-  return query
+export function withLiveCatalogTracks(
+  query: any,
+  opts?: { includePodcasts?: boolean },
+) {
+  let q = query
     .or("status.eq.live,status.eq.published,status.is.null")
     .not("audio_url", "is", null);
+  if (!opts?.includePodcasts) {
+    q = q.or("content_kind.is.null,content_kind.eq.music");
+  }
+  return q;
 }
 
 export function isMusicTrack(t: Pick<TrackRow, "content_kind">) {

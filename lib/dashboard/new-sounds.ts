@@ -4,6 +4,7 @@ import { loadLikeCountMap } from "@/lib/dashboard/likes";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   isDemoTrack,
+  isMusicTrack,
   isPublishedTrack,
   isTrackLaunched,
   type TrackRow,
@@ -53,7 +54,7 @@ export async function loadNewSoundsTracks(
         launch_at?: string | null;
       }[]) {
         const t = byId.get(row.track_id);
-        if (t) {
+        if (t && isMusicTrack(t)) {
           ordered.push(t);
           launchAt.set(
             t.id,
@@ -62,7 +63,7 @@ export async function loadNewSoundsTracks(
         }
       }
       return {
-        tracks: await enrich(db, ordered, launchAt),
+        tracks: await enrich(db, ordered.slice(0, limit), launchAt),
         error: null,
         viaRpc: true,
       };
@@ -77,6 +78,7 @@ export async function loadNewSoundsTracks(
       "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, launch_at, content_kind",
     )
     .or("status.eq.live,status.eq.published,status.is.null")
+    .or("content_kind.is.null,content_kind.eq.music")
     .not("audio_url", "is", null)
     .order("created_at", { ascending: false })
     .limit(Math.max(limit * 2, 60));
@@ -168,7 +170,7 @@ export async function loadNewSoundsTracks(
         isPublishedTrack(t) &&
         !isDemoTrack(t) &&
         isTrackLaunched(t) &&
-        (t.content_kind || "music") !== "podcast",
+        isMusicTrack(t),
     )
     .sort((a, b) => {
       const aAt = a.launch_at || a.created_at || "";

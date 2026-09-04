@@ -117,10 +117,12 @@ export async function loadRankedTracks(
     let trackError = error;
     if (
       error &&
-      /language|column .* does not exist/i.test(error.message)
+      /content_kind|language|column .* does not exist/i.test(error.message)
     ) {
+      const skipKind = /content_kind/i.test(error.message);
       const lean = await withLiveCatalogTracks(
         db.from("tracks").select(TRACK_SELECT_LEAN),
+        { includePodcasts: skipKind },
       )
         .order("created_at", { ascending: false })
         .limit(200);

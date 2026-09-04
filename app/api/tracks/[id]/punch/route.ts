@@ -10,8 +10,9 @@ type Params = { params: Promise<{ id: string }> };
 
 /**
  * RECT Punch — request signature mastering after Upload QC.
- * Demo queue: marks requested; partner rail fills punch_audio_url later.
- * When ready, Delivery/Taali should prefer punch_audio_url.
+ * Demo queue: request → optional ready (copies audio_url as placeholder master).
+ * Never invents a fake DSP file — ready uses the existing upload URL until a
+ * partner rail rewrites punch_audio_url. Delivery prefers punch_audio_url.
  */
 export async function POST(request: Request, { params }: Params) {
   const { id: trackId } = await params;
@@ -73,6 +74,7 @@ export async function POST(request: Request, { params }: Params) {
       .from("tracks")
       .update({
         punch_status: "skipped",
+        punch_audio_url: null,
         punch_notes: "Punch cancelled by artist.",
       })
       .eq("id", trackId)
@@ -85,16 +87,49 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ ok: true, track: data });
   }
 
-  // Demo: immediately mark processing then ready with original URL as placeholder
-  // until a real Punch partner rewrites the master. Never invent a fake DSP file.
+  if (action === "ready") {
+    const audioUrl =
+      typeof track.audio_url === "string" ? track.audio_url.trim() : "";
+    if (!audioUrl) {
+      return NextResponse.json(
+        { error: "Track has no audio to mark as Punch master." },
+        { status: 400 },
+      );
+    }
+    const status = String(track.punch_status || "").toLowerCase();
+    if (status !== "requested" && status !== "processing") {
+      return NextResponse.json(
+        { error: "Request RECT Punch before marking ready." },
+        { status: 400 },
+      );
+    }
+    const { data, error: upErr } = await supabase
+      .from("tracks")
+      .update({
+        punch_status: "ready",
+        punch_audio_url: audioUrl,
+        punch_notes:
+          "Demo ready — punch_audio_url points at the upload master until a Punch partner delivers a remaster. Delivery/Taali prefer this URL.",
+      })
+      .eq("id", trackId)
+      .eq("artist_id", current.user.id)
+      .select("id, punch_status, punch_audio_url, punch_notes")
+      .maybeSingle();
+    if (upErr) {
+      return NextResponse.json({ error: upErr.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, track: data, demo: true });
+  }
+
   const now = new Date().toISOString();
   const { data, error: upErr } = await supabase
     .from("tracks")
     .update({
       punch_status: "requested",
       punch_requested_at: now,
+      punch_audio_url: null,
       punch_notes:
-        "Queued for RECT Punch. Partner mastering fills punch_audio_url when ready — Delivery uses that master for Taali.",
+        "Queued for RECT Punch. Use Mark ready (demo) to set punch_audio_url from the upload, or wait for a partner remaster.",
     })
     .eq("id", trackId)
     .eq("artist_id", current.user.id)

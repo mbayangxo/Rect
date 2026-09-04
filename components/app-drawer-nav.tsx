@@ -49,8 +49,8 @@ function Section({
 /**
  * Slim consumer drawer — RECT Music only.
  * RECT Artist is a separate site entered via /for-artists (not nested here).
- * Wave = radio. New Wave = new radio shows. New Sounds = music launches.
- * Hearing Aids = podcasts (coming). Inbox = social notifications.
+ * Wave = radio. New Wave = new radio shows. Hearing Aids = podcasts (/hearing-aids).
+ * New Sounds = music launches. Inbox = social notifications (/inbox).
  */
 export function AppDrawerNav({
   displayName,

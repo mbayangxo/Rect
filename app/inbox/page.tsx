@@ -270,7 +270,7 @@ export default async function InboxPage() {
 
   return (
     <ArtistInboxClient
-      eyebrow="Hearing Aid"
+      eyebrow="Inbox"
       title="What you need to hear"
       subtitle="Releases, follows, shares, collabs, replies, and thanks"
       homeHref="/dashboard"

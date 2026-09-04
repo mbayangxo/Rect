@@ -96,7 +96,47 @@ export async function loadLanguageHubs(
       .order("created_at", { ascending: false })
       .limit(400);
 
-    if (error && /language|column .* does not exist/i.test(error.message)) {
+    if (error && /content_kind|language|column .* does not exist/i.test(error.message)) {
+      if (/content_kind/i.test(error.message)) {
+        const lean = await withLiveCatalogTracks(
+          db.from("tracks").select("id, title, language, status"),
+          { includePodcasts: true },
+        )
+          .order("created_at", { ascending: false })
+          .limit(400);
+        if (lean.error && /language|column .* does not exist/i.test(lean.error.message)) {
+          return {
+            hubs: [],
+            error: "Run 20260809_tracks_language.sql to unlock language hubs.",
+          };
+        }
+        if (lean.error) return { hubs: [], error: lean.error.message };
+        const rows = ((lean.data ?? []) as TrackRow[]).filter(
+          (t) => isPublishedTrack(t) && !isDemoTrack(t),
+        );
+        const counts = new Map<string, { name: string; count: number }>();
+        for (const t of rows) {
+          const name =
+            typeof t.language === "string" ? normalizeLanguageName(t.language) : "";
+          if (!name) continue;
+          const slug = languageToSlug(name);
+          if (!slug) continue;
+          const prev = counts.get(slug);
+          if (prev) prev.count += 1;
+          else counts.set(slug, { name, count: 1 });
+        }
+        // fall through using rebuilt hubs from lean — handled below via early return pattern
+        const hubs = [...counts.values()]
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 40)
+          .map((h) => ({
+            slug: languageToSlug(h.name),
+            name: h.name,
+            track_count: h.count,
+            for_you: false,
+          }));
+        return { hubs, error: null };
+      }
       return {
         hubs: [],
         error: "Run 20260809_tracks_language.sql to unlock language hubs.",
@@ -182,7 +222,24 @@ export async function loadLanguageTracks(
       .order("created_at", { ascending: false })
       .limit(300);
 
-    if (error && /language|column .* does not exist/i.test(error.message)) {
+    let langData = data;
+    let langError = error;
+    if (error && /content_kind/i.test(error.message)) {
+      const lean = await withLiveCatalogTracks(
+        db
+          .from("tracks")
+          .select(
+            "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at",
+          ),
+        { includePodcasts: true },
+      )
+        .order("created_at", { ascending: false })
+        .limit(300);
+      langData = lean.data;
+      langError = lean.error;
+    }
+
+    if (langError && /language|column .* does not exist/i.test(langError.message)) {
       return {
         languageName: null,
         tracks: [],
@@ -191,16 +248,16 @@ export async function loadLanguageTracks(
       };
     }
 
-    if (error) {
+    if (langError) {
       return {
         languageName: null,
         tracks: [],
-        error: error.message,
+        error: langError.message,
         notFound: false,
       };
     }
 
-    const matched = ((data ?? []) as TrackRow[]).filter((t) => {
+    const matched = ((langData ?? []) as TrackRow[]).filter((t) => {
       if (!isPublishedTrack(t) || isDemoTrack(t)) return false;
       const lang = typeof t.language === "string" ? t.language : "";
       return languagesMatch(lang, cleanSlug);

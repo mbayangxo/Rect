@@ -123,8 +123,20 @@ async function loadCatalogTracks(db: SupabaseClient): Promise<TrackRow[]> {
     .order("created_at", { ascending: false })
     .limit(300);
 
-  if (error) return [];
-  return ((data ?? []) as TrackRow[]).filter(
+  let rows = data;
+  if (error && /content_kind/i.test(error.message)) {
+    const lean = await withLiveCatalogTracks(
+      db.from("tracks").select(TRACK_SELECT),
+      { includePodcasts: true },
+    )
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (lean.error) return [];
+    rows = lean.data;
+  } else if (error) {
+    return [];
+  }
+  return ((rows ?? []) as TrackRow[]).filter(
     (t) => isPublishedTrack(t) && !isDemoTrack(t) && Boolean(t.audio_url),
   );
 }

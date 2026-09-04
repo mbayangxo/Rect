@@ -73,22 +73,46 @@ export async function loadTrendingTracks(
   if (error) {
     if (isMissing(error.message)) {
       // Fallback: tracks + track_play_counts (no play_count column on tracks)
-      const fb = await supabase
+      type FbRow = {
+        id: string;
+        title: string | null;
+        artist_id: string | null;
+        cover_art_url: string | null;
+        status: string | null;
+        audio_url: string | null;
+        created_at: string | null;
+        content_kind?: string | null;
+      };
+      let fbRows: FbRow[] = [];
+      const withKind = await supabase
         .from("tracks")
         .select(
-          "id, title, artist_id, cover_art_url, status, audio_url, created_at",
+          "id, title, artist_id, cover_art_url, status, audio_url, created_at, content_kind",
         )
         .not("audio_url", "is", null)
         .limit(Math.min(limit * 5, 100));
-      if (fb.error) {
-        return { tracks: [], missingRpc: true, error: fb.error.message };
+      if (withKind.error && /content_kind/i.test(withKind.error.message)) {
+        const bare = await supabase
+          .from("tracks")
+          .select(
+            "id, title, artist_id, cover_art_url, status, audio_url, created_at",
+          )
+          .not("audio_url", "is", null)
+          .limit(Math.min(limit * 5, 100));
+        if (bare.error) {
+          return { tracks: [], missingRpc: true, error: bare.error.message };
+        }
+        fbRows = (bare.data ?? []) as FbRow[];
+      } else if (withKind.error) {
+        return { tracks: [], missingRpc: true, error: withKind.error.message };
+      } else {
+        fbRows = (withKind.data ?? []) as FbRow[];
       }
-      const rows = (fb.data ?? []).filter(
-        (t) =>
-          !t.status ||
-          t.status === "live" ||
-          t.status === "published",
-      );
+      const rows = fbRows.filter((t) => {
+        const live =
+          !t.status || t.status === "live" || t.status === "published";
+        return live && t.content_kind !== "podcast";
+      });
       const ids = rows.map((r) => r.id as string);
       const counts = new Map<string, number>();
       if (ids.length > 0) {
