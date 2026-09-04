@@ -82,6 +82,7 @@ type Props = {
   trendingPortals?: TrendingPortal[];
   newSoundsTracks?: NewSoundsTrack[];
   newWaveShows?: NewWaveShow[];
+  liveParties?: NewWaveShow[];
 };
 
 function formatTime(secs: number) {
@@ -128,6 +129,7 @@ export function DashboardShell({
   trendingPortals = [],
   newSoundsTracks = [],
   newWaveShows = [],
+  liveParties = [],
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -379,6 +381,16 @@ export function DashboardShell({
               seeAllHref="/new-wave"
               seeAllLabel="All shows →"
               shows={newWaveShows}
+            />
+          ) : null}
+
+          {liveParties.length > 0 ? (
+            <HomeShowShelf
+              kicker="Together"
+              title="Listening parties"
+              seeAllHref="/parties"
+              seeAllLabel="Host or join →"
+              shows={liveParties}
             />
           ) : null}
 

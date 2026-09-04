@@ -22,8 +22,9 @@ export default async function StudioDeliveryPage() {
       </h1>
       <p className="mt-2 max-w-2xl text-sm text-white/45">
         Upload once on RECT. Package a release here and send it to Taali for
-        Spotify, Apple Music, and more. Status only shows live on a DSP after
-        Taali confirms — never guessed.
+        Spotify, Apple Music, and more. Tracks marked Punch ready ship their
+        punched master. Status only shows live on a DSP after Taali confirms —
+        never guessed.
       </p>
       <div className="mt-8">
         <StudioDeliveryManager

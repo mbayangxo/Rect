@@ -23,28 +23,42 @@ Work **slice by slice, end to end** — no half-wired surfaces.
 2. **Naming + Artist site split** — done  
 3. **Decorate my World** — done  
 4. **Decorate store** — done  
-5. **Listening parties** — done (`/parties`)  
-6. **RECT Labels** — done (mutual accept + roster)  
+5. **Listening parties** — done (`/parties` + Home shelf + Artist nav)  
+6. **RECT Labels** — done (mutual accept + roster + analytics rollup)  
 7. **Analytics** — completion, geo (partial), funnel, compare, label rollup — done  
 8. **Upload QC** — LUFS / peak / silence gates — done  
-9. **Hearing Aids** — podcasts — done (`/hearing-aids`)  
-10. **RECT Punch** — request queue + Delivery prefers `punch_audio_url` when ready; partner mastering fills the file later  
-11. **Behavior learning** — plays/likes → affinity → For You / Wave; play progress → completion analytics  
+9. **Hearing Aids** — podcasts — done (`/hearing-aids` + artist World section)  
+10. **RECT Punch** — done (request → Mark ready → Delivery badge → Taali prefers `punch_audio_url`)  
+11. **Behavior learning** — done (plays/likes → affinity → For You / Wave; play progress → completion)  
 
-## Behavior learning (algorithm + analytics infra)
+## Connected loops (end to end)
 
-- RPC `listener_behavior_affinity` rolls up genres / languages / places / dayparts from plays + likes (90-day window).  
-- `loadListenerTasteWithBehavior` merges affinity with onboarding taste (declared prefs stay first).  
-- Player reports `listened_secs` via `/api/plays/progress` so completion + affinity weights learn real listen length.  
-- Studio analytics folds `listening_card_events` into share engagement.  
-- Inspect: `GET /api/account/behavior`  
-- Paste: `20260904_listener_behavior_affinity.sql` (or re-bundle artist-os).  
+| Loop | Path |
+|------|------|
+| Listen | Play → credits → journal → For You (taste + behavior) → Wave |
+| Podcast | Upload podcast → Hearing Aids shelf → artist World Hearing Aids |
+| Party | Home shelf / `/parties` → host/join/chat |
+| DSP | Upload → QC → Punch (optional) → Delivery → Taali → DSPs |
+| Money | Tips/packs (JOKO) → wallet · streams → earnings |
+| Label | Invite/accept → roster → analytics rollup |
+
+## Ops (you paste in Supabase)
+
+Still need these if not already run (see `docs/SUPABASE_PASTE_LIST.md`):
+
+- `20260904_hearing_aids_and_punch.sql`  
+- `20260904_listener_behavior_affinity.sql`  
+- Or re-paste updated `_BUNDLE_artist_os.sql`
+
+## Behavior learning
+
+- RPC `listener_behavior_affinity` · merge via `loadListenerTasteWithBehavior`  
+- Player → `/api/plays/progress` · inspect `GET /api/account/behavior`
 
 ## Upload QC + Punch
 
-- Measure on upload: sample rate, LUFS (~−14), true peak ≤ −1 dBTP, silence  
-- Fail → draft + block Publish  
-- Punch: optional request after QC; Taali ships punched master when `punch_status=ready`  
+- Fail QC → draft + block Publish  
+- Punch ready → Delivery shows badge · Taali gets punched master  
 
 ## RECT Music vs RECT Artist
 
@@ -52,3 +66,9 @@ Work **slice by slice, end to end** — no half-wired surfaces.
 - Artists enter **RECT Artist** via `/for-artists`.  
 - Labels: invite/accept both sides.  
 - Taali is infrastructure, not a RECT account type.
+
+## Out of scope / later (not blockers)
+
+- Label revenue split → wallet automation  
+- New Wave as a full show-builder (today: stations + live rooms discovery)  
+- Consumer “learning” settings UI (ranking already uses behavior)

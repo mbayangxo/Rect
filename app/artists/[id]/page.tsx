@@ -39,7 +39,7 @@ import {
 import { tipsTableReady } from "@/lib/dashboard/tips";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isDemoTrack, isPublishedTrack, withLiveCatalogTracks, type TrackRow } from "@/lib/tracks";
+import { isDemoTrack, isPublishedTrack, isPodcastTrack, withLiveCatalogTracks, type TrackRow } from "@/lib/tracks";
 
 export const dynamic = "force-dynamic";
 
@@ -226,27 +226,62 @@ export default async function ArtistPortalPage({ params }: Props) {
     ? artist.countries.filter((c): c is string => typeof c === "string")
     : [];
 
+  const trackSelect =
+    "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at, content_kind";
+
   const trackQuery = isOwner
     ? db
         .from("tracks")
-        .select(
-          "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-        )
+        .select(trackSelect)
         .eq("artist_id", id)
         .order("created_at", { ascending: false })
-        .limit(40)
+        .limit(60)
     : withLiveCatalogTracks(
-        db
-          .from("tracks")
-          .select(
-            "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-          )
-          .eq("artist_id", id),
+        db.from("tracks").select(trackSelect).eq("artist_id", id),
       )
         .order("created_at", { ascending: false })
         .limit(40);
 
-  const { data: trackRows, error: trackError } = await trackQuery;
+  let { data: trackRows, error: trackError } = await trackQuery;
+  if (
+    trackError &&
+    /content_kind|column .* does not exist/i.test(trackError.message)
+  ) {
+    const leanSelect =
+      "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at";
+    const lean = isOwner
+      ? await db
+          .from("tracks")
+          .select(leanSelect)
+          .eq("artist_id", id)
+          .order("created_at", { ascending: false })
+          .limit(60)
+      : await withLiveCatalogTracks(
+          db.from("tracks").select(leanSelect).eq("artist_id", id),
+          { includePodcasts: true },
+        )
+          .order("created_at", { ascending: false })
+          .limit(40);
+    trackRows = lean.data as typeof trackRows;
+    trackError = lean.error;
+  }
+
+  // Public Hearing Aids: music catalog excludes podcasts — load them separately.
+  let podcastRows: TrackRow[] = [];
+  if (!isOwner) {
+    const pod = await db
+      .from("tracks")
+      .select(trackSelect)
+      .eq("artist_id", id)
+      .eq("content_kind", "podcast")
+      .or("status.eq.live,status.eq.published,status.is.null")
+      .not("audio_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(24);
+    if (!pod.error) {
+      podcastRows = (pod.data ?? []) as TrackRow[];
+    }
+  }
 
   const name = isOwner
     ? (typeof artist.display_name === "string" &&
@@ -257,13 +292,22 @@ export default async function ArtistPortalPage({ params }: Props) {
         privacy_public_profile: artist.privacy_public_profile ?? true,
       });
 
-  const tracks = ((trackRows ?? []) as TrackRow[])
+  const allLoaded = ((trackRows ?? []) as TrackRow[])
     .map((t) => ({ ...t, artist_name: name }))
     .filter((t) => {
       if (isDemoTrack(t)) return false;
-      // Owners see drafts; public visitors only published
       return isOwner || isPublishedTrack(t);
     });
+
+  const podcasts = (
+    isOwner
+      ? allLoaded.filter((t) => isPodcastTrack(t))
+      : podcastRows
+          .map((t) => ({ ...t, artist_name: name }))
+          .filter((t) => !isDemoTrack(t) && isPublishedTrack(t))
+  );
+
+  const tracks = allLoaded.filter((t) => !isPodcastTrack(t));
 
   const [countRes, followRes, tipsReady, activity, mixesRes, merchRes, fanClubRes, portalRes, tourRes, myCitiesRes, demandProbe, liveRes, rectLiveRes] =
     await Promise.all([
@@ -295,7 +339,10 @@ export default async function ArtistPortalPage({ params }: Props) {
   const publicMixes = mixesRes.playlists;
 
   const activityTrackIds = activity.entries.map((e) => e.id).filter(Boolean);
-  const catalogTrackIds = tracks.map((t) => t.id).filter(Boolean);
+  const catalogTrackIds = [
+    ...tracks.map((t) => t.id),
+    ...podcasts.map((t) => t.id),
+  ].filter(Boolean);
   const likeProbeIds = [...new Set([...activityTrackIds, ...catalogTrackIds])];
   const likedAmong =
     user && likeProbeIds.length > 0
@@ -631,7 +678,7 @@ export default async function ArtistPortalPage({ params }: Props) {
 
         <section>
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
-            Catalog
+            Music
           </h2>
           {trackError ? (
             <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
@@ -640,7 +687,7 @@ export default async function ArtistPortalPage({ params }: Props) {
           ) : tracks.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
               <p className="text-base font-medium">
-                {isOwner ? "No releases yet" : "No live releases yet"}
+                {isOwner ? "No music yet" : "No live music yet"}
               </p>
               <p className="mt-2 text-sm text-white/40">
                 {isOwner
@@ -678,6 +725,30 @@ export default async function ArtistPortalPage({ params }: Props) {
             </div>
           )}
         </section>
+
+        {podcasts.length > 0 ? (
+          <section className="mt-10">
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+                Hearing Aids
+              </h2>
+              <Link
+                href="/hearing-aids"
+                className="text-xs text-white/40 hover:text-[#1DB954]"
+              >
+                All podcasts →
+              </Link>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2 md:p-3">
+              <TrackList
+                tracks={podcasts}
+                likedTracks={likedByViewer}
+                likesReady={likesReady}
+                loginNext={`/artists/${id}`}
+              />
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );

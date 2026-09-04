@@ -43,6 +43,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { href: "/studio/live", label: "Live Room", short: "Live" },
       { href: "/studio/rect-live", label: "RECT Live", short: "Pro" },
+      { href: "/parties", label: "Listening parties", short: "Party" },
     ],
   },
 ];

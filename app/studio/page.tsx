@@ -16,6 +16,7 @@ const LINKS = [
   { href: "/studio/tours", label: "Tours", hint: "Events & tickets" },
   { href: "/studio/live", label: "Live Room", hint: "Go live" },
   { href: "/studio/rect-live", label: "RECT Live", hint: "Pro stage" },
+  { href: "/parties", label: "Listening parties", hint: "Host a room" },
 ] as const;
 
 /** Artist Studio hub — mobile “More” tab lands here. */

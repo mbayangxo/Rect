@@ -9,6 +9,7 @@ import {
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { loadLikedAmongTrackIds, loadLikedTrackIds } from "@/lib/dashboard/likes";
 import { loadContinueListening } from "@/lib/dashboard/listening-journal";
+import { loadLiveParties } from "@/lib/dashboard/listening-parties";
 import { loadArtistNotifications } from "@/lib/dashboard/notifications";
 import {
   loadFriendsLikes,
@@ -107,6 +108,7 @@ export default async function DashboardPage() {
     trendingPortalsRes,
     newSoundsRes,
     newWaveShowsRes,
+    partiesRes,
   ] = await Promise.all([
     loadFeaturedTracks(supabase, taste),
     loadArtistPortals(supabase, taste),
@@ -124,6 +126,7 @@ export default async function DashboardPage() {
     loadTrendingPortals(supabase, 8),
     loadNewSoundsTracks(supabase, 12),
     loadNewWaveShows(supabase, current.user.id, 10),
+    loadLiveParties(supabase, 8),
   ]);
 
   const releaseUnread = inboxRes.notifications.filter(
@@ -237,6 +240,15 @@ export default async function DashboardPage() {
       trendingPortals={trendingPortalsRes.portals}
       newSoundsTracks={newSoundsRes.tracks}
       newWaveShows={newWaveShowsRes.shows}
+      liveParties={partiesRes.parties.map((p) => ({
+        id: p.id,
+        title: p.title,
+        href: `/parties/${p.id}`,
+        subtitle: "Live party · join the room",
+        cover_url: p.cover_url,
+        kind: "live" as const,
+        meta: "party",
+      }))}
     />
   );
 }
