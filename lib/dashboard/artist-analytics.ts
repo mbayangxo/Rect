@@ -564,6 +564,37 @@ export async function loadStudioAnalytics(
         if (!tid) continue;
         sharesByTrack.set(tid, (sharesByTrack.get(tid) ?? 0) + 1);
       }
+
+      // Listening card events (view/share/copy/send) — behavior signal for analytics
+      const { data: cardEv, error: cardErr } = await db
+        .from("listening_card_events")
+        .select("track_id, event_type, created_at")
+        .in("track_id", trackIds)
+        .limit(8000);
+      if (cardErr && !isMissingRelation(cardErr.message)) {
+        errors.push(`Listening cards: ${cardErr.message}`);
+      } else if (!cardErr) {
+        for (const ev of cardEv ?? []) {
+          const tid = ev.track_id as string;
+          if (!tid) continue;
+          const kind = String(ev.event_type || "");
+          const weight =
+            kind === "share" || kind === "send_friend"
+              ? 1
+              : kind === "copy_link"
+                ? 0.5
+                : kind === "open_card" || kind === "view"
+                  ? 0.25
+                  : 0;
+          if (weight <= 0) continue;
+          const at = ev.created_at as string | undefined;
+          if (at && !inTimeWindow(at, window) && window.from) continue;
+          sharesByTrack.set(
+            tid,
+            (sharesByTrack.get(tid) ?? 0) + weight,
+          );
+        }
+      }
     }
 
     const savesByTrack = new Map<string, number>();
@@ -658,7 +689,7 @@ export async function loadStudioAnalytics(
         skipRate: null,
         likes: likesMap.get(t.id) ?? 0,
         saves: savesByTrack.get(t.id) ?? 0,
-        shares: sharesByTrack.get(t.id) ?? 0,
+        shares: Math.round(sharesByTrack.get(t.id) ?? 0),
         comments: commentsByTrack.get(t.id) ?? 0,
         publishedAt: t.created_at ?? null,
       };
@@ -1115,7 +1146,9 @@ export async function loadStudioAnalytics(
       engagement: {
         totalLikes: [...likesMap.values()].reduce((a, b) => a + b, 0),
         totalComments: [...commentsByTrack.values()].reduce((a, b) => a + b, 0),
-        totalShares: [...sharesByTrack.values()].reduce((a, b) => a + b, 0),
+        totalShares: Math.round(
+          [...sharesByTrack.values()].reduce((a, b) => a + b, 0),
+        ),
         topFans,
         fanClubGrowth,
         followerGrowth,

@@ -1,6 +1,6 @@
 -- RECT — Artist OS monetization + delivery (one paste)
--- Generated: 2026-09-01T20:51:19.808Z
--- Files: 19
+-- Generated: 2026-09-04T01:21:31.773Z
+-- Files: 26
 -- Supabase SQL Editor → paste this entire file → Run
 
 -- ═══════════════════════════════════════════════════════════
@@ -4878,4 +4878,748 @@ revoke all on function public.confirm_artist_tip_system(bigint) from public;
 notify pgrst, 'reload schema';
 
 -- END 20260831_joko_tips.sql
+
+-- ═══════════════════════════════════════════════════════════
+-- BEGIN 20260903_listening_card_events.sql
+-- ═══════════════════════════════════════════════════════════
+-- RECT listening cards — track share / card opens for analytics + royalties later.
+-- Safe to re-run.
+
+create table if not exists public.listening_card_events (
+  id bigserial primary key,
+  track_id uuid not null references public.tracks (id) on delete cascade,
+  actor_id uuid references auth.users (id) on delete set null,
+  event_type text not null
+    check (event_type in ('view', 'share', 'copy_link', 'send_friend', 'open_card')),
+  channel text,
+  recipient_id uuid references auth.users (id) on delete set null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists listening_card_events_track_created_idx
+  on public.listening_card_events (track_id, created_at desc);
+
+create index if not exists listening_card_events_actor_created_idx
+  on public.listening_card_events (actor_id, created_at desc)
+  where actor_id is not null;
+
+alter table public.listening_card_events enable row level security;
+
+drop policy if exists "listening_card_events_insert_own" on public.listening_card_events;
+create policy "listening_card_events_insert_own"
+  on public.listening_card_events for insert
+  to authenticated
+  with check (actor_id is null or actor_id = auth.uid());
+
+drop policy if exists "listening_card_events_select_artist" on public.listening_card_events;
+create policy "listening_card_events_select_artist"
+  on public.listening_card_events for select
+  to authenticated
+  using (
+    exists (
+      select 1 from public.tracks t
+      where t.id = track_id and t.artist_id = auth.uid()
+    )
+    or actor_id = auth.uid()
+  );
+
+notify pgrst, 'reload schema';
+
+-- END 20260903_listening_card_events.sql
+
+-- ═══════════════════════════════════════════════════════════
+-- BEGIN 20260903_artist_store_layout.sql
+-- ═══════════════════════════════════════════════════════════
+-- Artist store layout preference for fan World page (grid | rail | featured).
+alter table public.users
+  add column if not exists artist_store_layout text;
+
+alter table public.users
+  drop constraint if exists users_artist_store_layout_check;
+
+alter table public.users
+  add constraint users_artist_store_layout_check
+  check (
+    artist_store_layout is null
+    or artist_store_layout in ('grid', 'rail', 'featured')
+  );
+
+comment on column public.users.artist_store_layout is
+  'RECT Artist store template: grid | rail | featured';
+
+-- END 20260903_artist_store_layout.sql
+
+-- ═══════════════════════════════════════════════════════════
+-- BEGIN 20260903_listening_parties.sql
+-- ═══════════════════════════════════════════════════════════
+-- Listening parties: host a shared listen with chat (photos/gifs later).
+
+create table if not exists public.listening_parties (
+  id uuid primary key default gen_random_uuid(),
+  host_id uuid not null references public.users (id) on delete cascade,
+  title text not null,
+  track_id uuid references public.tracks (id) on delete set null,
+  status text not null default 'live'
+    check (status in ('scheduled', 'live', 'ended')),
+  invite_code text not null unique,
+  cover_url text,
+  starts_at timestamptz,
+  ended_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists listening_parties_host_idx
+  on public.listening_parties (host_id, created_at desc);
+
+create index if not exists listening_parties_live_idx
+  on public.listening_parties (status, created_at desc)
+  where status = 'live';
+
+create table if not exists public.listening_party_members (
+  party_id uuid not null references public.listening_parties (id) on delete cascade,
+  user_id uuid not null references public.users (id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (party_id, user_id)
+);
+
+create index if not exists listening_party_members_user_idx
+  on public.listening_party_members (user_id);
+
+create table if not exists public.listening_party_messages (
+  id bigserial primary key,
+  party_id uuid not null references public.listening_parties (id) on delete cascade,
+  sender_id uuid not null references public.users (id) on delete cascade,
+  body text not null,
+  kind text not null default 'text'
+    check (kind in ('text', 'gif', 'photo')),
+  media_url text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists listening_party_messages_party_idx
+  on public.listening_party_messages (party_id, created_at desc);
+
+alter table public.listening_parties enable row level security;
+alter table public.listening_party_members enable row level security;
+alter table public.listening_party_messages enable row level security;
+
+drop policy if exists "listening_parties_select" on public.listening_parties;
+create policy "listening_parties_select"
+  on public.listening_parties for select
+  using (
+    status = 'live'
+    or host_id = auth.uid()
+    or exists (
+      select 1 from public.listening_party_members m
+      where m.party_id = id and m.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "listening_parties_insert" on public.listening_parties;
+create policy "listening_parties_insert"
+  on public.listening_parties for insert
+  with check (host_id = auth.uid());
+
+drop policy if exists "listening_parties_update" on public.listening_parties;
+create policy "listening_parties_update"
+  on public.listening_parties for update
+  using (host_id = auth.uid());
+
+drop policy if exists "listening_party_members_select" on public.listening_party_members;
+create policy "listening_party_members_select"
+  on public.listening_party_members for select
+  using (
+    user_id = auth.uid()
+    or exists (
+      select 1 from public.listening_parties p
+      where p.id = party_id and p.host_id = auth.uid()
+    )
+  );
+
+drop policy if exists "listening_party_members_insert" on public.listening_party_members;
+create policy "listening_party_members_insert"
+  on public.listening_party_members for insert
+  with check (user_id = auth.uid());
+
+drop policy if exists "listening_party_messages_select" on public.listening_party_messages;
+create policy "listening_party_messages_select"
+  on public.listening_party_messages for select
+  using (
+    exists (
+      select 1 from public.listening_parties p
+      where p.id = party_id
+        and (
+          p.host_id = auth.uid()
+          or p.status = 'live'
+          or exists (
+            select 1 from public.listening_party_members m
+            where m.party_id = p.id and m.user_id = auth.uid()
+          )
+        )
+    )
+  );
+
+drop policy if exists "listening_party_messages_insert" on public.listening_party_messages;
+create policy "listening_party_messages_insert"
+  on public.listening_party_messages for insert
+  with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from public.listening_parties p
+      where p.id = party_id
+        and p.status = 'live'
+        and (
+          p.host_id = auth.uid()
+          or exists (
+            select 1 from public.listening_party_members m
+            where m.party_id = p.id and m.user_id = auth.uid()
+          )
+        )
+    )
+  );
+
+create or replace function public.create_listening_party(
+  p_title text,
+  p_track_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_code text;
+begin
+  if auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+  v_code := lower(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+  insert into public.listening_parties (host_id, title, track_id, status, invite_code, starts_at)
+  values (auth.uid(), trim(p_title), p_track_id, 'live', v_code, now())
+  returning id into v_id;
+  insert into public.listening_party_members (party_id, user_id)
+  values (v_id, auth.uid())
+  on conflict do nothing;
+  return v_id;
+end;
+$$;
+
+grant execute on function public.create_listening_party(text, uuid) to authenticated;
+
+-- END 20260903_listening_parties.sql
+
+-- ═══════════════════════════════════════════════════════════
+-- BEGIN 20260903_rect_labels.sql
+-- ═══════════════════════════════════════════════════════════
+-- RECT Labels: mutual accept between label and artist.
+
+alter table public.users
+  drop constraint if exists users_account_type_check;
+
+alter table public.users
+  add constraint users_account_type_check
+  check (account_type is null or account_type in ('fan', 'artist', 'label'));
+
+create table if not exists public.rect_labels (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references public.users (id) on delete cascade,
+  name text not null,
+  slug text unique,
+  bio text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists rect_labels_owner_unique
+  on public.rect_labels (owner_id);
+
+create table if not exists public.rect_label_memberships (
+  id uuid primary key default gen_random_uuid(),
+  label_id uuid not null references public.rect_labels (id) on delete cascade,
+  artist_id uuid not null references public.users (id) on delete cascade,
+  -- pending = one side invited; accepted = both confirmed; declined/ended
+  status text not null default 'pending'
+    check (status in ('pending', 'accepted', 'declined', 'ended')),
+  invited_by uuid not null references public.users (id),
+  -- who still needs to accept (null when accepted)
+  awaiting_user_id uuid references public.users (id),
+  artist_accepted_at timestamptz,
+  label_accepted_at timestamptz,
+  revenue_split_label_pct numeric(5,2) default 20
+    check (revenue_split_label_pct >= 0 and revenue_split_label_pct <= 100),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (label_id, artist_id)
+);
+
+create index if not exists rect_label_memberships_artist_idx
+  on public.rect_label_memberships (artist_id, status);
+
+create index if not exists rect_label_memberships_label_status_idx
+  on public.rect_label_memberships (label_id, status);
+
+alter table public.rect_labels enable row level security;
+alter table public.rect_label_memberships enable row level security;
+
+drop policy if exists "rect_labels_select" on public.rect_labels;
+create policy "rect_labels_select"
+  on public.rect_labels for select
+  using (
+    owner_id = auth.uid()
+    or exists (
+      select 1 from public.rect_label_memberships m
+      where m.label_id = id
+        and m.artist_id = auth.uid()
+        and m.status in ('pending', 'accepted')
+    )
+  );
+
+drop policy if exists "rect_labels_insert" on public.rect_labels;
+create policy "rect_labels_insert"
+  on public.rect_labels for insert
+  with check (owner_id = auth.uid());
+
+drop policy if exists "rect_labels_update" on public.rect_labels;
+create policy "rect_labels_update"
+  on public.rect_labels for update
+  using (owner_id = auth.uid());
+
+drop policy if exists "rect_label_memberships_select" on public.rect_label_memberships;
+create policy "rect_label_memberships_select"
+  on public.rect_label_memberships for select
+  using (
+    artist_id = auth.uid()
+    or exists (
+      select 1 from public.rect_labels l
+      where l.id = label_id and l.owner_id = auth.uid()
+    )
+  );
+
+drop policy if exists "rect_label_memberships_insert" on public.rect_label_memberships;
+create policy "rect_label_memberships_insert"
+  on public.rect_label_memberships for insert
+  with check (
+    invited_by = auth.uid()
+    and (
+      artist_id = auth.uid()
+      or exists (
+        select 1 from public.rect_labels l
+        where l.id = label_id and l.owner_id = auth.uid()
+      )
+    )
+  );
+
+drop policy if exists "rect_label_memberships_update" on public.rect_label_memberships;
+create policy "rect_label_memberships_update"
+  on public.rect_label_memberships for update
+  using (
+    artist_id = auth.uid()
+    or exists (
+      select 1 from public.rect_labels l
+      where l.id = label_id and l.owner_id = auth.uid()
+    )
+  );
+
+create or replace function public.create_rect_label(p_name text)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_slug text;
+begin
+  if auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+  v_slug := lower(regexp_replace(trim(p_name), '[^a-zA-Z0-9]+', '-', 'g'));
+  v_slug := trim(both '-' from v_slug);
+  if v_slug = '' then
+    v_slug := substr(replace(gen_random_uuid()::text, '-', ''), 1, 8);
+  end if;
+  insert into public.rect_labels (owner_id, name, slug)
+  values (auth.uid(), trim(p_name), v_slug || '-' || substr(replace(gen_random_uuid()::text, '-', ''), 1, 4))
+  returning id into v_id;
+  return v_id;
+end;
+$$;
+
+grant execute on function public.create_rect_label(text) to authenticated;
+
+-- END 20260903_rect_labels.sql
+
+-- ═══════════════════════════════════════════════════════════
+-- BEGIN 20260903_track_audio_qc.sql
+-- ═══════════════════════════════════════════════════════════
+-- Track audio QC (Upload QC / go-live gate). RECT Punch mastering comes later.
+
+alter table public.tracks
+  add column if not exists qc_status text;
+
+alter table public.tracks
+  drop constraint if exists tracks_qc_status_check;
+
+alter table public.tracks
+  add constraint tracks_qc_status_check
+  check (
+    qc_status is null
+    or qc_status in ('pending', 'pass', 'warn', 'fail')
+  );
+
+alter table public.tracks
+  add column if not exists qc_checked_at timestamptz;
+
+alter table public.tracks
+  add column if not exists qc_sample_rate integer;
+
+alter table public.tracks
+  add column if not exists qc_channels smallint;
+
+alter table public.tracks
+  add column if not exists qc_lufs_integrated numeric;
+
+alter table public.tracks
+  add column if not exists qc_true_peak_dbtp numeric;
+
+alter table public.tracks
+  add column if not exists qc_silence_ratio numeric;
+
+alter table public.tracks
+  add column if not exists qc_issues jsonb;
+
+comment on column public.tracks.qc_status is
+  'Upload QC: pending|pass|warn|fail — fail blocks go-live';
+comment on column public.tracks.qc_lufs_integrated is
+  'Integrated loudness LUFS (aim ~-14)';
+comment on column public.tracks.qc_true_peak_dbtp is
+  'True peak dBTP (must be <= -1)';
+
+-- END 20260903_track_audio_qc.sql
+
+-- ═══════════════════════════════════════════════════════════
+-- BEGIN 20260904_hearing_aids_and_punch.sql
+-- ═══════════════════════════════════════════════════════════
+-- Content kind: music (default) vs podcast (Hearing Aids).
+alter table public.tracks
+  add column if not exists content_kind text;
+
+alter table public.tracks
+  drop constraint if exists tracks_content_kind_check;
+
+alter table public.tracks
+  add constraint tracks_content_kind_check
+  check (
+    content_kind is null
+    or content_kind in ('music', 'podcast')
+  );
+
+update public.tracks
+set content_kind = 'music'
+where content_kind is null;
+
+alter table public.tracks
+  alter column content_kind set default 'music';
+
+create index if not exists tracks_content_kind_live_idx
+  on public.tracks (content_kind, status, created_at desc);
+
+comment on column public.tracks.content_kind is
+  'music = catalog/Wave; podcast = Hearing Aids on-demand talk';
+
+-- RECT Punch mastering request (optional after Upload QC).
+alter table public.tracks
+  add column if not exists punch_status text;
+
+alter table public.tracks
+  drop constraint if exists tracks_punch_status_check;
+
+alter table public.tracks
+  add constraint tracks_punch_status_check
+  check (
+    punch_status is null
+    or punch_status in ('requested', 'processing', 'ready', 'failed', 'skipped')
+  );
+
+alter table public.tracks
+  add column if not exists punch_audio_url text;
+
+alter table public.tracks
+  add column if not exists punch_requested_at timestamptz;
+
+alter table public.tracks
+  add column if not exists punch_ready_at timestamptz;
+
+alter table public.tracks
+  add column if not exists punch_notes text;
+
+comment on column public.tracks.punch_status is
+  'RECT Punch mastering: requested→processing→ready; Delivery prefers punch_audio_url when ready';
+
+-- END 20260904_hearing_aids_and_punch.sql
+
+-- ═══════════════════════════════════════════════════════════
+-- BEGIN 20260904_listener_behavior_affinity.sql
+-- ═══════════════════════════════════════════════════════════
+-- Listener behavior affinity — learn genres/languages/places/dayparts from plays + likes.
+-- Feeds For You / Wave soft-rank (merged with declared onboarding taste).
+-- Also: allow listeners to update listened_secs on their own plays (real completion).
+-- Safe to re-run.
+
+-- Progress updates so studio completion / affinity weights reflect actual listen length.
+drop policy if exists "plays_update_own_listened_secs" on public.plays;
+create policy "plays_update_own_listened_secs"
+  on public.plays for update
+  to authenticated
+  using (listener_id = auth.uid())
+  with check (listener_id = auth.uid());
+
+create or replace function public.update_play_listened_secs(
+  p_play_id uuid,
+  p_listened_secs integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  v_secs integer;
+  v_row public.plays%rowtype;
+begin
+  if uid is null then
+    raise exception 'not authenticated';
+  end if;
+  if p_play_id is null then
+    raise exception 'play_id required';
+  end if;
+  v_secs := greatest(0, least(coalesce(p_listened_secs, 0), 86400));
+
+  update public.plays
+  set listened_secs = greatest(coalesce(listened_secs, 0), v_secs)
+  where id = p_play_id
+    and listener_id = uid
+  returning * into v_row;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'play_not_found');
+  end if;
+
+  return jsonb_build_object(
+    'ok', true,
+    'play_id', v_row.id,
+    'listened_secs', v_row.listened_secs
+  );
+end;
+$$;
+
+revoke all on function public.update_play_listened_secs(uuid, integer) from public;
+grant execute on function public.update_play_listened_secs(uuid, integer) to authenticated;
+
+-- Affinity rollup for the signed-in listener (security: auth.uid() only).
+create or replace function public.listener_behavior_affinity(
+  p_days integer default 90
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  v_days integer := greatest(7, least(coalesce(p_days, 90), 365));
+  v_since timestamptz := now() - make_interval(days => v_days);
+  v_genres jsonb := '[]'::jsonb;
+  v_languages jsonb := '[]'::jsonb;
+  v_countries jsonb := '[]'::jsonb;
+  v_times jsonb := '[]'::jsonb;
+  v_artists jsonb := '[]'::jsonb;
+  v_plays integer := 0;
+  v_likes integer := 0;
+begin
+  if uid is null then
+    return jsonb_build_object(
+      'ok', false,
+      'error', 'not_authenticated',
+      'window_days', v_days
+    );
+  end if;
+
+  select count(*)::integer into v_plays
+  from public.plays p
+  where p.listener_id = uid
+    and p.created_at >= v_since;
+
+  select count(*)::integer into v_likes
+  from public.track_likes tl
+  where tl.user_id = uid
+    and tl.created_at >= v_since;
+
+  -- Genre weights: plays (listened_secs / 30, floor 1) + likes * 3
+  select coalesce(jsonb_agg(row_to_json(x)::jsonb order by x.score desc), '[]'::jsonb)
+  into v_genres
+  from (
+    select name, round(sum(w)::numeric, 2) as score
+    from (
+      select
+        nullif(trim(t.genre), '') as name,
+        greatest(1.0, coalesce(p.listened_secs, 30)::float / 30.0) as w
+      from public.plays p
+      join public.tracks t on t.id = p.track_id
+      where p.listener_id = uid
+        and p.created_at >= v_since
+        and coalesce(t.content_kind, 'music') <> 'podcast'
+        and nullif(trim(t.genre), '') is not null
+      union all
+      select
+        nullif(trim(t.genre), '') as name,
+        3.0 as w
+      from public.track_likes tl
+      join public.tracks t on t.id = tl.track_id
+      where tl.user_id = uid
+        and tl.created_at >= v_since
+        and coalesce(t.content_kind, 'music') <> 'podcast'
+        and nullif(trim(t.genre), '') is not null
+    ) raw
+    where name is not null
+    group by name
+    order by sum(w) desc
+    limit 12
+  ) x;
+
+  select coalesce(jsonb_agg(row_to_json(x)::jsonb order by x.score desc), '[]'::jsonb)
+  into v_languages
+  from (
+    select name, round(sum(w)::numeric, 2) as score
+    from (
+      select
+        nullif(trim(t.language), '') as name,
+        greatest(1.0, coalesce(p.listened_secs, 30)::float / 30.0) as w
+      from public.plays p
+      join public.tracks t on t.id = p.track_id
+      where p.listener_id = uid
+        and p.created_at >= v_since
+        and coalesce(t.content_kind, 'music') <> 'podcast'
+        and nullif(trim(t.language), '') is not null
+      union all
+      select
+        nullif(trim(t.language), '') as name,
+        3.0 as w
+      from public.track_likes tl
+      join public.tracks t on t.id = tl.track_id
+      where tl.user_id = uid
+        and tl.created_at >= v_since
+        and coalesce(t.content_kind, 'music') <> 'podcast'
+        and nullif(trim(t.language), '') is not null
+    ) raw
+    where name is not null
+    group by name
+    order by sum(w) desc
+    limit 12
+  ) x;
+
+  -- Places from artists of played tracks (users.countries text[])
+  select coalesce(jsonb_agg(row_to_json(x)::jsonb order by x.score desc), '[]'::jsonb)
+  into v_countries
+  from (
+    select name, round(sum(w)::numeric, 2) as score
+    from (
+      select
+        nullif(trim(c), '') as name,
+        greatest(1.0, coalesce(p.listened_secs, 30)::float / 30.0) as w
+      from public.plays p
+      join public.tracks t on t.id = p.track_id
+      join public.users u on u.id = t.artist_id
+      cross join lateral unnest(coalesce(u.countries, '{}'::text[])) as c
+      where p.listener_id = uid
+        and p.created_at >= v_since
+        and coalesce(t.content_kind, 'music') <> 'podcast'
+    ) raw
+    where name is not null
+    group by name
+    order by sum(w) desc
+    limit 12
+  ) x;
+
+  -- Dayparts from play hour (listener local approx = UTC; still useful signal)
+  select coalesce(jsonb_agg(row_to_json(x)::jsonb order by x.score desc), '[]'::jsonb)
+  into v_times
+  from (
+    select
+      case
+        when extract(hour from p.created_at at time zone 'UTC') >= 5
+          and extract(hour from p.created_at at time zone 'UTC') < 12 then 'morning'
+        when extract(hour from p.created_at at time zone 'UTC') >= 12
+          and extract(hour from p.created_at at time zone 'UTC') < 17 then 'afternoon'
+        when extract(hour from p.created_at at time zone 'UTC') >= 17
+          and extract(hour from p.created_at at time zone 'UTC') < 21 then 'evening'
+        else 'night'
+      end as name,
+      round(sum(greatest(1.0, coalesce(p.listened_secs, 30)::float / 30.0))::numeric, 2) as score
+    from public.plays p
+    join public.tracks t on t.id = p.track_id
+    where p.listener_id = uid
+      and p.created_at >= v_since
+      and coalesce(t.content_kind, 'music') <> 'podcast'
+    group by 1
+    order by 2 desc
+  ) x;
+
+  select coalesce(jsonb_agg(row_to_json(x)::jsonb order by x.score desc), '[]'::jsonb)
+  into v_artists
+  from (
+    select
+      t.artist_id::text as id,
+      round(sum(greatest(1.0, coalesce(p.listened_secs, 30)::float / 30.0))::numeric, 2) as score
+    from public.plays p
+    join public.tracks t on t.id = p.track_id
+    where p.listener_id = uid
+      and p.created_at >= v_since
+      and t.artist_id is not null
+      and coalesce(t.content_kind, 'music') <> 'podcast'
+    group by t.artist_id
+    order by 2 desc
+    limit 20
+  ) x;
+
+  return jsonb_build_object(
+    'ok', true,
+    'window_days', v_days,
+    'play_count', v_plays,
+    'like_count', v_likes,
+    'genres', v_genres,
+    'languages', v_languages,
+    'countries', v_countries,
+    'listening_times', v_times,
+    'artists', v_artists
+  );
+exception
+  when undefined_column then
+    -- content_kind / countries / language missing — return empty ok so app falls back
+    return jsonb_build_object(
+      'ok', true,
+      'window_days', v_days,
+      'play_count', 0,
+      'like_count', 0,
+      'genres', '[]'::jsonb,
+      'languages', '[]'::jsonb,
+      'countries', '[]'::jsonb,
+      'listening_times', '[]'::jsonb,
+      'artists', '[]'::jsonb,
+      'degraded', true
+    );
+end;
+$$;
+
+revoke all on function public.listener_behavior_affinity(integer) from public;
+grant execute on function public.listener_behavior_affinity(integer) to authenticated;
+
+notify pgrst, 'reload schema';
+
+-- END 20260904_listener_behavior_affinity.sql
 

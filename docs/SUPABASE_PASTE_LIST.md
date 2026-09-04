@@ -74,6 +74,7 @@ Individual files (if you prefer):
 | 21 | **`20260903_rect_labels.sql`** | RECT Labels mutual accept + roster |
 | 22 | **`20260903_track_audio_qc.sql`** | Upload QC (LUFS / peak / silence) |
 | 23 | **`20260904_hearing_aids_and_punch.sql`** | Podcasts (`content_kind`) + RECT Punch columns |
+| 24 | **`20260904_listener_behavior_affinity.sql`** | Behavior affinity RPC + play progress (`listened_secs`) |
 
 Optional extras:
 

@@ -29,6 +29,16 @@ Work **slice by slice, end to end** — no half-wired surfaces.
 8. **Upload QC** — LUFS / peak / silence gates — done  
 9. **Hearing Aids** — podcasts — done (`/hearing-aids`)  
 10. **RECT Punch** — request queue + Delivery prefers `punch_audio_url` when ready; partner mastering fills the file later  
+11. **Behavior learning** — plays/likes → affinity → For You / Wave; play progress → completion analytics  
+
+## Behavior learning (algorithm + analytics infra)
+
+- RPC `listener_behavior_affinity` rolls up genres / languages / places / dayparts from plays + likes (90-day window).  
+- `loadListenerTasteWithBehavior` merges affinity with onboarding taste (declared prefs stay first).  
+- Player reports `listened_secs` via `/api/plays/progress` so completion + affinity weights learn real listen length.  
+- Studio analytics folds `listening_card_events` into share engagement.  
+- Inspect: `GET /api/account/behavior`  
+- Paste: `20260904_listener_behavior_affinity.sql` (or re-bundle artist-os).  
 
 ## Upload QC + Punch
 

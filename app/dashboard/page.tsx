@@ -19,11 +19,13 @@ import { loadFollowingAmongPlaylists } from "@/lib/dashboard/playlist-follows";
 import { loadFirstTracksForPlaylists } from "@/lib/dashboard/playlists";
 import { loadPlayPacks } from "@/lib/dashboard/play-packs";
 import {
+  loadListenerTasteWithBehavior,
+} from "@/lib/dashboard/behavior";
+import {
   activeDaypartFromTaste,
   DAYPART_META,
   hasTasteSignal,
   packCountryFromTaste,
-  tasteFromProfile,
 } from "@/lib/dashboard/taste";
 import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
 import { loadNewSoundsTracks } from "@/lib/dashboard/new-sounds";
@@ -76,7 +78,11 @@ export default async function DashboardPage() {
     );
   }
 
-  const taste = tasteFromProfile(current.profile);
+  const taste = await loadListenerTasteWithBehavior(
+    supabase,
+    current.user.id,
+    current.user.user_metadata as Record<string, unknown> | null,
+  );
   const packCountry = packCountryFromTaste(taste);
   const personalized = hasTasteSignal(taste);
   const activeDaypart = activeDaypartFromTaste(taste);

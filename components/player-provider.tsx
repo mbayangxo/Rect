@@ -157,8 +157,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [immersiveOpen, setImmersiveOpen] = useState(false);
   const [savingQueue, setSavingQueue] = useState(false);
   const recordedFor = useRef<string | null>(null);
+  const playIdForTrack = useRef<{ trackId: string; playId: string } | null>(
+    null,
+  );
+  const lastProgressSentAt = useRef(0);
+  const lastProgressSecs = useRef(0);
   const recordPlayRef = useRef<(trackId: string) => Promise<void>>(
     async () => undefined,
+  );
+  const progressReportRef = useRef<(secs: number, force?: boolean) => void>(
+    () => undefined,
   );
   const guestPreviewRef = useRef(false);
   const startGenRef = useRef(0);
@@ -252,6 +260,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
       setCurrentTime(t);
       maybeCreditListen();
+      progressReportRef.current(t);
     };
     const onMeta = () => {
       const secs = audio.duration || 0;
@@ -279,7 +288,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         });
     };
     const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
+    const onPause = () => {
+      setPlaying(false);
+      progressReportRef.current(audio.currentTime || 0, true);
+    };
     const onError = () => {
       setPlaying(false);
       setCreditNotice(
@@ -347,7 +359,19 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const data = (await res.json().catch(() => null)) as {
             credits_remaining?: number | null;
+            play_id?: string | null;
           } | null;
+          if (
+            typeof data?.play_id === "string" &&
+            data.play_id.trim()
+          ) {
+            playIdForTrack.current = {
+              trackId,
+              playId: data.play_id.trim(),
+            };
+            lastProgressSentAt.current = 0;
+            lastProgressSecs.current = 0;
+          }
           if (
             typeof data?.credits_remaining === "number" &&
             Number.isFinite(data.credits_remaining)
@@ -398,6 +422,27 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     recordPlayRef.current = recordPlay;
   }, [recordPlay]);
 
+  useEffect(() => {
+    progressReportRef.current = (secs: number, force = false) => {
+      const pair = playIdForTrack.current;
+      if (!pair?.playId) return;
+      const rounded = Math.max(0, Math.round(secs));
+      if (!force && rounded < lastProgressSecs.current + 10) return;
+      const now = Date.now();
+      if (!force && now - lastProgressSentAt.current < 12_000) return;
+      lastProgressSentAt.current = now;
+      lastProgressSecs.current = rounded;
+      void fetch("/api/plays/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          play_id: pair.playId,
+          listened_secs: rounded,
+        }),
+      }).catch(() => undefined);
+    };
+  }, []);
+
   const startTrack = useCallback(
     (next: TrackRow) => {
       const audio = audioRef.current;
@@ -409,6 +454,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setPlaying(false);
       setTrack(next);
       recordedFor.current = null;
+      playIdForTrack.current = null;
+      lastProgressSecs.current = 0;
+      lastProgressSentAt.current = 0;
       durationPersistedFor.current = null;
       guestPreviewRef.current = false;
       setLoginNext(`/songs/${next.id}`);
@@ -729,6 +777,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!audio) return;
 
     const onEnded = () => {
+      progressReportRef.current(audio.duration || audio.currentTime || 0, true);
       const q = queueRef.current;
       const nextIdx = queueIndexRef.current + 1;
       if (q.length > 0 && nextIdx < q.length) {
@@ -986,7 +1035,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 className="flex h-9 w-9 items-center justify-center rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 aria-label="Previous"
               >
-                ⏮
+                ❮
               </button>
               <button
                 type="button"
@@ -1003,7 +1052,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 className="flex h-9 w-9 items-center justify-center rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 aria-label="Next"
               >
-                ⏭
+                ❭
               </button>
               <button
                 type="button"

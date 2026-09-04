@@ -19,11 +19,11 @@ import {
   placeToSlug,
   resolvePlaceParam,
 } from "@/lib/dashboard/places";
+import { loadListenerTasteWithBehavior } from "@/lib/dashboard/behavior";
 import {
   activeDaypartFromTaste,
   DAYPART_META,
   hasTasteSignal,
-  loadListenerTaste,
   type ListenerTaste,
 } from "@/lib/dashboard/taste";
 import {
@@ -211,7 +211,7 @@ export default async function ChartsPage({ searchParams }: Props) {
   let chartsHidden = false;
   if (user) {
     const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
-    taste = await loadListenerTaste(supabase, user.id, meta);
+    taste = await loadListenerTasteWithBehavior(supabase, user.id, meta);
 
     const { data: privacyRow, error: privacyErr } = await supabase
       .from("users")

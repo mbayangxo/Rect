@@ -3,7 +3,7 @@ import { AppBottomNav } from "@/components/app-bottom-nav";
 import { LiveNowStrip } from "@/components/live-now-strip";
 import { RectLogo } from "@/components/rect-logo";
 import { TrackCover } from "@/components/track-cover";
-import { tasteFromProfile } from "@/lib/dashboard/taste";
+import { loadListenerTasteWithBehavior } from "@/lib/dashboard/behavior";
 import {
   loadTrendingLiveRoomsNearby,
   loadTrendingPortals,
@@ -18,7 +18,13 @@ export const dynamic = "force-dynamic";
 export default async function DiscoverPage() {
   const supabase = await createClient();
   const current = await getDashboardCurrentUser(supabase);
-  const taste = current.ok ? tasteFromProfile(current.profile) : null;
+  const taste = current.ok
+    ? await loadListenerTasteWithBehavior(
+        supabase,
+        current.user.id,
+        current.user.user_metadata as Record<string, unknown> | null,
+      )
+    : null;
   const country = taste?.countries?.[0] ?? null;
   const city = null;
 

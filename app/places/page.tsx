@@ -1,10 +1,7 @@
 import { PlacesClient } from "@/app/places/places-client";
+import { loadListenerTasteWithBehavior } from "@/lib/dashboard/behavior";
 import { loadPlaceHubs } from "@/lib/dashboard/places";
-import {
-  hasTasteSignal,
-  loadListenerTaste,
-  tasteFromProfile,
-} from "@/lib/dashboard/taste";
+import { hasTasteSignal, tasteFromProfile } from "@/lib/dashboard/taste";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +14,7 @@ export default async function PlacesPage() {
 
   let taste = tasteFromProfile(null);
   if (user) {
-    taste = await loadListenerTaste(
+    taste = await loadListenerTasteWithBehavior(
       supabase,
       user.id,
       user.user_metadata as Record<string, unknown>,
