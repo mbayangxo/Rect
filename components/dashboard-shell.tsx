@@ -18,14 +18,15 @@ import { usePlayer } from "@/components/player-provider";
 import { PlayPacksPanel } from "@/components/play-packs-panel";
 import { TrackCover } from "@/components/track-cover";
 import { TrackLikeButton } from "@/components/track-like-button";
+import type { ArtistPortal } from "@/lib/dashboard/artists";
+import type { LivePresenceItem } from "@/lib/dashboard/live-presence";
+import type { LiveRoom } from "@/lib/dashboard/live-rooms";
+import type { NewSoundsTrack } from "@/lib/dashboard/new-sounds";
+import type { NewWaveShow } from "@/lib/dashboard/new-wave-shows";
 import type {
   TrendingPortal,
   TrendingTrack,
 } from "@/lib/dashboard/trending";
-import type { ArtistPortal } from "@/lib/dashboard/artists";
-import type { LiveRoom } from "@/lib/dashboard/live-rooms";
-import type { NewSoundsTrack } from "@/lib/dashboard/new-sounds";
-import type { NewWaveShow } from "@/lib/dashboard/new-wave-shows";
 import {
   formatPlayedAt,
   type JournalEntry,
@@ -78,6 +79,7 @@ type Props = {
   playlistFollowsReady?: boolean;
   playlistPreviewTracks?: Record<string, TrackRow>;
   liveNow?: LiveRoom[];
+  livePresence?: LivePresenceItem[];
   trendingTracks?: TrendingTrack[];
   trendingPortals?: TrendingPortal[];
   newSoundsTracks?: NewSoundsTrack[];
@@ -125,6 +127,7 @@ export function DashboardShell({
   playlistFollowsReady = false,
   playlistPreviewTracks = {},
   liveNow = [],
+  livePresence = [],
   trendingTracks = [],
   trendingPortals = [],
   newSoundsTracks = [],
@@ -327,7 +330,7 @@ export function DashboardShell({
       <div className="dash-page mx-auto w-full max-w-7xl px-4 pb-28 sm:px-8">
         <HearthHero
           displayName={displayName}
-          liveCount={liveNow.length}
+          liveCount={livePresence.length || liveNow.length}
           inboxUnread={inboxUnread}
           creditBalance={creditBalance}
           creditsReady={creditsReady}
@@ -416,7 +419,25 @@ export function DashboardShell({
         </div>
 
         <HearthPulse
-          rooms={liveNow}
+          livePresence={
+            livePresence.length > 0
+              ? livePresence
+              : liveNow.map((r) => ({
+                  id: `room:${r.id}`,
+                  kind: "live_room" as const,
+                  artist_id: r.artist_id,
+                  artist_name: r.artist_name || "Artist",
+                  artist_avatar: r.artist_avatar ?? null,
+                  title: r.title,
+                  href: `/artists/${r.artist_id}/live/${r.id}`,
+                  viewer_count: r.viewer_count,
+                  modeLabel: r.mode || "live",
+                  place:
+                    [r.neighborhood, r.city, r.country]
+                      .filter(Boolean)
+                      .join(" · ") || null,
+                }))
+          }
           trendingTracks={trendingTracks}
           trendingPortals={trendingPortals}
           featured={featured}

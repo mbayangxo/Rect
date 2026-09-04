@@ -83,9 +83,24 @@ Still need these if not already run (see `docs/SUPABASE_PASTE_LIST.md`):
 - **Wave** = radio  
 - **New Wave** = new **radio** shows on Wave (discovery shelf → opens Wave stations)  
 - **New Sounds** = music launches  
-- Live Room / RECT Live live under **RECT Artist** Presence — not “host New Wave”
+- **Live Rooms** + **RECT Live** = live presence — trend on Home / Discover (not New Wave)  
+- Live Room / RECT Live host under **RECT Artist** Presence  
+
+## Built vs left
+
+### Built end-to-end (code)
+
+Listen loop · Wave / New Wave (radio) · New Sounds · Hearing Aids · Inbox · Parties · World/Store decorate · Labels (invite/accept/roster/rollup) · Analytics · Upload QC · Punch → Delivery → Taali · Behavior learning · Live Rooms + RECT Live trending on Home/Discover · Profile listening taste · Label name search  
+
+### Left (ops / later product)
+
+- **You:** paste SQL (`20260904_hearing_aids_and_punch.sql`, `20260904_listener_behavior_affinity.sql`, or artist-os bundle)  
+- Label revenue-split → auto wallet (split % stored only)  
+- Taali live DSP confirmation depends on `TAALI_API_*` env  
+- Pro media SFU for fan video on RECT Live (chat/presence live today)  
 
 ## Polish shipped
 
 - Profile **Listening taste** — learned genres / languages / dayparts from plays  
-- Label invite by **artist name search** (not UUID-only)
+- Label invite by **artist name search** (not UUID-only)  
+- Home / Discover: Live Rooms **and** RECT Lives trend by viewers

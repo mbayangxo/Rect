@@ -32,6 +32,8 @@ import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
 import { loadNewSoundsTracks } from "@/lib/dashboard/new-sounds";
 import { loadNewWaveShows } from "@/lib/dashboard/new-wave-shows";
 import { loadPublicLiveNow } from "@/lib/dashboard/live-rooms";
+import { mergeTrendingLivePresence } from "@/lib/dashboard/live-presence";
+import { loadPublicRectLivesNow } from "@/lib/dashboard/rect-live";
 import {
   loadTrendingPortals,
   loadTrendingTracks,
@@ -104,6 +106,7 @@ export default async function DashboardPage() {
     friendsLikesRes,
     friendsMixesRes,
     liveNowRes,
+    rectLiveRes,
     trendingTracksRes,
     trendingPortalsRes,
     newSoundsRes,
@@ -122,12 +125,19 @@ export default async function DashboardPage() {
     loadFriendsLikes(supabase, current.user.id, 8),
     loadFriendsMixes(supabase, current.user.id, 6),
     loadPublicLiveNow(supabase, 16),
+    loadPublicRectLivesNow(supabase, 12),
     loadTrendingTracks(supabase, 10),
     loadTrendingPortals(supabase, 8),
     loadNewSoundsTracks(supabase, 12),
     loadNewWaveShows(supabase, current.user.id, 10),
     loadLiveParties(supabase, 8),
   ]);
+
+  const livePresence = mergeTrendingLivePresence(
+    liveNowRes.rooms,
+    rectLiveRes.lives,
+    16,
+  );
 
   const releaseUnread = inboxRes.notifications.filter(
     (n) =>
@@ -236,6 +246,7 @@ export default async function DashboardPage() {
       playlistFollowsReady={!playlistAmong.missingTable}
       playlistPreviewTracks={playlistPreviewTracks}
       liveNow={liveNowRes.rooms}
+      livePresence={livePresence}
       trendingTracks={trendingTracksRes.tracks}
       trendingPortals={trendingPortalsRes.portals}
       newSoundsTracks={newSoundsRes.tracks}

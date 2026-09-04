@@ -4,6 +4,8 @@ import { LiveNowStrip } from "@/components/live-now-strip";
 import { RectLogo } from "@/components/rect-logo";
 import { TrackCover } from "@/components/track-cover";
 import { loadListenerTasteWithBehavior } from "@/lib/dashboard/behavior";
+import { mergeTrendingLivePresence } from "@/lib/dashboard/live-presence";
+import { loadPublicRectLivesNow } from "@/lib/dashboard/rect-live";
 import {
   loadTrendingLiveRoomsNearby,
   loadTrendingPortals,
@@ -28,7 +30,7 @@ export default async function DiscoverPage() {
   const country = taste?.countries?.[0] ?? null;
   const city = null;
 
-  const [tracksRes, portalsRes, roomsRes] = await Promise.all([
+  const [tracksRes, portalsRes, roomsRes, rectRes] = await Promise.all([
     loadTrendingTracks(supabase, 16),
     loadTrendingPortals(supabase, 10),
     loadTrendingLiveRoomsNearby(
@@ -36,6 +38,7 @@ export default async function DiscoverPage() {
       { country, city, neighborhood: null },
       12,
     ),
+    loadPublicRectLivesNow(supabase, 12),
   ]);
 
   const liveRooms: LiveRoom[] = roomsRes.rooms.map((r) => ({
@@ -57,6 +60,12 @@ export default async function DiscoverPage() {
     artist_name: r.artist_name,
     artist_avatar: r.artist_avatar,
   }));
+
+  const livePresence = mergeTrendingLivePresence(
+    liveRooms,
+    rectRes.lives,
+    16,
+  );
 
   return (
     <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
@@ -83,16 +92,16 @@ export default async function DiscoverPage() {
             Discover
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
-            Trending songs, worlds, and live rooms. Music plays only when you
-            press play.
+            Trending songs, worlds, Live Rooms, and official RECT Lives. Music
+            plays only when you press play.
           </p>
         </div>
 
-        <LiveNowStrip rooms={liveRooms} />
+        <LiveNowStrip items={livePresence} />
 
-        {(country || city) && roomsRes.rooms.length > 0 ? (
+        {(country || city) && livePresence.length > 0 ? (
           <p className="text-xs text-white/35">
-            Showing Live Rooms
+            Showing live presence
             {city ? ` in ${city}` : ""}
             {country ? ` · ${country}` : ""}. Empty filters fall back to global
             live.
@@ -100,20 +109,20 @@ export default async function DiscoverPage() {
         ) : null}
 
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
-            Trending songs
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+            Trending tracks
           </h2>
           {tracksRes.error ? (
             <p className="mt-3 text-sm text-[#F5A623]">{tracksRes.error}</p>
           ) : tracksRes.tracks.length === 0 ? (
-            <p className="mt-3 text-sm text-white/40">No trending songs yet.</p>
+            <p className="mt-3 text-sm text-white/40">No trending tracks yet.</p>
           ) : (
             <ul className="mt-4 space-y-2">
               {tracksRes.tracks.map((t, i) => (
                 <li key={t.track_id}>
                   <Link
                     href={`/songs/${t.track_id}`}
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 hover:border-[#1DB954]/40"
+                    className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 hover:border-[#1DB954]/35"
                   >
                     <span className="w-6 text-center text-xs tabular-nums text-white/35">
                       {i + 1}
@@ -123,8 +132,7 @@ export default async function DiscoverPage() {
                         title: t.title,
                         cover_art_url: t.cover_art_url,
                       }}
-                      size="md"
-                      href={`/songs/${t.track_id}`}
+                      size="sm"
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">
@@ -142,47 +150,26 @@ export default async function DiscoverPage() {
         </section>
 
         <section>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
-            Trending portals
+          <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+            Worlds opening
           </h2>
-          <p className="mt-1 text-xs text-white/35">
-            Deeper into the art — remixes, worlds, project extras.
-          </p>
           {portalsRes.error ? (
             <p className="mt-3 text-sm text-[#F5A623]">{portalsRes.error}</p>
           ) : portalsRes.portals.length === 0 ? (
-            <p className="mt-3 text-sm text-white/40">
-              No published portals yet. Artists create them in Studio → Portal.
-            </p>
+            <p className="mt-3 text-sm text-white/40">No portal drops yet.</p>
           ) : (
             <ul className="mt-4 grid gap-3 sm:grid-cols-2">
               {portalsRes.portals.map((p) => (
                 <li key={p.release_id}>
                   <Link
                     href={`/artists/${p.artist_id}/world/${p.release_id}`}
-                    className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 hover:border-[#1DB954]/40"
+                    className="block rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 hover:border-[#1DB954]/35"
                   >
-                    <span className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
-                      {p.cover_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.cover_url}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">
-                        {p.title}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-white/40">
-                        {p.artist_name} · {p.kind}
-                        {p.media_count
-                          ? ` · ${p.media_count} media`
-                          : ""}
-                      </span>
-                    </span>
+                    <p className="text-[0.65rem] uppercase tracking-wider text-white/35">
+                      {p.kind}
+                    </p>
+                    <p className="mt-1 font-medium">{p.title}</p>
+                    <p className="text-xs text-white/40">{p.artist_name}</p>
                   </Link>
                 </li>
               ))}

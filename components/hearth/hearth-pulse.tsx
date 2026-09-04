@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { usePlayer } from "@/components/player-provider";
-import type { LiveRoom } from "@/lib/dashboard/live-rooms";
+import type { LivePresenceItem } from "@/lib/dashboard/live-presence";
 import type { TrendingPortal, TrendingTrack } from "@/lib/dashboard/trending";
 import type { RankedTrack } from "@/lib/dashboard/tracks";
 
 type Props = {
-  rooms: LiveRoom[];
+  livePresence: LivePresenceItem[];
   trendingTracks: TrendingTrack[];
   trendingPortals: TrendingPortal[];
   featured: RankedTrack[];
 };
 
 export function HearthPulse({
-  rooms,
+  livePresence,
   trendingTracks,
   trendingPortals,
   featured,
@@ -32,7 +32,7 @@ export function HearthPulse({
   }
 
   const hasPulse =
-    rooms.length > 0 ||
+    livePresence.length > 0 ||
     trendingTracks.length > 0 ||
     trendingPortals.length > 0;
 
@@ -50,19 +50,16 @@ export function HearthPulse({
         </Link>
       </div>
 
-      {rooms.length > 0 ? (
+      {livePresence.length > 0 ? (
         <div className="hearth-pulse-block">
           <p className="hearth-pulse-label">
             <span className="hearth-live-dot" aria-hidden />
-            Live rooms
+            Live Rooms & RECT Live
           </p>
           <ul className="hearth-live-rail">
-            {rooms.slice(0, 8).map((r) => (
+            {livePresence.slice(0, 10).map((r) => (
               <li key={r.id}>
-                <Link
-                  href={`/artists/${r.artist_id}/live/${r.id}`}
-                  className="hearth-live-card"
-                >
+                <Link href={r.href} className="hearth-live-card">
                   <span className="hearth-live-avatar">
                     {r.artist_avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -71,12 +68,11 @@ export function HearthPulse({
                       <span>{(r.artist_name || "A")[0]}</span>
                     )}
                   </span>
-                  <span className="hearth-live-name">
-                    {r.artist_name || "Artist"}
-                  </span>
+                  <span className="hearth-live-name">{r.artist_name}</span>
                   <span className="hearth-live-title">{r.title}</span>
                   <span className="hearth-live-meta">
-                    {r.mode} · {r.viewer_count} in
+                    {r.kind === "rect_live" ? "RECT Live" : r.modeLabel} ·{" "}
+                    {r.viewer_count} in
                   </span>
                 </Link>
               </li>
