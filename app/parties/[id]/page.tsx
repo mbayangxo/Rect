@@ -4,6 +4,7 @@ import {
   joinParty,
   loadPartyById,
   loadPartyMessages,
+  type HostTrackOption,
 } from "@/lib/dashboard/listening-parties";
 import { createClient } from "@/lib/supabase/server";
 import type { TrackRow } from "@/lib/tracks";
@@ -37,6 +38,8 @@ export default async function PartyRoomPage({ params }: Props) {
   await joinParty(supabase, id, user.id);
   const messages = await loadPartyMessages(supabase, id);
 
+  const isHost = partyRes.party.host_id === user.id;
+
   let track: TrackRow | null = null;
   if (partyRes.party.track_id) {
     const { data } = await supabase
@@ -49,13 +52,25 @@ export default async function PartyRoomPage({ params }: Props) {
     track = (data as TrackRow) ?? null;
   }
 
+  let hostTracks: HostTrackOption[] = [];
+  if (isHost && !track) {
+    const { data } = await supabase
+      .from("tracks")
+      .select("id, title, cover_art_url, audio_url, status")
+      .eq("artist_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(40);
+    hostTracks = (data ?? []) as HostTrackOption[];
+  }
+
   return (
     <PartyRoomClient
       party={partyRes.party}
       initialMessages={messages.messages}
       track={track}
       userId={user.id}
-      isHost={partyRes.party.host_id === user.id}
+      isHost={isHost}
+      hostTracks={hostTracks}
     />
   );
 }

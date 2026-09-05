@@ -227,6 +227,7 @@ export function StudioTracksList({
                         language={t.language}
                         hasCover={Boolean(t.cover_art_url)}
                         isLive={live}
+                        launchAt={t.launch_at ?? null}
                       />
                       <TrackPublishToggle
                         trackId={t.id}

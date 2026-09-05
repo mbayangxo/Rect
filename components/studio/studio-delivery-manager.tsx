@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, type FormEvent } from "react";
 import type { DistributionRelease } from "@/lib/dashboard/distribution";
+import { qcBlocksGoLive } from "@/lib/audio/qc";
 import type { TrackRow } from "@/lib/tracks";
 import { trackTitle } from "@/lib/tracks";
 
@@ -173,7 +174,8 @@ export function StudioDeliveryManager({
           </span>
         )}{" "}
         Upload audio once to RECT; Delivery sends metadata + file URLs to Taali
-        for Spotify, Apple, and more. When a track is{" "}
+        for Spotify, Apple, and more. Tracks must pass QC before Delivery. When a
+        track is{" "}
         <span className="text-white/70">Punch ready</span>, Taali receives the
         punched master (`punch_audio_url`) instead of the raw upload.
       </div>
@@ -272,6 +274,7 @@ export function StudioDeliveryManager({
             <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto">
               {liveTracks.map((t) => {
                 const on = selected.includes(t.id);
+                const qcFail = qcBlocksGoLive(t.qc_status);
                 const punch = (t.punch_status || "").toLowerCase();
                 const punchReady =
                   punch === "ready" &&
@@ -281,31 +284,39 @@ export function StudioDeliveryManager({
                   <li key={t.id}>
                     <button
                       type="button"
-                      onClick={() =>
+                      disabled={qcFail}
+                      onClick={() => {
+                        if (qcFail) return;
                         setSelected((list) =>
                           on
                             ? list.filter((id) => id !== t.id)
                             : [...list, t.id],
-                        )
-                      }
-                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm ${
+                        );
+                      }}
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm disabled:cursor-not-allowed disabled:opacity-45 ${
                         on ? "bg-[#1DB954]/15 text-[#1DB954]" : "hover:bg-white/[0.04]"
                       }`}
                     >
                       <span className="min-w-0 flex-1 truncate">
                         {trackTitle(t)}
-                        {punchReady ? (
+                        {qcFail ? (
+                          <span className="ml-2 text-[0.65rem] text-[#F5A623]">
+                            QC fail
+                          </span>
+                        ) : null}
+                        {!qcFail && punchReady ? (
                           <span className="ml-2 text-[0.65rem] text-[var(--rect)]">
                             Punch ready
                           </span>
-                        ) : punch === "requested" || punch === "processing" ? (
+                        ) : !qcFail &&
+                          (punch === "requested" || punch === "processing") ? (
                           <span className="ml-2 text-[0.65rem] text-white/35">
                             Punch {punch}
                           </span>
                         ) : null}
                       </span>
                       <span className="shrink-0 text-xs opacity-60">
-                        {on ? "✓" : "+"}
+                        {qcFail ? "—" : on ? "✓" : "+"}
                       </span>
                     </button>
                   </li>

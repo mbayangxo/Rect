@@ -3,13 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { ListeningParty } from "@/lib/dashboard/listening-parties";
+import type {
+  HostTrackOption,
+  ListeningParty,
+} from "@/lib/dashboard/listening-parties";
+import { trackTitle } from "@/lib/tracks";
 
 type Props = {
   signedIn: boolean;
   parties: ListeningParty[];
   missingTable: boolean;
   loadError: string | null;
+  hostTracks?: HostTrackOption[];
 };
 
 export function ListeningPartiesClient({
@@ -17,12 +22,16 @@ export function ListeningPartiesClient({
   parties,
   missingTable,
   loadError,
+  hostTracks = [],
 }: Props) {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [trackId, setTrackId] = useState("");
   const [code, setCode] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const playableTracks = hostTracks.filter((t) => t.audio_url);
 
   async function hostParty() {
     if (!signedIn) {
@@ -37,6 +46,7 @@ export function ListeningPartiesClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: title.trim() || "Listening party",
+          track_id: trackId || null,
         }),
       });
       const data = (await res.json()) as {
@@ -113,6 +123,28 @@ export function ListeningPartiesClient({
             placeholder="Party name"
             className="w-full rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[var(--rect)]/50"
           />
+          {signedIn ? (
+            <label className="block">
+              <span className="text-xs text-white/40">Track (optional)</span>
+              <select
+                value={trackId}
+                onChange={(e) => setTrackId(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[var(--rect)]/50"
+              >
+                <option value="">Pick later in the room</option>
+                {playableTracks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {trackTitle(t)}
+                  </option>
+                ))}
+              </select>
+              {playableTracks.length === 0 ? (
+                <span className="mt-1 block text-[0.65rem] text-white/30">
+                  Upload a track with audio to link one at host time.
+                </span>
+              ) : null}
+            </label>
+          ) : null}
           <button
             type="button"
             disabled={pending || missingTable}

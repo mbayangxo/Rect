@@ -144,11 +144,17 @@ begin
 end;
 $$;
 
-drop trigger if exists artist_tips_credit_wallet on public.artist_tips;
-create trigger artist_tips_credit_wallet
-  after insert or update of status on public.artist_tips
-  for each row
-  execute function public.credit_tip_to_wallet();
+-- Only attach tip→wallet trigger when artist_tips already exists
+do $$
+begin
+  if to_regclass('public.artist_tips') is not null then
+    drop trigger if exists artist_tips_credit_wallet on public.artist_tips;
+    create trigger artist_tips_credit_wallet
+      after insert or update of status on public.artist_tips
+      for each row
+      execute function public.credit_tip_to_wallet();
+  end if;
+end $$;
 
 -- New Wave: tracks live on RECT that launched recently (or no schedule = live now)
 create or replace function public.new_wave_tracks(p_limit integer default 40)

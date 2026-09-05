@@ -23,6 +23,12 @@ export type ListeningParty = {
   track?: TrackRow | null;
 };
 
+/** Tracks the host can link to a party. */
+export type HostTrackOption = Pick<
+  TrackRow,
+  "id" | "title" | "cover_art_url" | "audio_url" | "status"
+>;
+
 export type PartyMessage = {
   id: number;
   party_id: string;
@@ -162,6 +168,48 @@ export async function endParty(
     })
     .eq("id", partyId)
     .eq("host_id", hostId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function setPartyTrack(
+  supabase: SupabaseClient,
+  partyId: string,
+  hostId: string,
+  trackId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const partyRes = await loadPartyById(supabase, partyId);
+  if (!partyRes.party) {
+    return { ok: false, error: partyRes.error || "Party not found." };
+  }
+  if (partyRes.party.host_id !== hostId) {
+    return { ok: false, error: "Only the host can set the track." };
+  }
+
+  const { data: track, error: trackErr } = await supabase
+    .from("tracks")
+    .select("id, artist_id, audio_url")
+    .eq("id", trackId)
+    .eq("artist_id", hostId)
+    .maybeSingle();
+
+  if (trackErr) return { ok: false, error: trackErr.message };
+  if (!track) {
+    return { ok: false, error: "Track not found or not yours." };
+  }
+  if (!track.audio_url) {
+    return { ok: false, error: "Track needs audio before linking." };
+  }
+
+  const { error } = await supabase
+    .from("listening_parties")
+    .update({
+      track_id: trackId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", partyId)
+    .eq("host_id", hostId);
+
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

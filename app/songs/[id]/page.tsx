@@ -42,6 +42,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   formatTrackDuration,
   isPublishedTrack,
+  isTrackLaunched,
   trackArtist,
   trackTitle,
   type TrackRow,
@@ -118,7 +119,7 @@ export default async function SongPage({ params }: Props) {
   const full = await supabase
     .from("tracks")
     .select(
-      "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics",
+      "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -127,7 +128,9 @@ export default async function SongPage({ params }: Props) {
   let error = full.error;
   if (
     error &&
-    /download_price_xof|lyrics|language|column .* does not exist/i.test(error.message)
+    /download_price_xof|lyrics|language|launch_at|column .* does not exist/i.test(
+      error.message,
+    )
   ) {
     const lean = await supabase
       .from("tracks")
@@ -144,6 +147,10 @@ export default async function SongPage({ params }: Props) {
 
   const isOwner = user?.id === data.artist_id;
   if (!isPublishedTrack(data) && !isOwner) {
+    notFound();
+  }
+  // Scheduled drops: public URL stays dark until launch_at (owner can preview).
+  if (!isOwner && !isTrackLaunched(data as { launch_at?: string | null })) {
     notFound();
   }
 
@@ -253,6 +260,17 @@ export default async function SongPage({ params }: Props) {
               <h1 className="font-display mt-3 text-3xl font-semibold tracking-tight">
                 {trackTitle(track)}
               </h1>
+              {isOwner &&
+              track.launch_at &&
+              new Date(track.launch_at).getTime() > Date.now() ? (
+                <p className="mt-1.5 text-xs text-white/40">
+                  Scheduled ·{" "}
+                  {new Date(track.launch_at).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              ) : null}
               <p className="mt-2 text-sm text-white/50">
                 {artistId && artistIsPublic ? (
                   <Link

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { usePlayer } from "@/components/player-provider";
 import type {
+  HostTrackOption,
   ListeningParty,
   PartyMessage,
 } from "@/lib/dashboard/listening-parties";
@@ -16,6 +17,7 @@ type Props = {
   track: TrackRow | null;
   userId: string;
   isHost: boolean;
+  hostTracks?: HostTrackOption[];
 };
 
 const GIF_SHORTCUTS = [
@@ -30,6 +32,7 @@ export function PartyRoomClient({
   track,
   userId,
   isHost,
+  hostTracks = [],
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -38,6 +41,9 @@ export function PartyRoomClient({
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState(party.status);
   const [error, setError] = useState<string | null>(null);
+  const [pickedTrackId, setPickedTrackId] = useState("");
+
+  const playableHostTracks = hostTracks.filter((t) => t.audio_url);
 
   useEffect(() => {
     if (track?.audio_url && status === "live") {
@@ -59,13 +65,21 @@ export function PartyRoomClient({
           };
           if (data.messages) setMessages(data.messages);
           if (data.party?.status) setStatus(data.party.status);
+          // Host/guest: refresh when a track gets linked mid-session.
+          if (
+            data.party?.track_id &&
+            data.party.track_id !== party.track_id &&
+            !track
+          ) {
+            router.refresh();
+          }
         } catch {
           /* ignore poll errors */
         }
       })();
     }, 4000);
     return () => clearInterval(t);
-  }, [party.id, status]);
+  }, [party.id, party.track_id, status, track, router]);
 
   async function send(body: string, kind: "text" | "gif" = "text", mediaUrl?: string) {
     if (pending || status !== "live") return;
@@ -124,6 +138,32 @@ export function PartyRoomClient({
     }
   }
 
+  async function linkTrack() {
+    if (!isHost || !pickedTrackId || pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/listening-parties/${party.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set_track",
+          track_id: pickedTrackId,
+        }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(data.error || "Could not set track.");
+        return;
+      }
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
       <header className="border-b border-white/10">
@@ -174,9 +214,46 @@ export function PartyRoomClient({
               <p className="text-xs text-white/40">Playing for the room</p>
             </div>
           </div>
+        ) : isHost && status === "live" ? (
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+            <p className="text-sm text-white/55">
+              Pick a track to play for the room.
+            </p>
+            {playableHostTracks.length === 0 ? (
+              <p className="text-sm text-white/40">
+                No tracks with audio yet.{" "}
+                <Link href="/studio/upload" className="text-[var(--rect)]">
+                  Upload →
+                </Link>
+              </p>
+            ) : (
+              <>
+                <select
+                  value={pickedTrackId}
+                  onChange={(e) => setPickedTrackId(e.target.value)}
+                  className="w-full rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[var(--rect)]/50"
+                >
+                  <option value="">Choose a track…</option>
+                  {playableHostTracks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {trackTitle(t)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={pending || !pickedTrackId}
+                  onClick={() => void linkTrack()}
+                  className="rounded-full bg-[var(--rect)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-40"
+                >
+                  {pending ? "Linking…" : "Set track"}
+                </button>
+              </>
+            )}
+          </div>
         ) : (
           <p className="text-sm text-white/40">
-            No track linked — host can still chat. Pick music from Home after.
+            No track linked yet — waiting for the host.
           </p>
         )}
 

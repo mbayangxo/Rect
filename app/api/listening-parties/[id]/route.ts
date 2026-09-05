@@ -5,6 +5,7 @@ import {
   loadPartyById,
   loadPartyMessages,
   postPartyMessage,
+  setPartyTrack,
 } from "@/lib/dashboard/listening-parties";
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { createRouteClient } from "@/lib/supabase/route";
@@ -41,7 +42,13 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Sign in required." }, { status: 401 });
   }
 
-  let body: { action?: string; body?: string; kind?: string; media_url?: string };
+  let body: {
+    action?: string;
+    body?: string;
+    kind?: string;
+    media_url?: string;
+    track_id?: string;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -71,6 +78,24 @@ export async function POST(request: Request, { params }: Params) {
       body.body ?? "",
       kind,
       body.media_url ?? null,
+    );
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "set_track") {
+    const trackId =
+      typeof body.track_id === "string" ? body.track_id.trim() : "";
+    if (!trackId) {
+      return NextResponse.json({ error: "track_id required." }, { status: 400 });
+    }
+    const result = await setPartyTrack(
+      supabase,
+      id,
+      current.user.id,
+      trackId,
     );
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 400 });

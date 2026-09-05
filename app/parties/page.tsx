@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ListeningPartiesClient } from "@/app/parties/parties-client";
-import { loadLiveParties } from "@/lib/dashboard/listening-parties";
+import {
+  loadLiveParties,
+  type HostTrackOption,
+} from "@/lib/dashboard/listening-parties";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +14,17 @@ export default async function ListeningPartiesPage() {
     data: { user },
   } = await supabase.auth.getUser();
   const live = await loadLiveParties(supabase, 24);
+
+  let hostTracks: HostTrackOption[] = [];
+  if (user) {
+    const { data } = await supabase
+      .from("tracks")
+      .select("id, title, cover_art_url, audio_url, status")
+      .eq("artist_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(40);
+    hostTracks = (data ?? []) as HostTrackOption[];
+  }
 
   return (
     <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
@@ -38,6 +52,7 @@ export default async function ListeningPartiesPage() {
           parties={live.parties}
           missingTable={live.missingTable}
           loadError={live.error}
+          hostTracks={hostTracks}
         />
       </div>
     </main>

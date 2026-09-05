@@ -94,13 +94,18 @@ export function trackStatusForWrite(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function withLiveCatalogTracks(
   query: any,
-  opts?: { includePodcasts?: boolean },
+  opts?: { includePodcasts?: boolean; includeUnlaunched?: boolean },
 ) {
   let q = query
     .or("status.eq.live,status.eq.published,status.is.null")
     .not("audio_url", "is", null);
   if (!opts?.includePodcasts) {
     q = q.or("content_kind.is.null,content_kind.eq.music");
+  }
+  // Hide scheduled drops until launch_at (null = already live).
+  if (!opts?.includeUnlaunched) {
+    const nowIso = new Date().toISOString();
+    q = q.or(`launch_at.is.null,launch_at.lte.${nowIso}`);
   }
   return q;
 }
@@ -114,7 +119,7 @@ export function isPodcastTrack(t: Pick<TrackRow, "content_kind">) {
   return (t.content_kind || "").toLowerCase() === "podcast";
 }
 
-export function trackTitle(t: TrackRow) {
+export function trackTitle(t: Pick<TrackRow, "title">) {
   const raw = t.title?.trim() || "Untitled";
   return raw.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim() || "Untitled";
 }
