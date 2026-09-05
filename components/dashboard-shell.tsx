@@ -10,18 +10,25 @@ import { AppDrawerNav } from "@/components/app-drawer-nav";
 import { HearthHero } from "@/components/hearth/hearth-hero";
 import { HearthPulse } from "@/components/hearth/hearth-pulse";
 import { HearthTrackGrid } from "@/components/hearth/hearth-track-grid";
+import { HomeShelf, type ShelfTrack } from "@/components/hearth/home-shelf";
+import { HomeShowShelf } from "@/components/hearth/home-show-shelf";
 import { InboxPlaylistActions } from "@/components/inbox-playlist-actions";
 import { InboxTrackPlay } from "@/components/inbox-track-play";
 import { usePlayer } from "@/components/player-provider";
 import { PlayPacksPanel } from "@/components/play-packs-panel";
 import { TrackCover } from "@/components/track-cover";
 import { TrackLikeButton } from "@/components/track-like-button";
+import type { ArtistPortal } from "@/lib/dashboard/artists";
+import type { LivePresenceItem } from "@/lib/dashboard/live-presence";
+import type { LiveRoom } from "@/lib/dashboard/live-rooms";
+import type { HearingAidEpisode } from "@/lib/dashboard/hearing-aids";
+import type { NewSoundsTrack } from "@/lib/dashboard/new-sounds";
+import type { NewWaveShow } from "@/lib/dashboard/new-wave-shows";
+import type { PopularTourEvent } from "@/lib/dashboard/tour-events";
 import type {
   TrendingPortal,
   TrendingTrack,
 } from "@/lib/dashboard/trending";
-import type { ArtistPortal } from "@/lib/dashboard/artists";
-import type { LiveRoom } from "@/lib/dashboard/live-rooms";
 import {
   formatPlayedAt,
   type JournalEntry,
@@ -35,7 +42,6 @@ import { personProfileHref } from "@/lib/dashboard/people";
 import type { PlayPack } from "@/lib/dashboard/play-packs";
 import type { PendingPackPurchase } from "@/lib/dashboard/credits";
 import {
-  formatPlayCount,
   trackArtist,
   trackTitle,
   type RankedTrack,
@@ -60,11 +66,8 @@ type Props = {
   pendingPackPurchases?: PendingPackPurchase[];
   likedTrackIds: string[];
   likesReady: boolean;
-  showArtistStudio?: boolean;
   /** Unread release alerts for /inbox */
   inboxUnread?: number;
-  /** Unread studio activity for /artist/inbox */
-  artistInboxUnread?: number;
   continueListening: JournalEntry[];
   continueError: string | null;
   friendsListening?: FriendsListenItem[];
@@ -77,8 +80,14 @@ type Props = {
   playlistFollowsReady?: boolean;
   playlistPreviewTracks?: Record<string, TrackRow>;
   liveNow?: LiveRoom[];
+  livePresence?: LivePresenceItem[];
   trendingTracks?: TrendingTrack[];
   trendingPortals?: TrendingPortal[];
+  newSoundsTracks?: NewSoundsTrack[];
+  newWaveShows?: NewWaveShow[];
+  liveParties?: NewWaveShow[];
+  hearingAids?: HearingAidEpisode[];
+  tourEvents?: PopularTourEvent[];
 };
 
 function formatTime(secs: number) {
@@ -108,9 +117,7 @@ export function DashboardShell({
   pendingPackPurchases = [],
   likedTrackIds,
   likesReady,
-  showArtistStudio = false,
   inboxUnread = 0,
-  artistInboxUnread = 0,
   continueListening,
   continueError,
   friendsListening = [],
@@ -123,8 +130,14 @@ export function DashboardShell({
   playlistFollowsReady = false,
   playlistPreviewTracks = {},
   liveNow = [],
+  livePresence = [],
   trendingTracks = [],
   trendingPortals = [],
+  newSoundsTracks = [],
+  newWaveShows = [],
+  liveParties = [],
+  hearingAids = [],
+  tourEvents = [],
 }: Props) {
   const router = useRouter();
   const player = usePlayer();
@@ -291,9 +304,7 @@ export function DashboardShell({
         </div>
         <AppDrawerNav
           displayName={displayName}
-          showArtistStudio={showArtistStudio}
           inboxUnread={inboxUnread}
-          artistInboxUnread={artistInboxUnread}
           onNavigate={() => setDrawerOpen(false)}
         />
       </aside>
@@ -324,17 +335,185 @@ export function DashboardShell({
       <div className="dash-page mx-auto w-full max-w-7xl px-4 pb-28 sm:px-8">
         <HearthHero
           displayName={displayName}
-          liveCount={liveNow.length}
+          liveCount={livePresence.length || liveNow.length}
           inboxUnread={inboxUnread}
           creditBalance={creditBalance}
           creditsReady={creditsReady}
         />
 
+        <div className="home-shelves" aria-label="Home shelves">
+          {continueItems.length > 0 ? (
+            <HomeShelf
+              kicker="Pick up"
+              title="Continue listening"
+              seeAllHref="/journal"
+              seeAllLabel="Journal →"
+              tracks={continueItems.map(
+                (t): ShelfTrack => ({
+                  ...t,
+                  subtitle: formatPlayedAt(t.played_at),
+                }),
+              )}
+              onPlay={(track, index) => {
+                const list = continueItems.filter((x) => x.audio_url);
+                const idx = list.findIndex((x) => x.id === track.id);
+                player.playQueue(list, idx >= 0 ? idx : index);
+              }}
+            />
+          ) : null}
+
+          {newSoundsTracks.length > 0 ? (
+            <HomeShelf
+              kicker="Just dropped"
+              title="New Sounds"
+              seeAllHref="/new-sounds"
+              seeAllLabel="Full mix →"
+              tracks={newSoundsTracks.map(
+                (t): ShelfTrack => ({
+                  ...t,
+                  subtitle: t.artist_name,
+                }),
+              )}
+              onPlay={(track, index) => {
+                const list = newSoundsTracks.filter((x) => x.audio_url);
+                const idx = list.findIndex((x) => x.id === track.id);
+                player.playQueue(list, idx >= 0 ? idx : index);
+              }}
+            />
+          ) : null}
+
+          {newWaveShows.length > 0 ? (
+            <HomeShowShelf
+              kicker="On Wave"
+              title="New Wave"
+              seeAllHref="/new-wave"
+              seeAllLabel="All shows →"
+              shows={newWaveShows}
+            />
+          ) : null}
+
+          {liveParties.length > 0 ? (
+            <HomeShowShelf
+              kicker="Together"
+              title="Listening parties"
+              seeAllHref="/parties"
+              seeAllLabel="Host or join →"
+              shows={liveParties}
+            />
+          ) : null}
+
+          {hearingAids.length > 0 ? (
+            <HomeShelf
+              kicker="Talk · podcasts"
+              title="Hearing Aids"
+              seeAllHref="/hearing-aids"
+              seeAllLabel="All episodes →"
+              tracks={hearingAids.map(
+                (t): ShelfTrack => ({
+                  ...t,
+                  subtitle: t.artist_name,
+                }),
+              )}
+              onPlay={(track, index) => {
+                const list = hearingAids.filter((x) => x.audio_url);
+                const idx = list.findIndex((x) => x.id === track.id);
+                player.playQueue(list, idx >= 0 ? idx : index);
+              }}
+            />
+          ) : null}
+
+          {tourEvents.length > 0 ? (
+            <section className="home-shelf" aria-label="Tour events">
+              <div className="home-shelf-head">
+                <div>
+                  <p className="home-shelf-kicker">On the road</p>
+                  <h2 className="home-shelf-title">Popular upcoming shows</h2>
+                </div>
+                <Link href="/discover" className="home-shelf-more">
+                  Discover →
+                </Link>
+              </div>
+              <ul className="home-shelf-rail">
+                {tourEvents.map((e) => (
+                  <li key={e.id} className="home-shelf-item">
+                    <Link
+                      href={`/artists/${e.artist_id}`}
+                      className="home-shelf-card"
+                    >
+                      <span
+                        className="home-shelf-art"
+                        style={
+                          e.cover_url
+                            ? { backgroundImage: `url(${e.cover_url})` }
+                            : e.artist_avatar
+                              ? {
+                                  backgroundImage: `url(${e.artist_avatar})`,
+                                }
+                              : undefined
+                        }
+                      >
+                        <span className="home-shelf-play">◉</span>
+                      </span>
+                      <span className="home-shelf-copy">
+                        <span className="home-shelf-name">{e.title}</span>
+                        <span className="home-shelf-sub">
+                          {[e.artist_name, e.city].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {friendsListening.length > 0 ? (
+            <HomeShelf
+              kicker="With friends"
+              title="Friends listening"
+              seeAllHref="/following"
+              seeAllLabel="Following →"
+              tracks={friendsListening.map(
+                (t): ShelfTrack => ({
+                  ...t,
+                  subtitle: t.listener_name,
+                }),
+              )}
+              onPlay={(track, index) => {
+                const list = friendsListening.filter((x) => x.audio_url);
+                const idx = list.findIndex((x) => x.id === track.id);
+                player.playQueue(list, idx >= 0 ? idx : index);
+              }}
+            />
+          ) : null}
+        </div>
+
         <HearthPulse
-          rooms={liveNow}
+          livePresence={
+            livePresence.length > 0
+              ? livePresence
+              : liveNow.map((r) => ({
+                  id: `room:${r.id}`,
+                  kind: "live_room" as const,
+                  artist_id: r.artist_id,
+                  artist_name: r.artist_name || "Artist",
+                  artist_avatar: r.artist_avatar ?? null,
+                  title: r.title,
+                  href: `/artists/${r.artist_id}/live/${r.id}`,
+                  viewer_count: r.viewer_count,
+                  modeLabel: r.mode || "live",
+                  place:
+                    [r.neighborhood, r.city, r.country]
+                      .filter(Boolean)
+                      .join(" · ") || null,
+                }))
+          }
           trendingTracks={trendingTracks}
           trendingPortals={trendingPortals}
           featured={featured}
+          newWaveShows={newWaveShows}
+          newSoundsTracks={newSoundsTracks}
+          hearingAids={hearingAids}
         />
 
         <div className="dash-layout flex flex-col gap-8 lg:grid lg:grid-cols-12 lg:items-start lg:gap-10">
@@ -352,124 +531,81 @@ export function DashboardShell({
             <div className="dash-empty">
               <p className="dash-empty-title">No tracks yet. Artists are uploading.</p>
             </div>
-          ) : nowPlaying ? (
-            <div className="dash-ni-glass">
-              <div
-                className="dash-ni-art min-h-[190px] sm:min-h-[280px] lg:min-h-[340px]"
-                style={
-                  nowPlaying.cover_art_url
-                    ? {
-                        backgroundImage: `linear-gradient(to top, rgba(4,13,6,0.92) 0%, rgba(4,13,6,0.35) 45%, rgba(4,13,6,0.55) 100%), url(${nowPlaying.cover_art_url})`,
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                      }
-                    : undefined
-                }
-              >
-                <div className="dash-ni-grad" />
-                <div
-                  className={`dash-ni-vinyl h-[110px] w-[110px] sm:h-[150px] sm:w-[150px] lg:h-[170px] lg:w-[170px] ${player.playing ? "playing" : ""}`}
-                  style={
-                    nowPlaying.cover_art_url
-                      ? {
-                          backgroundImage: `url(${nowPlaying.cover_art_url})`,
-                          backgroundSize: "cover",
-                          backgroundPosition: "center",
-                        }
-                      : undefined
-                  }
-                >
-                  <div className="dash-ni-vinyl-center" />
-                </div>
-                <div className="dash-ni-social">
-                  <span className="dash-ns-count">
-                    {personalized ? "For you · " : ""}
-                    {formatPlayCount(nowPlaying.play_count)} plays
-                    {(nowPlaying.like_count ?? 0) > 0
-                      ? ` · ${formatPlayCount(nowPlaying.like_count)} likes`
-                      : ""}
-                  </span>
-                </div>
-                <div className="dash-ni-identity">
-                  <div className="dash-ni-artist text-3xl sm:text-4xl lg:text-5xl">
-                    {trackArtist(nowPlaying)}
-                  </div>
-                  <div className="dash-ni-track">
-                    {trackTitle(nowPlaying)}
-                    {nowPlaying.genre ? ` · ${nowPlaying.genre}` : ""}
-                  </div>
-                </div>
-              </div>
-              <div className="dash-now-controls">
-                <div className="dash-ctrl-row">
-                  <div className="dash-ctrl-meta">
-                    <div className="dash-ctrl-song">{trackTitle(nowPlaying)}</div>
-                    <div className="dash-ctrl-info">
-                      {trackArtist(nowPlaying)} ·{" "}
-                      {formatPlayCount(nowPlaying.play_count)} plays
-                    </div>
-                  </div>
+          ) : (
+            <>
+              {nowPlaying ? (
+                <div className="mb-4 flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3">
                   <button
                     type="button"
-                    className={`dash-act-btn ${liked ? "liked" : ""}`}
-                    onClick={() => void toggleLike()}
-                    disabled={!likesReady || likePending}
-                    aria-label={liked ? "Unlike" : "Like"}
-                    title={
-                      likesReady
-                        ? liked
-                          ? "Unlike"
-                          : "Save"
-                        : "Run track likes SQL in Supabase"
+                    onClick={toggleHero}
+                    disabled={!nowPlaying.audio_url}
+                    className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]"
+                    aria-label={player.playing ? "Pause" : "Play"}
+                    style={
+                      nowPlaying.cover_art_url
+                        ? {
+                            backgroundImage: `url(${nowPlaying.cover_art_url})`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }
+                        : undefined
                     }
                   >
-                    {liked ? "♥" : "♡"}
+                    <span className="absolute inset-0 flex items-center justify-center bg-black/35 text-sm text-white">
+                      {player.playing ? "❚❚" : "▶"}
+                    </span>
                   </button>
-                  <div className="hidden sm:flex sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-[family-name:var(--font-syne)] text-base font-semibold text-white">
+                      {trackTitle(nowPlaying)}
+                    </p>
+                    <p className="truncate text-sm text-white/45">
+                      {trackArtist(nowPlaying)}
+                      {nowPlaying.genre ? ` · ${nowPlaying.genre}` : ""}
+                    </p>
+                    <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-[var(--rect)]"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                    <div className="mt-1 flex justify-between text-[0.65rem] tabular-nums text-white/35">
+                      <span>{formatTime(player.currentTime)}</span>
+                      <span>{formatTime(player.duration)}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      className={`dash-act-btn ${liked ? "liked" : ""}`}
+                      onClick={() => void toggleLike()}
+                      disabled={!likesReady || likePending}
+                      aria-label={liked ? "Unlike" : "Like"}
+                    >
+                      {liked ? "♥" : "♡"}
+                    </button>
                     <AddToPlaylist
                       trackId={nowPlaying.id}
                       compact
                       loginNext="/dashboard"
                     />
                   </div>
-                  <button
-                    type="button"
-                    className={`dash-play-big ${player.playing ? "playing" : ""}`}
-                    onClick={toggleHero}
-                    disabled={!nowPlaying.audio_url}
-                    aria-label={player.playing ? "Pause" : "Play"}
-                  >
-                    {player.playing ? "⏸" : "▶"}
-                  </button>
                 </div>
-                <div className="dash-prog-zone">
-                  <div className="dash-prog-track">
-                    <div
-                      className="dash-prog-fill"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="dash-prog-times">
-                    <span>{formatTime(player.currentTime)}</span>
-                    <span>{formatTime(player.duration)}</span>
-                  </div>
-                </div>
-                {likeError ? (
-                  <p className="mt-2 text-xs text-[#F5A623]">{likeError}</p>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-            <HearthTrackGrid
-              tracks={featured}
-              personalized={personalized}
-              tasteGenres={tasteGenres}
-              tasteCountries={tasteCountries}
-              tasteDaypart={tasteDaypart}
-              likedTrackIds={likedIds}
-              likesReady={likesReady}
-              onPlay={playFeatured}
-            />
+              ) : null}
+              {likeError ? (
+                <p className="mb-2 text-xs text-[#F5A623]">{likeError}</p>
+              ) : null}
+              <HearthTrackGrid
+                tracks={featured}
+                personalized={personalized}
+                tasteGenres={tasteGenres}
+                tasteCountries={tasteCountries}
+                tasteDaypart={tasteDaypart}
+                likedTrackIds={likedIds}
+                likesReady={likesReady}
+                onPlay={playFeatured}
+              />
+            </>
           )}
         </section>
 
@@ -531,7 +667,7 @@ export function DashboardShell({
                               : ""}
                           </p>
                         </div>
-                        <span className="shrink-0 text-xs text-[#1DB954]">▶</span>
+                        <span className="shrink-0 text-xs text-[var(--rect)]">▶</span>
                       </button>
                       <button
                         type="button"
@@ -594,11 +730,11 @@ export function DashboardShell({
                               : ""}
                           </p>
                         </div>
-                        <span className="shrink-0 text-xs text-[#1DB954]">▶</span>
+                        <span className="shrink-0 text-xs text-[var(--rect)]">▶</span>
                       </button>
                       <Link
                         href={personProfileHref(t.listener_id)}
-                        className="shrink-0 rounded-full px-2 py-2 text-xs text-white/40 hover:bg-white/10 hover:text-[#1DB954]"
+                        className="shrink-0 rounded-full px-2 py-2 text-xs text-white/40 hover:bg-white/10 hover:text-[var(--rect)]"
                         title={t.listener_name}
                       >
                         →
@@ -665,11 +801,11 @@ export function DashboardShell({
                               : ""}
                           </p>
                         </div>
-                        <span className="shrink-0 text-xs text-[#1DB954]">▶</span>
+                        <span className="shrink-0 text-xs text-[var(--rect)]">▶</span>
                       </button>
                       <Link
                         href={personProfileHref(t.liker_id)}
-                        className="shrink-0 rounded-full px-2 py-2 text-xs text-white/40 hover:bg-white/10 hover:text-[#1DB954]"
+                        className="shrink-0 rounded-full px-2 py-2 text-xs text-white/40 hover:bg-white/10 hover:text-[var(--rect)]"
                         title={t.liker_name}
                       >
                         →

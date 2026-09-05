@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { qcBlocksGoLive } from "@/lib/audio/qc";
 import { checkLiveDiscoverability } from "@/lib/dashboard/discoverability";
 import { notifyTrackRelease } from "@/lib/dashboard/notifications";
 import { createClient } from "@/lib/supabase/server";
@@ -59,7 +60,9 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const full = await supabase
     .from("tracks")
-    .select("id, artist_id, status, title, cover_art_url, genre, language")
+    .select(
+      "id, artist_id, status, title, cover_art_url, genre, language, qc_status, qc_issues",
+    )
     .eq("id", trackId)
     .maybeSingle();
 
@@ -71,21 +74,40 @@ export async function PATCH(request: Request, { params }: Params) {
     cover_art_url?: string | null;
     genre: string | null;
     language?: string | null;
+    qc_status?: string | null;
+    qc_issues?: unknown;
   } | null;
   let findError = full.error;
   if (
     findError &&
-    /language|column .* does not exist/i.test(findError.message)
+    /qc_status|qc_issues|language|column .* does not exist/i.test(
+      findError.message,
+    )
   ) {
     const lean = await supabase
       .from("tracks")
-      .select("id, artist_id, status, title, genre")
+      .select("id, artist_id, status, title, cover_art_url, genre, language")
       .eq("id", trackId)
       .maybeSingle();
-    existing = lean.data
-      ? { ...lean.data, language: null }
-      : null;
-    findError = lean.error;
+    if (
+      lean.error &&
+      /language|cover_art_url|column .* does not exist/i.test(lean.error.message)
+    ) {
+      const bare = await supabase
+        .from("tracks")
+        .select("id, artist_id, status, title, genre")
+        .eq("id", trackId)
+        .maybeSingle();
+      existing = bare.data
+        ? { ...bare.data, language: null, cover_art_url: null, qc_status: null }
+        : null;
+      findError = bare.error;
+    } else {
+      existing = lean.data
+        ? { ...lean.data, qc_status: null }
+        : null;
+      findError = lean.error;
+    }
   }
 
   if (findError) {
@@ -109,6 +131,26 @@ export async function PATCH(request: Request, { params }: Params) {
           error:
             "Add cover art before going live — Charts and Home need artwork.",
           code: "cover_required",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (qcBlocksGoLive(existing.qc_status)) {
+      const issues = Array.isArray(existing.qc_issues)
+        ? (existing.qc_issues as { message?: string }[])
+            .map((i) => i.message)
+            .filter(Boolean)
+            .slice(0, 2)
+        : [];
+      return NextResponse.json(
+        {
+          error:
+            issues[0] ||
+            "Upload QC failed — fix loudness/peak/silence before going live. Re-upload or run QC again.",
+          code: "qc_fail",
+          qc_status: existing.qc_status,
+          issues: existing.qc_issues ?? null,
         },
         { status: 400 },
       );

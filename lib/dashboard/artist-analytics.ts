@@ -138,6 +138,21 @@ export type StudioAnalytics = {
     fanClubGrowth: PlaysByDay[];
     followerGrowth: PlaysByDay[];
   };
+  /** Funnel: play → engage → follow (slice 3). */
+  funnel: {
+    playsInRange: number;
+    uniqueListeners: number;
+    likes: number;
+    followers: number;
+    avgCompletionPct: number | null;
+  };
+  /** Compare current range vs previous equal-length window. */
+  compare: {
+    streamsCurrent: number;
+    streamsPrevious: number;
+    deltaPct: number | null;
+    previousLabel: string;
+  };
   delivery: {
     ready: boolean;
     taaliLive: boolean;
@@ -272,6 +287,19 @@ function emptyAnalytics(window: AnalyticsTimeWindow): StudioAnalytics {
       topFans: [],
       fanClubGrowth: [],
       followerGrowth: [],
+    },
+    funnel: {
+      playsInRange: 0,
+      uniqueListeners: 0,
+      likes: 0,
+      followers: 0,
+      avgCompletionPct: null,
+    },
+    compare: {
+      streamsCurrent: 0,
+      streamsPrevious: 0,
+      deltaPct: null,
+      previousLabel: "Prior period",
     },
     delivery: {
       ready: false,
@@ -536,6 +564,37 @@ export async function loadStudioAnalytics(
         if (!tid) continue;
         sharesByTrack.set(tid, (sharesByTrack.get(tid) ?? 0) + 1);
       }
+
+      // Listening card events (view/share/copy/send) — behavior signal for analytics
+      const { data: cardEv, error: cardErr } = await db
+        .from("listening_card_events")
+        .select("track_id, event_type, created_at")
+        .in("track_id", trackIds)
+        .limit(8000);
+      if (cardErr && !isMissingRelation(cardErr.message)) {
+        errors.push(`Listening cards: ${cardErr.message}`);
+      } else if (!cardErr) {
+        for (const ev of cardEv ?? []) {
+          const tid = ev.track_id as string;
+          if (!tid) continue;
+          const kind = String(ev.event_type || "");
+          const weight =
+            kind === "share" || kind === "send_friend"
+              ? 1
+              : kind === "copy_link"
+                ? 0.5
+                : kind === "open_card" || kind === "view"
+                  ? 0.25
+                  : 0;
+          if (weight <= 0) continue;
+          const at = ev.created_at as string | undefined;
+          if (at && !inTimeWindow(at, window) && window.from) continue;
+          sharesByTrack.set(
+            tid,
+            (sharesByTrack.get(tid) ?? 0) + weight,
+          );
+        }
+      }
     }
 
     const savesByTrack = new Map<string, number>();
@@ -630,7 +689,7 @@ export async function loadStudioAnalytics(
         skipRate: null,
         likes: likesMap.get(t.id) ?? 0,
         saves: savesByTrack.get(t.id) ?? 0,
-        shares: sharesByTrack.get(t.id) ?? 0,
+        shares: Math.round(sharesByTrack.get(t.id) ?? 0),
         comments: commentsByTrack.get(t.id) ?? 0,
         publishedAt: t.created_at ?? null,
       };
@@ -1087,11 +1146,62 @@ export async function loadStudioAnalytics(
       engagement: {
         totalLikes: [...likesMap.values()].reduce((a, b) => a + b, 0),
         totalComments: [...commentsByTrack.values()].reduce((a, b) => a + b, 0),
-        totalShares: [...sharesByTrack.values()].reduce((a, b) => a + b, 0),
+        totalShares: Math.round(
+          [...sharesByTrack.values()].reduce((a, b) => a + b, 0),
+        ),
         topFans,
         fanClubGrowth,
         followerGrowth,
       },
+      funnel: {
+        playsInRange: streamsInRange,
+        uniqueListeners: listenersInRange.size,
+        likes: [...likesMap.values()].reduce((a, b) => a + b, 0),
+        followers: followersRes.count ?? 0,
+        avgCompletionPct: (() => {
+          const rates = songs
+            .map((s) => s.completionRate)
+            .filter((n): n is number => n != null);
+          if (rates.length === 0) return null;
+          return Math.round(
+            rates.reduce((a, b) => a + b, 0) / rates.length,
+          );
+        })(),
+      },
+      compare: (() => {
+        if (!window.from) {
+          return {
+            streamsCurrent: streamsInRange,
+            streamsPrevious: 0,
+            deltaPct: null,
+            previousLabel: "Prior period",
+          };
+        }
+        const fromMs = new Date(window.from).getTime();
+        const toMs = new Date(window.to ?? new Date().toISOString()).getTime();
+        const span = Math.max(0, toMs - fromMs);
+        const prevTo = new Date(fromMs).toISOString();
+        const prevFrom = new Date(fromMs - span).toISOString();
+        let streamsPrevious = 0;
+        for (const p of validPlays) {
+          const at = p.created_at ?? "";
+          if (at >= prevFrom && at < prevTo) streamsPrevious += 1;
+        }
+        const deltaPct =
+          streamsPrevious === 0
+            ? streamsInRange > 0
+              ? 100
+              : null
+            : Math.round(
+                ((streamsInRange - streamsPrevious) / streamsPrevious) * 100,
+              );
+        return {
+          streamsCurrent: streamsInRange,
+          streamsPrevious,
+          deltaPct,
+          previousLabel: `Prior ${window.label.toLowerCase()}`,
+        };
+      })(),
       delivery: {
         ready: !deliveryRes.missingTable,
         taaliLive: deliveryRes.taaliLive || isTaaliLive(),

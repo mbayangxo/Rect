@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { qcBlocksGoLive } from "@/lib/audio/qc";
 import { isTaaliLive, taaliSubmitRelease } from "@/lib/taali/client";
 
 export type DistributionStatus =
@@ -139,6 +140,42 @@ export async function createDistributionRelease(
     return { ok: false, error: "Pick at least one track." };
   }
 
+  // Block DSP drafts that include QC-fail masters (skip if qc_status column missing).
+  {
+    const qcCheck = await supabase
+      .from("tracks")
+      .select("id, title, qc_status")
+      .eq("artist_id", input.artistId)
+      .in("id", input.trackIds);
+    if (
+      qcCheck.error &&
+      /qc_status|column .* does not exist/i.test(qcCheck.error.message)
+    ) {
+      // Column not migrated yet — allow create.
+    } else if (qcCheck.error) {
+      return { ok: false, error: qcCheck.error.message };
+    } else {
+      const blocked = (qcCheck.data ?? []).filter((t) =>
+        qcBlocksGoLive(
+          typeof t.qc_status === "string" ? t.qc_status : null,
+        ),
+      );
+      if (blocked.length > 0) {
+        const titles = blocked
+          .map((t) =>
+            typeof t.title === "string" && t.title.trim()
+              ? t.title.trim()
+              : "Untitled",
+          )
+          .join(", ");
+        return {
+          ok: false,
+          error: `QC must pass before Delivery. Fix QC fail: ${titles}`,
+        };
+      }
+    }
+  }
+
   const slug = `${slugify(input.title)}-${Date.now().toString(36)}`;
   const { data, error } = await supabase
     .from("distribution_releases")
@@ -216,26 +253,129 @@ export async function submitDistributionRelease(
     return { ok: false, error: "Release has no tracks." };
   }
 
-  const { data: tracks, error: tracksErr } = await supabase
-    .from("tracks")
-    .select("id, title, audio_url, isrc_code")
-    .in("id", trackIds)
-    .eq("artist_id", artistId);
+  type TrackAudioRow = {
+    id: unknown;
+    title: unknown;
+    audio_url: unknown;
+    isrc_code?: unknown;
+    punch_status?: unknown;
+    punch_audio_url?: unknown;
+    qc_status?: unknown;
+  };
 
-  if (tracksErr) return { ok: false, error: tracksErr.message };
+  let trackRows: TrackAudioRow[] = [];
+  {
+    const full = await supabase
+      .from("tracks")
+      .select(
+        "id, title, audio_url, isrc_code, punch_status, punch_audio_url, qc_status",
+      )
+      .in("id", trackIds)
+      .eq("artist_id", artistId);
+    if (
+      full.error &&
+      /qc_status|column .* does not exist/i.test(full.error.message)
+    ) {
+      // qc_status missing — retry without it and skip QC gate.
+      const noQc = await supabase
+        .from("tracks")
+        .select("id, title, audio_url, isrc_code, punch_status, punch_audio_url")
+        .in("id", trackIds)
+        .eq("artist_id", artistId);
+      if (
+        noQc.error &&
+        /punch_status|punch_audio_url|column .* does not exist/i.test(
+          noQc.error.message,
+        )
+      ) {
+        const lean = await supabase
+          .from("tracks")
+          .select("id, title, audio_url, isrc_code")
+          .in("id", trackIds)
+          .eq("artist_id", artistId);
+        if (lean.error) return { ok: false, error: lean.error.message };
+        trackRows = (lean.data ?? []) as TrackAudioRow[];
+      } else if (noQc.error) {
+        return { ok: false, error: noQc.error.message };
+      } else {
+        trackRows = (noQc.data ?? []) as TrackAudioRow[];
+      }
+    } else if (
+      full.error &&
+      /punch_status|punch_audio_url|column .* does not exist/i.test(
+        full.error.message,
+      )
+    ) {
+      const lean = await supabase
+        .from("tracks")
+        .select("id, title, audio_url, isrc_code, qc_status")
+        .in("id", trackIds)
+        .eq("artist_id", artistId);
+      if (
+        lean.error &&
+        /qc_status|column .* does not exist/i.test(lean.error.message)
+      ) {
+        const bare = await supabase
+          .from("tracks")
+          .select("id, title, audio_url, isrc_code")
+          .in("id", trackIds)
+          .eq("artist_id", artistId);
+        if (bare.error) return { ok: false, error: bare.error.message };
+        trackRows = (bare.data ?? []) as TrackAudioRow[];
+      } else if (lean.error) {
+        return { ok: false, error: lean.error.message };
+      } else {
+        trackRows = (lean.data ?? []) as TrackAudioRow[];
+      }
+    } else if (full.error) {
+      return { ok: false, error: full.error.message };
+    } else {
+      trackRows = (full.data ?? []) as TrackAudioRow[];
+    }
+  }
 
-  const byId = new Map((tracks ?? []).map((t) => [String(t.id), t]));
+  const qcBlocked = trackRows.filter((t) =>
+    qcBlocksGoLive(
+      typeof t.qc_status === "string" ? t.qc_status : null,
+    ),
+  );
+  // Only enforce when at least one row carried qc_status (column present).
+  const hadQcColumn = trackRows.some((t) => "qc_status" in t);
+  if (hadQcColumn && qcBlocked.length > 0) {
+    const titles = qcBlocked
+      .map((t) =>
+        typeof t.title === "string" && t.title.trim()
+          ? t.title.trim()
+          : "Untitled",
+      )
+      .join(", ");
+    return {
+      ok: false,
+      error: `QC must pass before Delivery. Fix QC fail: ${titles}`,
+    };
+  }
+
+  const byId = new Map(trackRows.map((t) => [String(t.id), t]));
   const payloadTracks = (links ?? [])
     .map((l) => {
       const t = byId.get(String(l.track_id));
-      if (!t?.audio_url) return null;
+      if (!t) return null;
+      const punched =
+        String(t.punch_status ?? "") === "ready" &&
+        typeof t.punch_audio_url === "string" &&
+        t.punch_audio_url.trim()
+          ? t.punch_audio_url.trim()
+          : null;
+      const audioUrl =
+        punched || (typeof t.audio_url === "string" ? t.audio_url : null);
+      if (!audioUrl) return null;
       return {
         trackId: String(t.id),
         title: String(t.title ?? "Track"),
         isrc:
           (typeof l.isrc === "string" && l.isrc) ||
           (typeof t.isrc_code === "string" ? t.isrc_code : null),
-        audioUrl: String(t.audio_url),
+        audioUrl,
         trackNumber: Number(l.track_number) || 1,
       };
     })

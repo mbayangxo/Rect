@@ -155,6 +155,17 @@ export function RadioClient({
               ? "Press play on a station when you want it — nothing starts until you do."
               : "Continuous stations from the live catalog. Press play when you want music."}
           </p>
+          <p className="mt-3 flex flex-wrap gap-3 text-sm">
+            <Link href="/new-wave" className="text-[var(--rect)] hover:underline">
+              New Wave · shows
+            </Link>
+            <Link
+              href="/hearing-aids"
+              className="text-[var(--rect)] hover:underline"
+            >
+              Hearing Aids · podcasts
+            </Link>
+          </p>
           {creditsReady ? (
             <p className="mt-3 text-xs text-white/45">
               {credits <= 0 ? (

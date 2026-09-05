@@ -9,6 +9,7 @@ import {
 import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
 import { loadLikedAmongTrackIds, loadLikedTrackIds } from "@/lib/dashboard/likes";
 import { loadContinueListening } from "@/lib/dashboard/listening-journal";
+import { loadLiveParties } from "@/lib/dashboard/listening-parties";
 import { loadArtistNotifications } from "@/lib/dashboard/notifications";
 import {
   loadFriendsLikes,
@@ -19,14 +20,22 @@ import { loadFollowingAmongPlaylists } from "@/lib/dashboard/playlist-follows";
 import { loadFirstTracksForPlaylists } from "@/lib/dashboard/playlists";
 import { loadPlayPacks } from "@/lib/dashboard/play-packs";
 import {
+  loadListenerTasteWithBehavior,
+} from "@/lib/dashboard/behavior";
+import {
   activeDaypartFromTaste,
   DAYPART_META,
   hasTasteSignal,
   packCountryFromTaste,
-  tasteFromProfile,
 } from "@/lib/dashboard/taste";
 import { loadFeaturedTracks } from "@/lib/dashboard/tracks";
+import { loadHearingAidEpisodes } from "@/lib/dashboard/hearing-aids";
+import { loadNewSoundsTracks } from "@/lib/dashboard/new-sounds";
+import { loadNewWaveShows } from "@/lib/dashboard/new-wave-shows";
 import { loadPublicLiveNow } from "@/lib/dashboard/live-rooms";
+import { mergeTrendingLivePresence } from "@/lib/dashboard/live-presence";
+import { loadPublicRectLivesNow } from "@/lib/dashboard/rect-live";
+import { loadPopularUpcomingTourEvents } from "@/lib/dashboard/tour-events";
 import {
   loadTrendingPortals,
   loadTrendingTracks,
@@ -74,20 +83,17 @@ export default async function DashboardPage() {
     );
   }
 
-  const taste = tasteFromProfile(current.profile);
+  const taste = await loadListenerTasteWithBehavior(
+    supabase,
+    current.user.id,
+    current.user.user_metadata as Record<string, unknown> | null,
+  );
   const packCountry = packCountryFromTaste(taste);
   const personalized = hasTasteSignal(taste);
   const activeDaypart = activeDaypartFromTaste(taste);
   const tasteDaypart = activeDaypart
     ? DAYPART_META[activeDaypart].label
     : null;
-  const showArtistStudio =
-    current.profile?.account_type === "artist" ||
-    current.profile?.role === "artist" ||
-    (typeof current.user.user_metadata?.role === "string" &&
-      current.user.user_metadata.role === "artist") ||
-    (typeof current.user.user_metadata?.account_type === "string" &&
-      current.user.user_metadata.account_type === "artist");
 
   const [
     featuredRes,
@@ -102,8 +108,14 @@ export default async function DashboardPage() {
     friendsLikesRes,
     friendsMixesRes,
     liveNowRes,
+    rectLiveRes,
     trendingTracksRes,
     trendingPortalsRes,
+    newSoundsRes,
+    newWaveShowsRes,
+    partiesRes,
+    hearingAidsRes,
+    tourEventsRes,
   ] = await Promise.all([
     loadFeaturedTracks(supabase, taste),
     loadArtistPortals(supabase, taste),
@@ -117,9 +129,21 @@ export default async function DashboardPage() {
     loadFriendsLikes(supabase, current.user.id, 8),
     loadFriendsMixes(supabase, current.user.id, 6),
     loadPublicLiveNow(supabase, 16),
+    loadPublicRectLivesNow(supabase, 12),
     loadTrendingTracks(supabase, 10),
     loadTrendingPortals(supabase, 8),
+    loadNewSoundsTracks(supabase, 12),
+    loadNewWaveShows(supabase, current.user.id, 10),
+    loadLiveParties(supabase, 8),
+    loadHearingAidEpisodes(supabase, 8),
+    loadPopularUpcomingTourEvents(supabase, 8),
   ]);
+
+  const livePresence = mergeTrendingLivePresence(
+    liveNowRes.rooms,
+    rectLiveRes.lives,
+    16,
+  );
 
   const releaseUnread = inboxRes.notifications.filter(
     (n) =>
@@ -154,41 +178,6 @@ export default async function DashboardPage() {
         n.kind === "playlist_comment" ||
         n.kind === "playlist_comment_reply" ||
         n.kind === "playlist_comment_like") &&
-      !n.read_at,
-  ).length;
-  const studioUnread = inboxRes.notifications.filter(
-    (n) =>
-      n.kind !== "release" &&
-      n.kind !== "people_follow" &&
-      n.kind !== "playlist_follow" &&
-      n.kind !== "playlist_copy" &&
-      n.kind !== "friend_mix" &&
-      n.kind !== "track_share" &&
-      n.kind !== "playlist_share" &&
-      n.kind !== "comment_reply" &&
-      n.kind !== "tip_thanks" &&
-      n.kind !== "share_thanks" &&
-      n.kind !== "playlist_follow_thanks" &&
-      n.kind !== "playlist_copy_thanks" &&
-      n.kind !== "people_follow_thanks" &&
-      n.kind !== "follow_thanks" &&
-      n.kind !== "comment_like_thanks" &&
-      n.kind !== "playlist_comment_like_thanks" &&
-      n.kind !== "activity_thanks" &&
-      n.kind !== "like_thanks" &&
-      n.kind !== "mix_thanks" &&
-      n.kind !== "playlist_collab_invite" &&
-      n.kind !== "playlist_collab_request" &&
-      n.kind !== "playlist_collab_accepted" &&
-      n.kind !== "playlist_collab_add" &&
-      n.kind !== "playlist_collab_declined" &&
-      n.kind !== "playlist_collab_left" &&
-      n.kind !== "playlist_collab_removed" &&
-      n.kind !== "comment_like" &&
-      n.kind !== "playlist_track_add" &&
-      n.kind !== "playlist_comment" &&
-      n.kind !== "playlist_comment_reply" &&
-      n.kind !== "playlist_comment_like" &&
       !n.read_at,
   ).length;
 
@@ -250,9 +239,7 @@ export default async function DashboardPage() {
       pendingPackPurchases={pendingPacksRes.purchases}
       likedTrackIds={likedTrackIds}
       likesReady={!likesRes.missingTable && !friendLikedAmong.missingTable}
-      showArtistStudio={showArtistStudio}
       inboxUnread={releaseUnread}
-      artistInboxUnread={showArtistStudio ? studioUnread : 0}
       continueListening={continueRes.entries}
       continueError={continueRes.error}
       friendsListening={friendsRes.items}
@@ -265,8 +252,22 @@ export default async function DashboardPage() {
       playlistFollowsReady={!playlistAmong.missingTable}
       playlistPreviewTracks={playlistPreviewTracks}
       liveNow={liveNowRes.rooms}
+      livePresence={livePresence}
       trendingTracks={trendingTracksRes.tracks}
       trendingPortals={trendingPortalsRes.portals}
+      newSoundsTracks={newSoundsRes.tracks}
+      newWaveShows={newWaveShowsRes.shows}
+      liveParties={partiesRes.parties.map((p) => ({
+        id: p.id,
+        title: p.title,
+        href: `/parties/${p.id}`,
+        subtitle: "Live party · join the room",
+        cover_url: p.cover_url,
+        kind: "live" as const,
+        meta: "party",
+      }))}
+      hearingAids={hearingAidsRes.episodes}
+      tourEvents={tourEventsRes.events}
     />
   );
 }

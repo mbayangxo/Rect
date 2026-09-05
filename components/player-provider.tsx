@@ -157,8 +157,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [immersiveOpen, setImmersiveOpen] = useState(false);
   const [savingQueue, setSavingQueue] = useState(false);
   const recordedFor = useRef<string | null>(null);
+  const playIdForTrack = useRef<{ trackId: string; playId: string } | null>(
+    null,
+  );
+  const lastProgressSentAt = useRef(0);
+  const lastProgressSecs = useRef(0);
   const recordPlayRef = useRef<(trackId: string) => Promise<void>>(
     async () => undefined,
+  );
+  const progressReportRef = useRef<(secs: number, force?: boolean) => void>(
+    () => undefined,
   );
   const guestPreviewRef = useRef(false);
   const startGenRef = useRef(0);
@@ -252,6 +260,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
       setCurrentTime(t);
       maybeCreditListen();
+      progressReportRef.current(t);
     };
     const onMeta = () => {
       const secs = audio.duration || 0;
@@ -279,7 +288,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         });
     };
     const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
+    const onPause = () => {
+      setPlaying(false);
+      progressReportRef.current(audio.currentTime || 0, true);
+    };
     const onError = () => {
       setPlaying(false);
       setCreditNotice(
@@ -318,6 +330,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     async (trackId: string) => {
       if (recordedFor.current === trackId) return;
       recordedFor.current = trackId;
+      const genAtStart = startGenRef.current;
       try {
         const res = await fetch("/api/plays", {
           method: "POST",
@@ -347,7 +360,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const data = (await res.json().catch(() => null)) as {
             credits_remaining?: number | null;
+            play_id?: string | null;
           } | null;
+          const stillSameTrack =
+            trackRef.current?.id === trackId &&
+            startGenRef.current === genAtStart;
+          if (
+            stillSameTrack &&
+            typeof data?.play_id === "string" &&
+            data.play_id.trim()
+          ) {
+            playIdForTrack.current = {
+              trackId,
+              playId: data.play_id.trim(),
+            };
+            lastProgressSentAt.current = 0;
+            lastProgressSecs.current = 0;
+          }
           if (
             typeof data?.credits_remaining === "number" &&
             Number.isFinite(data.credits_remaining)
@@ -398,6 +427,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     recordPlayRef.current = recordPlay;
   }, [recordPlay]);
 
+  useEffect(() => {
+    progressReportRef.current = (secs: number, force = false) => {
+      const pair = playIdForTrack.current;
+      if (!pair?.playId) return;
+      if (trackRef.current?.id !== pair.trackId) return;
+      const rounded = Math.max(0, Math.round(secs));
+      if (!force && rounded < lastProgressSecs.current + 10) return;
+      const now = Date.now();
+      if (!force && now - lastProgressSentAt.current < 12_000) return;
+      lastProgressSentAt.current = now;
+      lastProgressSecs.current = rounded;
+      void fetch("/api/plays/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          play_id: pair.playId,
+          listened_secs: rounded,
+        }),
+      }).catch(() => undefined);
+    };
+  }, []);
+
   const startTrack = useCallback(
     (next: TrackRow) => {
       const audio = audioRef.current;
@@ -409,12 +460,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setPlaying(false);
       setTrack(next);
       recordedFor.current = null;
+      playIdForTrack.current = null;
+      lastProgressSecs.current = 0;
+      lastProgressSentAt.current = 0;
       durationPersistedFor.current = null;
       guestPreviewRef.current = false;
       setLoginNext(`/songs/${next.id}`);
       setCreditNotice(null);
       syncQueueFlags();
-      setImmersiveOpen(true);
+      // Keep the compact bottom bar; immersive stage is opt-in only.
 
       // Hydrate lyrics for immersive stage if missing on the row
       if (!next.lyrics?.trim()) {
@@ -729,6 +783,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!audio) return;
 
     const onEnded = () => {
+      progressReportRef.current(audio.duration || audio.currentTime || 0, true);
       const q = queueRef.current;
       const nextIdx = queueIndexRef.current + 1;
       if (q.length > 0 && nextIdx < q.length) {
@@ -884,7 +939,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         >
           <div className="max-h-[40vh] overflow-hidden rounded-2xl border border-white/10 bg-[#071208]/97 shadow-2xl shadow-black/40 backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1DB954]">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--rect)]">
                 Up next · {queue.length}
               </p>
               <div className="flex flex-wrap items-center justify-end gap-3">
@@ -892,7 +947,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   type="button"
                   disabled={savingQueue}
                   onClick={() => void saveQueueAsPlaylist()}
-                  className="text-xs font-medium text-[#1DB954] hover:text-[#17a349] disabled:opacity-50"
+                  className="text-xs font-medium text-[var(--rect)] hover:text-[var(--rect-sand)] disabled:opacity-50"
                 >
                   {savingQueue ? "Saving…" : "Save as playlist"}
                 </button>
@@ -921,7 +976,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   <li
                     key={`${t.id}-${i}`}
                     className={`flex items-center gap-2 px-3 py-2 ${
-                      active ? "bg-[#1DB954]/12" : "hover:bg-white/[0.04]"
+                      active ? "bg-[var(--rect)]/12" : "hover:bg-white/[0.04]"
                     }`}
                   >
                     <span className="w-5 shrink-0 text-center text-[0.65rem] tabular-nums text-white/35">
@@ -936,7 +991,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                       <span className="min-w-0 flex-1">
                         <span
                           className={`block truncate text-sm ${
-                            active ? "font-semibold text-[#1DB954]" : "text-white"
+                            active ? "font-semibold text-[var(--rect)]" : "text-white"
                           }`}
                         >
                           {trackTitle(t)}
@@ -968,11 +1023,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         <div
           className={`fixed inset-x-0 z-50 border-t border-white/10 bg-[#071208]/95 backdrop-blur-md ${bottomBarClass}`}
         >
-          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-8 lg:px-10">
+          <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-3 py-2 sm:gap-3 sm:px-8 lg:px-10">
             <button
               type="button"
               onClick={() => setImmersiveOpen(true)}
-              className="shrink-0 rounded-md ring-offset-2 ring-offset-[#071208] hover:ring-2 hover:ring-[#1DB954]/50"
+              className="shrink-0 rounded-md ring-offset-2 ring-offset-[#071208] hover:ring-2 hover:ring-[var(--rect)]/50"
               aria-label="Open immersive player"
               title="Immerse"
             >
@@ -986,12 +1041,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 className="flex h-9 w-9 items-center justify-center rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 aria-label="Previous"
               >
-                ⏮
+                ❮
               </button>
               <button
                 type="button"
                 onClick={toggle}
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1DB954] text-sm font-bold text-black hover:bg-[#17a349]"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--rect)] text-sm font-bold text-black hover:bg-[var(--rect-sand)]"
                 aria-label={playing ? "Pause" : "Play"}
               >
                 {playing ? "❚❚" : "▶"}
@@ -1003,14 +1058,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 className="flex h-9 w-9 items-center justify-center rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30"
                 aria-label="Next"
               >
-                ⏭
+                ❭
               </button>
               <button
                 type="button"
                 onClick={toggleRepeat}
                 className={`flex h-9 w-9 items-center justify-center rounded-full text-[0.65rem] font-semibold tracking-wide ${
                   repeat
-                    ? "bg-[#1DB954]/20 text-[#1DB954]"
+                    ? "bg-[var(--rect)]/20 text-[var(--rect)]"
                     : "text-white/45 hover:bg-white/10 hover:text-white"
                 }`}
                 aria-label={repeat ? "Repeat on" : "Repeat off"}
@@ -1024,7 +1079,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   onClick={() => setQueueOpen((o) => !o)}
                   className={`relative flex h-9 w-9 items-center justify-center rounded-full text-[0.65rem] font-semibold ${
                     queueOpen
-                      ? "bg-[#1DB954]/20 text-[#1DB954]"
+                      ? "bg-[var(--rect)]/20 text-[var(--rect)]"
                       : "text-white/45 hover:bg-white/10 hover:text-white"
                   }`}
                   aria-label={queueOpen ? "Hide queue" : "Show queue"}
@@ -1032,7 +1087,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 >
                   ≡
                   {queue.length > 1 ? (
-                    <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#1DB954] px-0.5 text-[0.55rem] font-bold text-black">
+                    <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[var(--rect)] px-0.5 text-[0.55rem] font-bold text-black">
                       {queue.length > 99 ? "99+" : queue.length}
                     </span>
                   ) : null}
@@ -1043,7 +1098,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => setImmersiveOpen(true)}
-                className="block w-full truncate text-left text-sm font-medium text-white hover:text-[#1DB954]"
+                className="block w-full truncate text-left text-sm font-medium text-white hover:text-[var(--rect)]"
               >
                 {trackTitle(track)}
               </button>
@@ -1051,7 +1106,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               trackArtist(track) !== PRIVATE_ARTIST_LABEL ? (
                 <Link
                   href={`/artists/${track.artist_id}`}
-                  className="block truncate text-xs text-white/45 hover:text-[#1DB954]"
+                  className="block truncate text-xs text-white/45 hover:text-[var(--rect)]"
                 >
                   {trackArtist(track)}
                 </Link>
@@ -1071,7 +1126,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   step={0.1}
                   value={currentTime}
                   onChange={(e) => seek(Number(e.target.value))}
-                  className="min-w-0 flex-1 accent-[#1DB954]"
+                  className="min-w-0 flex-1 accent-[var(--rect)]"
                   aria-label="Seek"
                 />
                 <span className="w-8 shrink-0 text-right text-[0.65rem] tabular-nums text-white/35">
@@ -1096,7 +1151,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 step={0.05}
                 value={muted ? 0 : volume}
                 onChange={(e) => setVolumeLevel(Number(e.target.value))}
-                className="w-16 accent-[#1DB954] lg:w-20"
+                className="w-16 accent-[var(--rect)] lg:w-20"
                 aria-label="Volume"
               />
             </div>
@@ -1111,7 +1166,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setImmersiveOpen(true)}
-              className="hidden shrink-0 rounded-full border border-[#1DB954]/40 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[#1DB954] hover:bg-[#1DB954]/10 sm:inline-flex"
+              className="hidden shrink-0 rounded-full border border-[var(--rect)]/40 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--rect)] hover:bg-[var(--rect)]/10 sm:inline-flex"
               title="Immersive lyrics stage"
             >
               Immerse
@@ -1122,7 +1177,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 className={`hidden shrink-0 rounded-full border px-2.5 py-1.5 text-[0.65rem] font-semibold tabular-nums sm:inline-flex ${
                   creditsRemaining <= 0
                     ? "border-[#F5A623]/50 text-[#F5A623]"
-                    : "border-[#1DB954]/40 text-[#1DB954]"
+                    : "border-[var(--rect)]/40 text-[var(--rect)]"
                 }`}
                 title="Play credits — get a pack"
               >

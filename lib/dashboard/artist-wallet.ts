@@ -23,7 +23,12 @@ export type WalletPayoutRow = {
 
 export type ArtistWalletSummary = {
   ready: boolean;
+  /** Total artist balance excluding label_split (not label money). */
   balanceXof: number;
+  /** Business wallet — streams, downloads, merch, fan club, tickets. */
+  businessXof: number;
+  /** Personal wallet — tips (fan support to you as a person). */
+  personalXof: number;
   streamsXof: number;
   downloadsXof: number;
   merchXof: number;
@@ -35,9 +40,26 @@ export type ArtistWalletSummary = {
   nextPayoutAt: string | null;
   payoutPhone: string | null;
   ledger: WalletLedgerRow[];
+  /** Business-scoped ledger rows (excludes tips + label_split). */
+  businessLedger: WalletLedgerRow[];
+  /** Personal-scoped ledger rows (tips). */
+  personalLedger: WalletLedgerRow[];
   payouts: WalletPayoutRow[];
   error: string | null;
 };
+
+const BUSINESS_KINDS = new Set([
+  "stream",
+  "download",
+  "merch",
+  "fan_club",
+  "ticket",
+  "business_payout",
+  "adjustment",
+  "payout",
+]);
+const PERSONAL_KINDS = new Set(["tip", "personal_payout"]);
+const HIDDEN_FROM_ARTIST = new Set(["label_split", "label_split_reversal"]);
 
 function isMissingRelation(message: string) {
   return /relation .* does not exist|Could not find the table|PGRST205|schema cache/i.test(
@@ -52,6 +74,8 @@ export async function loadArtistWallet(
   const empty: ArtistWalletSummary = {
     ready: false,
     balanceXof: 0,
+    businessXof: 0,
+    personalXof: 0,
     streamsXof: 0,
     downloadsXof: 0,
     merchXof: 0,
@@ -63,6 +87,8 @@ export async function loadArtistWallet(
     nextPayoutAt: null,
     payoutPhone: null,
     ledger: [],
+    businessLedger: [],
+    personalLedger: [],
     payouts: [],
     error: null,
   };
@@ -94,18 +120,25 @@ export async function loadArtistWallet(
       return { ...empty, error: ledgerErr.message };
     }
 
-    const ledger: WalletLedgerRow[] = (ledgerRows ?? []).map((r) => ({
-      id: Number(r.id),
-      kind: String(r.kind),
-      amountXof: Number(r.amount_xof) || 0,
-      referenceId:
-        typeof r.reference_id === "string" ? r.reference_id : null,
-      description: typeof r.description === "string" ? r.description : null,
-      createdAt: String(r.created_at ?? ""),
-    }));
+    const ledger: WalletLedgerRow[] = (ledgerRows ?? [])
+      .map((r) => ({
+        id: Number(r.id),
+        kind: String(r.kind),
+        amountXof: Number(r.amount_xof) || 0,
+        referenceId:
+          typeof r.reference_id === "string" ? r.reference_id : null,
+        description: typeof r.description === "string" ? r.description : null,
+        createdAt: String(r.created_at ?? ""),
+      }))
+      .filter((r) => !HIDDEN_FROM_ARTIST.has(r.kind));
+
+    const businessLedger = ledger.filter((r) => BUSINESS_KINDS.has(r.kind));
+    const personalLedger = ledger.filter((r) => PERSONAL_KINDS.has(r.kind));
 
     // Full-ledger totals (not truncated to recent 50 display rows).
     let balanceXof = 0;
+    let businessXof = 0;
+    let personalXof = 0;
     let streamsXof = 0;
     let downloadsXof = 0;
     let merchXof = 0;
@@ -121,12 +154,20 @@ export async function loadArtistWallet(
     if (!breakdownErr && breakdown && typeof breakdown === "object") {
       const b = breakdown as Record<string, unknown>;
       balanceXof = Number(b.balance_xof) || 0;
+      businessXof = Number(b.business_xof) || 0;
+      personalXof = Number(b.personal_xof) || 0;
       streamsXof = Number(b.streams_xof) || 0;
       downloadsXof = Number(b.downloads_xof) || 0;
       merchXof = Number(b.merch_xof) || 0;
       fanClubXof = Number(b.fan_club_xof) || 0;
       tipsXof = Number(b.tips_xof) || 0;
       ticketsXof = Number(b.tickets_xof) || 0;
+      // Older RPC without business/personal — derive.
+      if (b.business_xof == null && b.personal_xof == null) {
+        personalXof = tipsXof;
+        businessXof =
+          streamsXof + downloadsXof + merchXof + fanClubXof + ticketsXof;
+      }
     } else {
       // Fallback: page through all ledger amounts (PostgREST max ~1000/page).
       let from = 0;
@@ -140,9 +181,14 @@ export async function loadArtistWallet(
         if (!page?.length) break;
         for (const r of page) {
           const amt = Number(r.amount_xof) || 0;
-          balanceXof += amt;
-          if (amt <= 0) continue;
           const kind = String(r.kind);
+          if (HIDDEN_FROM_ARTIST.has(kind)) continue;
+          balanceXof += amt;
+          if (PERSONAL_KINDS.has(kind)) personalXof += amt;
+          else if (BUSINESS_KINDS.has(kind) || kind === "payout") {
+            businessXof += amt;
+          }
+          if (amt <= 0) continue;
           if (kind === "stream") streamsXof += amt;
           else if (kind === "download") downloadsXof += amt;
           else if (kind === "merch") merchXof += amt;
@@ -187,6 +233,8 @@ export async function loadArtistWallet(
     return {
       ready: true,
       balanceXof,
+      businessXof,
+      personalXof,
       streamsXof,
       downloadsXof,
       merchXof,
@@ -204,6 +252,8 @@ export async function loadArtistWallet(
           ? walletRow.payout_phone
           : null,
       ledger,
+      businessLedger,
+      personalLedger,
       payouts,
       error: null,
     };

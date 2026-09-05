@@ -27,6 +27,8 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
   const [masterOwner, setMasterOwner] = useState("");
   const [territory, setTerritory] = useState("");
   const [publishLive, setPublishLive] = useState(true);
+  const [contentKind, setContentKind] = useState<"music" | "podcast">("music");
+  const [requestPunch, setRequestPunch] = useState(false);
   const [downloadPriceXof, setDownloadPriceXof] = useState("");
   const [lyrics, setLyrics] = useState("");
   const [isrc, setIsrc] = useState("");
@@ -100,6 +102,8 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
       body.set("genre", genre.trim());
       body.set("language", language.trim());
       body.set("publish", publishLive ? "1" : "0");
+      body.set("content_kind", contentKind);
+      body.set("request_punch", requestPunch ? "1" : "0");
       if (durationSecs != null) body.set("duration_secs", String(durationSecs));
       body.set("audio", file);
       if (cover) body.set("cover", cover);
@@ -139,6 +143,8 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
         error?: string;
         track?: { id?: string };
         warnings?: string[];
+        published?: boolean;
+        qc?: { summary?: string; status?: string };
       };
 
       if (res.status === 401) {
@@ -149,8 +155,14 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
         setError(data.error || "Upload failed.");
         return;
       }
-      if (data.warnings?.length) {
-        window.alert(data.warnings.join("\n"));
+      const notes = [
+        ...(data.warnings ?? []),
+        ...(data.qc?.summary && !(data.warnings?.length)
+          ? [data.qc.summary]
+          : []),
+      ];
+      if (notes.length) {
+        window.alert(notes.join("\n"));
       }
 
       router.push("/studio/tracks");
@@ -281,7 +293,7 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
             className="mt-1.5 w-full rounded-lg border border-white/15 bg-black/30 px-3 py-2.5 text-sm outline-none focus:border-[#1DB954]"
           />
           <span className="mt-1 block text-[0.65rem] text-white/30">
-            When it appears on New &amp; New Wave. Empty = as soon as published.
+            When it appears on New &amp; New Sounds. Empty = as soon as published.
           </span>
         </label>
       </div>
@@ -379,6 +391,51 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
       </div>
 
       <fieldset className="rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
+        <legend className="px-1 text-xs text-white/45">Content</legend>
+        <label className="mt-1 flex cursor-pointer items-center gap-3 text-sm">
+          <input
+            type="radio"
+            name="content-kind"
+            checked={contentKind === "music"}
+            onChange={() => setContentKind("music")}
+            className="accent-[var(--rect)]"
+          />
+          Music — New Sounds, Wave, Charts
+        </label>
+        <label className="mt-2 flex cursor-pointer items-center gap-3 text-sm">
+          <input
+            type="radio"
+            name="content-kind"
+            checked={contentKind === "podcast"}
+            onChange={() => {
+              setContentKind("podcast");
+              setRequestPunch(false);
+            }}
+            className="accent-[var(--rect)]"
+          />
+          Podcast — Hearing Aids (on-demand talk)
+        </label>
+      </fieldset>
+
+      {contentKind === "music" ? (
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            checked={requestPunch}
+            onChange={(e) => setRequestPunch(e.target.checked)}
+            className="mt-1 accent-[var(--rect)]"
+          />
+          <span>
+            <span className="font-medium">Request RECT Punch</span>
+            <span className="mt-0.5 block text-xs text-white/40">
+              Optional mastering after Upload QC. When ready, Delivery / Taali
+              uses the punched master.
+            </span>
+          </span>
+        </label>
+      ) : null}
+
+      <fieldset className="rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3">
         <legend className="px-1 text-xs text-white/45">Publish</legend>
         <label className="mt-1 flex cursor-pointer items-center gap-3 text-sm">
           <input
@@ -388,7 +445,10 @@ export function StudioUploadForm({ displayName, needsPlaces }: Props) {
             onChange={() => setPublishLive(true)}
             className="accent-[#1DB954]"
           />
-          Publish live — on RECT when launch date hits (New / New Wave / Charts)
+          Publish live —{" "}
+          {contentKind === "podcast"
+            ? "Hearing Aids"
+            : "New / New Sounds / Charts"}
         </label>
         <label className="mt-2 flex cursor-pointer items-center gap-3 text-sm">
           <input

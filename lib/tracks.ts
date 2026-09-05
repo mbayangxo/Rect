@@ -14,10 +14,20 @@ export type TrackRow = {
   download_price_xof?: number | null;
   /** Plain-text lyrics; null/empty = none. */
   lyrics?: string | null;
-  /** When the track appears on New / New Wave; null = immediate. */
+  /** When the track appears on New / New Sounds; null = immediate. */
   launch_at?: string | null;
   isrc_code?: string | null;
   upc_code?: string | null;
+  /** Upload QC: pending | pass | warn | fail */
+  qc_status?: string | null;
+  qc_lufs_integrated?: number | null;
+  qc_true_peak_dbtp?: number | null;
+  qc_issues?: unknown;
+  /** music (default) or podcast (Hearing Aids). */
+  content_kind?: string | null;
+  /** RECT Punch mastering status. */
+  punch_status?: string | null;
+  punch_audio_url?: string | null;
 };
 
 /** Seed / fixture demos — never show on public landing or charts. */
@@ -78,15 +88,38 @@ export function trackStatusForWrite(
  * Push live-catalog filters into a tracks query BEFORE .limit().
  * Prevents pending drafts from crowding out real uploads.
  * Matches isPublishedTrack: live | published | null (legacy).
+ * Music discovery only — Hearing Aids podcasts stay on /hearing-aids.
+ * Pass includePodcasts when content_kind column is missing (fallback retry).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function withLiveCatalogTracks(query: any) {
-  return query
+export function withLiveCatalogTracks(
+  query: any,
+  opts?: { includePodcasts?: boolean; includeUnlaunched?: boolean },
+) {
+  let q = query
     .or("status.eq.live,status.eq.published,status.is.null")
     .not("audio_url", "is", null);
+  if (!opts?.includePodcasts) {
+    q = q.or("content_kind.is.null,content_kind.eq.music");
+  }
+  // Hide scheduled drops until launch_at (null = already live).
+  if (!opts?.includeUnlaunched) {
+    const nowIso = new Date().toISOString();
+    q = q.or(`launch_at.is.null,launch_at.lte.${nowIso}`);
+  }
+  return q;
 }
 
-export function trackTitle(t: TrackRow) {
+export function isMusicTrack(t: Pick<TrackRow, "content_kind">) {
+  const k = (t.content_kind || "music").toLowerCase();
+  return k !== "podcast";
+}
+
+export function isPodcastTrack(t: Pick<TrackRow, "content_kind">) {
+  return (t.content_kind || "").toLowerCase() === "podcast";
+}
+
+export function trackTitle(t: Pick<TrackRow, "title">) {
   const raw = t.title?.trim() || "Untitled";
   return raw.replace(/\s*[·•|]\s*RECT\s*$/i, "").trim() || "Untitled";
 }

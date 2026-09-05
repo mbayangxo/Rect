@@ -66,8 +66,17 @@ Individual files (if you prefer):
 | 13 | `20260830_rect_live.sql` | RECT Live |
 | 14 | `20260830_discovery_trending.sql` | Discover trending |
 | 15 | `20260830_direct_messages.sql` | DMs (optional) |
-| 16 | **`20260831_artist_os_delivery_suite.sql`** | DSP delivery tables, `launch_at`, ISRC/UPC, New Wave RPC, tip→wallet |
+| 16 | **`20260831_artist_os_delivery_suite.sql`** | DSP delivery tables, `launch_at`, ISRC/UPC, New Sounds RPC, tip→wallet |
 | 17 | **`20260831_joko_tips.sql`** | JOKO tips (pending → confirm → wallet) |
+| 18 | **`20260903_listening_card_events.sql`** | Listening card share analytics |
+| 19 | **`20260903_artist_store_layout.sql`** | Store layout template (grid/rail/featured) |
+| 20 | **`20260903_listening_parties.sql`** | Listening parties host/join/chat |
+| 21 | **`20260903_rect_labels.sql`** | RECT Labels mutual accept + roster |
+| 22 | **`20260903_track_audio_qc.sql`** | Upload QC (LUFS / peak / silence) |
+| 23 | **`20260904_hearing_aids_and_punch.sql`** | Podcasts (`content_kind`) + RECT Punch columns |
+| 24 | **`20260904_listener_behavior_affinity.sql`** | Behavior affinity RPC + play progress (`listened_secs`) |
+| 25 | **`20260904_label_revenue_split_wallet.sql`** | Label split % → auto wallet credit on streams/tips/etc. |
+| 26 | **`20260904_wallets_personal_business_label.sql`** | Personal + Business artist wallets · Label wallet tables (owners only) |
 
 Optional extras:
 
@@ -90,6 +99,16 @@ Or one file:
 ```bash
 npm run db:apply -- 20260831_artist_os_delivery_suite.sql
 ```
+
+---
+
+## Mistaken paste (Kebu shop → RECT)
+
+If you pasted Kebu `APPLY_SHOP_ORDERS` / shop SQL into **RECT**, run:
+
+`supabase/migrations/_UNDO_KEBU_SHOP_FROM_RECT.sql`
+
+Then verify with `_VERIFY_RECT_CONNECTED.sql`. Do **not** paste Kebu SQL into RECT (or RECT SQL into Kebu).
 
 ---
 

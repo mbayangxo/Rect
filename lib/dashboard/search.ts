@@ -130,14 +130,16 @@ export async function searchCatalog(
     let { data: trackRows, error: trackError } = await trackQuery;
     if (
       trackError &&
-      /language|column .* does not exist/i.test(trackError.message)
+      /content_kind|language|column .* does not exist/i.test(trackError.message)
     ) {
+      const skipKind = /content_kind/i.test(trackError.message);
       let fallback = withLiveCatalogTracks(
         db
           .from("tracks")
           .select(
             "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
           ),
+        { includePodcasts: skipKind },
       )
         .order("created_at", { ascending: false })
         .limit(40);

@@ -39,7 +39,13 @@ import {
 import { tipsTableReady } from "@/lib/dashboard/tips";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { isDemoTrack, isPublishedTrack, withLiveCatalogTracks, type TrackRow } from "@/lib/tracks";
+import { isDemoTrack, isPublishedTrack, isPodcastTrack, withLiveCatalogTracks, type TrackRow } from "@/lib/tracks";
+import {
+  getShowcaseArtist,
+  isShowcaseId,
+  showcaseTracksForArtist,
+} from "@/lib/showcase/catalog";
+import { AppBottomNav } from "@/components/app-bottom-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +55,58 @@ type Props = {
 
 export default async function ArtistPortalPage({ params }: Props) {
   const { id } = await params;
+
+  if (isShowcaseId(id)) {
+    const artist = getShowcaseArtist(id);
+    if (!artist) notFound();
+    const tracks = showcaseTracksForArtist(id);
+    return (
+      <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
+        <header className="border-b border-white/10">
+          <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-5 py-4 sm:px-8">
+            <Link href="/dashboard">
+              <RectLogo size={32} showWordmark />
+            </Link>
+            <Link href="/discover" className="text-sm text-[var(--rect)]">
+              Discover →
+            </Link>
+          </div>
+        </header>
+        <div className="mx-auto w-full max-w-4xl px-5 py-10 sm:px-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={artist.avatar_url}
+              alt=""
+              className="h-28 w-28 rounded-full border border-white/15 bg-white/5 object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[var(--rect)]">
+                Showcase · artist
+              </p>
+              <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight sm:text-4xl">
+                {artist.display_name}
+              </h1>
+              <p className="mt-2 max-w-xl text-sm text-white/50">{artist.bio}</p>
+              <p className="mt-2 text-xs text-white/35">
+                {[...artist.countries, ...artist.genres].join(" · ")}
+              </p>
+            </div>
+          </div>
+          <section className="mt-10">
+            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+              Songs
+            </h2>
+            <div className="mt-4">
+              <TrackList tracks={tracks} />
+            </div>
+          </section>
+        </div>
+        <AppBottomNav />
+      </main>
+    );
+  }
+
   const supabase = await createClient();
   const admin = createAdminClient();
   const db = admin ?? supabase;
@@ -69,12 +127,13 @@ export default async function ArtistPortalPage({ params }: Props) {
     city?: string | null;
     artist_bio?: string | null;
     privacy_public_profile?: boolean | null;
+    artist_store_layout?: string | null;
   };
 
   const fullArtist = await db
     .from("users")
     .select(
-      "id, display_name, genres, countries, avatar_url, artist_banner_url, account_type, role, created_at, city, artist_bio, privacy_public_profile",
+      "id, display_name, genres, countries, avatar_url, artist_banner_url, account_type, role, created_at, city, artist_bio, privacy_public_profile, artist_store_layout",
     )
     .eq("id", id)
     .maybeSingle();
@@ -82,7 +141,7 @@ export default async function ArtistPortalPage({ params }: Props) {
   let artist: ArtistProfile | null = null;
   if (
     fullArtist.error &&
-    /artist_banner_url|privacy_public_profile|city|artist_bio|countries|avatar_url|column .* does not exist/i.test(
+    /artist_store_layout|artist_banner_url|privacy_public_profile|city|artist_bio|countries|avatar_url|column .* does not exist/i.test(
       fullArtist.error.message,
     )
   ) {
@@ -225,27 +284,62 @@ export default async function ArtistPortalPage({ params }: Props) {
     ? artist.countries.filter((c): c is string => typeof c === "string")
     : [];
 
+  const trackSelect =
+    "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at, content_kind";
+
   const trackQuery = isOwner
     ? db
         .from("tracks")
-        .select(
-          "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-        )
+        .select(trackSelect)
         .eq("artist_id", id)
         .order("created_at", { ascending: false })
-        .limit(40)
+        .limit(60)
     : withLiveCatalogTracks(
-        db
-          .from("tracks")
-          .select(
-            "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at",
-          )
-          .eq("artist_id", id),
+        db.from("tracks").select(trackSelect).eq("artist_id", id),
       )
         .order("created_at", { ascending: false })
         .limit(40);
 
-  const { data: trackRows, error: trackError } = await trackQuery;
+  let { data: trackRows, error: trackError } = await trackQuery;
+  if (
+    trackError &&
+    /content_kind|column .* does not exist/i.test(trackError.message)
+  ) {
+    const leanSelect =
+      "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status, created_at";
+    const lean = isOwner
+      ? await db
+          .from("tracks")
+          .select(leanSelect)
+          .eq("artist_id", id)
+          .order("created_at", { ascending: false })
+          .limit(60)
+      : await withLiveCatalogTracks(
+          db.from("tracks").select(leanSelect).eq("artist_id", id),
+          { includePodcasts: true },
+        )
+          .order("created_at", { ascending: false })
+          .limit(40);
+    trackRows = lean.data as typeof trackRows;
+    trackError = lean.error;
+  }
+
+  // Public Hearing Aids: music catalog excludes podcasts — load them separately.
+  let podcastRows: TrackRow[] = [];
+  if (!isOwner) {
+    const pod = await db
+      .from("tracks")
+      .select(trackSelect)
+      .eq("artist_id", id)
+      .eq("content_kind", "podcast")
+      .or("status.eq.live,status.eq.published,status.is.null")
+      .not("audio_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(24);
+    if (!pod.error) {
+      podcastRows = (pod.data ?? []) as TrackRow[];
+    }
+  }
 
   const name = isOwner
     ? (typeof artist.display_name === "string" &&
@@ -256,13 +350,22 @@ export default async function ArtistPortalPage({ params }: Props) {
         privacy_public_profile: artist.privacy_public_profile ?? true,
       });
 
-  const tracks = ((trackRows ?? []) as TrackRow[])
+  const allLoaded = ((trackRows ?? []) as TrackRow[])
     .map((t) => ({ ...t, artist_name: name }))
     .filter((t) => {
       if (isDemoTrack(t)) return false;
-      // Owners see drafts; public visitors only published
       return isOwner || isPublishedTrack(t);
     });
+
+  const podcasts = (
+    isOwner
+      ? allLoaded.filter((t) => isPodcastTrack(t))
+      : podcastRows
+          .map((t) => ({ ...t, artist_name: name }))
+          .filter((t) => !isDemoTrack(t) && isPublishedTrack(t))
+  );
+
+  const tracks = allLoaded.filter((t) => !isPodcastTrack(t));
 
   const [countRes, followRes, tipsReady, activity, mixesRes, merchRes, fanClubRes, portalRes, tourRes, myCitiesRes, demandProbe, liveRes, rectLiveRes] =
     await Promise.all([
@@ -294,7 +397,10 @@ export default async function ArtistPortalPage({ params }: Props) {
   const publicMixes = mixesRes.playlists;
 
   const activityTrackIds = activity.entries.map((e) => e.id).filter(Boolean);
-  const catalogTrackIds = tracks.map((t) => t.id).filter(Boolean);
+  const catalogTrackIds = [
+    ...tracks.map((t) => t.id),
+    ...podcasts.map((t) => t.id),
+  ].filter(Boolean);
   const likeProbeIds = [...new Set([...activityTrackIds, ...catalogTrackIds])];
   const likedAmong =
     user && likeProbeIds.length > 0
@@ -606,12 +712,18 @@ export default async function ArtistPortalPage({ params }: Props) {
             artistId={id}
             isOwner={isOwner}
             loginNext={`/artists/${id}`}
+            layout={
+              artist.artist_store_layout === "rail" ||
+              artist.artist_store_layout === "featured"
+                ? artist.artist_store_layout
+                : "grid"
+            }
           />
         ) : isOwner && !merchRes.missingTable ? (
           <section className="rounded-xl border border-dashed border-white/15 px-4 py-6 text-center">
             <p className="text-sm text-white/45">No store items yet</p>
             <p className="mt-1 text-xs text-white/30">
-              Add merch in Studio — active items appear here automatically.
+              Decorate your store in RECT Artist — active items appear here.
             </p>
             <Link
               href="/studio/store"
@@ -624,7 +736,7 @@ export default async function ArtistPortalPage({ params }: Props) {
 
         <section>
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
-            Catalog
+            Music
           </h2>
           {trackError ? (
             <p className="rounded-xl border border-[#1DB954]/30 bg-[#1DB954]/10 px-4 py-3 text-sm text-[#1DB954]">
@@ -633,7 +745,7 @@ export default async function ArtistPortalPage({ params }: Props) {
           ) : tracks.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-white/15 px-6 py-14 text-center">
               <p className="text-base font-medium">
-                {isOwner ? "No releases yet" : "No live releases yet"}
+                {isOwner ? "No music yet" : "No live music yet"}
               </p>
               <p className="mt-2 text-sm text-white/40">
                 {isOwner
@@ -671,6 +783,30 @@ export default async function ArtistPortalPage({ params }: Props) {
             </div>
           )}
         </section>
+
+        {podcasts.length > 0 ? (
+          <section className="mt-10">
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-white/40">
+                Hearing Aids
+              </h2>
+              <Link
+                href="/hearing-aids"
+                className="text-xs text-white/40 hover:text-[#1DB954]"
+              >
+                All podcasts →
+              </Link>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2 md:p-3">
+              <TrackList
+                tracks={podcasts}
+                likedTracks={likedByViewer}
+                likesReady={likesReady}
+                loginNext={`/artists/${id}`}
+              />
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );

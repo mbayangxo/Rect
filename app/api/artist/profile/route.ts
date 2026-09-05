@@ -10,6 +10,7 @@ type Body = {
   display_name?: unknown;
   countries?: unknown;
   genres?: unknown;
+  artist_store_layout?: unknown;
 };
 
 function cleanText(value: unknown, max: number): string | null {
@@ -81,6 +82,21 @@ export async function PATCH(request: Request) {
     }
     if ("countries" in body) patch.countries = countries;
     if ("genres" in body) patch.genres = genres;
+    if ("artist_store_layout" in body) {
+      const layout =
+        body.artist_store_layout === "rail" ||
+        body.artist_store_layout === "featured" ||
+        body.artist_store_layout === "grid"
+          ? body.artist_store_layout
+          : null;
+      if (!layout) {
+        return NextResponse.json(
+          { error: "Store layout must be grid, rail, or featured." },
+          { status: 400 },
+        );
+      }
+      patch.artist_store_layout = layout;
+    }
 
     if (Object.keys(patch).length <= 1) {
       return NextResponse.json(
@@ -109,6 +125,16 @@ export async function PATCH(request: Request) {
     }
 
     if (error) {
+      if (/artist_store_layout|column .* does not exist/i.test(error.message)) {
+        return NextResponse.json(
+          {
+            error:
+              "Run 20260903_artist_store_layout.sql in Supabase to save store layout.",
+            code: "missing_store_layout_column",
+          },
+          { status: 503 },
+        );
+      }
       return NextResponse.json(
         {
           error: `Could not save profile to users table: ${error.message}`,

@@ -42,10 +42,17 @@ import { createClient } from "@/lib/supabase/server";
 import {
   formatTrackDuration,
   isPublishedTrack,
+  isTrackLaunched,
   trackArtist,
   trackTitle,
   type TrackRow,
 } from "@/lib/tracks";
+import {
+  getShowcaseTrack,
+  isShowcaseId,
+} from "@/lib/showcase/catalog";
+import { AppBottomNav } from "@/components/app-bottom-nav";
+import { RectLogo } from "@/components/rect-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +60,57 @@ type Props = { params: Promise<{ id: string }> };
 
 export default async function SongPage({ params }: Props) {
   const { id } = await params;
+
+  if (isShowcaseId(id)) {
+    const showcase = getShowcaseTrack(id);
+    if (!showcase) notFound();
+    return (
+      <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
+        <header className="border-b border-white/10">
+          <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 py-4 sm:px-8">
+            <Link href="/dashboard">
+              <RectLogo size={32} showWordmark />
+            </Link>
+            <Link href="/discover" className="text-sm text-[var(--rect)]">
+              Discover →
+            </Link>
+          </div>
+        </header>
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-10 sm:px-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
+            <TrackCover track={showcase} size="lg" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-[var(--rect)]">
+                Showcase · song
+              </p>
+              <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight">
+                {trackTitle(showcase)}
+              </h1>
+              <Link
+                href={`/artists/${showcase.artist_id}`}
+                className="mt-2 block text-lg text-white/70 hover:text-[var(--rect)]"
+              >
+                {trackArtist(showcase)}
+              </Link>
+              <p className="mt-2 text-sm text-white/40">
+                {[showcase.genre, showcase.language, formatTrackDuration(showcase.duration_secs)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              <div className="mt-5">
+                <TrackPlayButton track={showcase} />
+              </div>
+            </div>
+          </div>
+          {showcase.lyrics ? (
+            <SongLyrics lyrics={showcase.lyrics} />
+          ) : null}
+        </div>
+        <AppBottomNav />
+      </main>
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -61,7 +119,7 @@ export default async function SongPage({ params }: Props) {
   const full = await supabase
     .from("tracks")
     .select(
-      "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics",
+      "id, title, audio_url, cover_art_url, genre, language, artist_id, duration_secs, status, created_at, download_price_xof, lyrics, launch_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -70,7 +128,9 @@ export default async function SongPage({ params }: Props) {
   let error = full.error;
   if (
     error &&
-    /download_price_xof|lyrics|language|column .* does not exist/i.test(error.message)
+    /download_price_xof|lyrics|language|launch_at|column .* does not exist/i.test(
+      error.message,
+    )
   ) {
     const lean = await supabase
       .from("tracks")
@@ -87,6 +147,10 @@ export default async function SongPage({ params }: Props) {
 
   const isOwner = user?.id === data.artist_id;
   if (!isPublishedTrack(data) && !isOwner) {
+    notFound();
+  }
+  // Scheduled drops: public URL stays dark until launch_at (owner can preview).
+  if (!isOwner && !isTrackLaunched(data as { launch_at?: string | null })) {
     notFound();
   }
 
@@ -196,6 +260,17 @@ export default async function SongPage({ params }: Props) {
               <h1 className="font-display mt-3 text-3xl font-semibold tracking-tight">
                 {trackTitle(track)}
               </h1>
+              {isOwner &&
+              track.launch_at &&
+              new Date(track.launch_at).getTime() > Date.now() ? (
+                <p className="mt-1.5 text-xs text-white/40">
+                  Scheduled ·{" "}
+                  {new Date(track.launch_at).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+              ) : null}
               <p className="mt-2 text-sm text-white/50">
                 {artistId && artistIsPublic ? (
                   <Link
@@ -482,6 +557,13 @@ export default async function SongPage({ params }: Props) {
           <QueueTrackButton track={track} />
 
           <ShareTrackButton track={track} />
+
+          <Link
+            href={`/songs/${track.id}/card`}
+            className="mt-2 inline-flex text-xs text-[var(--rect-sand)] hover:underline"
+          >
+            Open RECT listening card →
+          </Link>
 
           <AddToPlaylist trackId={track.id} />
 

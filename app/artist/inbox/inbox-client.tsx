@@ -101,7 +101,7 @@ export function ArtistInboxClient({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const followBackNext =
-    homeHref === "/artist" ? "/artist/inbox" : "/hearing-aid";
+    homeHref === "/artist" ? "/artist/inbox" : "/inbox";
 
   function followBack(actorId: string | null | undefined) {
     if (!actorId || !peopleFollowsReady) return null;

@@ -83,14 +83,8 @@ alter table public.artist_notifications
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
   check (
-    kind in (
-      'follow',
-      'tip',
-      'release',
-      'like',
-      'comment',
-      'people_follow'
-    )
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
   );
 
 create or replace function public.notify_track_comment(

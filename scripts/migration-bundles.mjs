@@ -121,6 +121,15 @@ export const ARTIST_OS = [
   "20260830_direct_messages.sql",
   "20260831_artist_os_delivery_suite.sql",
   "20260831_joko_tips.sql",
+  "20260903_listening_card_events.sql",
+  "20260903_artist_store_layout.sql",
+  "20260903_listening_parties.sql",
+  "20260903_rect_labels.sql",
+  "20260903_track_audio_qc.sql",
+  "20260904_hearing_aids_and_punch.sql",
+  "20260904_listener_behavior_affinity.sql",
+  "20260904_label_revenue_split_wallet.sql",
+  "20260904_wallets_personal_business_label.sql",
 ];
 
 /** Full RECT schema (core → social → studio → artist OS). Skips seed/probe bundles. */

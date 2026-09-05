@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppBottomNav } from "@/components/app-bottom-nav";
+import { ProfileListeningTaste } from "@/components/profile-listening-taste";
 import { ProfileSettings } from "@/components/profile-settings";
 import { RectLogo } from "@/components/rect-logo";
 import { loadBlockedPeople } from "@/lib/dashboard/blocks";
@@ -151,9 +152,9 @@ export default async function ProfilePage() {
         </h1>
         <p className="mt-1 text-sm text-white/45">Account, inbox, and studio</p>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Link href="/hearing-aid" className="app-hub-tile">
-            <span className="app-hub-tile-k">Inbox</span>
-            <span className="app-hub-tile-t">Hearing Aid</span>
+          <Link href="/inbox" className="app-hub-tile">
+            <span className="app-hub-tile-k">Social</span>
+            <span className="app-hub-tile-t">Inbox</span>
           </Link>
           <Link href="/messages" className="app-hub-tile">
             <span className="app-hub-tile-k">Chat</span>
@@ -176,6 +177,8 @@ export default async function ProfilePage() {
           </Link>
         </div>
       </div>
+
+      <ProfileListeningTaste />
 
       <ProfileSettings
         displayName={displayName}

@@ -95,11 +95,24 @@ export async function loadGenreHubs(
       .order("created_at", { ascending: false })
       .limit(400);
 
-    if (error) {
-      return { hubs: [], error: error.message };
+    let hubData = data;
+    let hubError = error;
+    if (error && /content_kind/i.test(error.message)) {
+      const lean = await withLiveCatalogTracks(
+        db.from("tracks").select("id, title, genre, status"),
+        { includePodcasts: true },
+      )
+        .order("created_at", { ascending: false })
+        .limit(400);
+      hubData = lean.data;
+      hubError = lean.error;
     }
 
-    const rows = ((data ?? []) as TrackRow[]).filter(
+    if (hubError) {
+      return { hubs: [], error: hubError.message };
+    }
+
+    const rows = ((hubData ?? []) as TrackRow[]).filter(
       (t) => isPublishedTrack(t) && !isDemoTrack(t),
     );
 

@@ -135,7 +135,14 @@ export async function loadArtistActiveRectLive(
 export async function loadPublicRectLivesNow(
   supabase: SupabaseClient,
   limit = 16,
-): Promise<RectLive[]> {
+): Promise<{
+  lives: (RectLive & {
+    artist_name?: string | null;
+    artist_avatar?: string | null;
+  })[];
+  missingTable: boolean;
+  error: string | null;
+}> {
   const { data, error } = await supabase
     .from("rect_lives")
     .select(
@@ -145,21 +152,54 @@ export async function loadPublicRectLivesNow(
     .eq("visibility", "public")
     .order("viewer_count", { ascending: false })
     .limit(limit);
-  if (error || !data) return [];
-  return data.map((data) => ({
-    id: String(data.id),
-    artist_id: String(data.artist_id),
-    title: String(data.title ?? "RECT Live"),
+  if (error) {
+    if (isMissing(error.message)) {
+      return { lives: [], missingTable: true, error: null };
+    }
+    return { lives: [], missingTable: false, error: error.message };
+  }
+  const lives = (data ?? []).map((row) => ({
+    id: String(row.id),
+    artist_id: String(row.artist_id),
+    title: String(row.title ?? "RECT Live"),
     status: "live" as const,
     visibility: "public" as const,
-    host: data.host === "portal" ? ("portal" as const) : ("world" as const),
+    host: row.host === "portal" ? ("portal" as const) : ("world" as const),
     portal_release_id:
-      typeof data.portal_release_id === "string"
-        ? data.portal_release_id
-        : null,
-    viewer_count: Number(data.viewer_count) || 0,
-    country: typeof data.country === "string" ? data.country : null,
-    city: typeof data.city === "string" ? data.city : null,
-    started_at: typeof data.started_at === "string" ? data.started_at : null,
+      typeof row.portal_release_id === "string" ? row.portal_release_id : null,
+    viewer_count: Number(row.viewer_count) || 0,
+    country: typeof row.country === "string" ? row.country : null,
+    city: typeof row.city === "string" ? row.city : null,
+    started_at: typeof row.started_at === "string" ? row.started_at : null,
   }));
+
+  const artistIds = [...new Set(lives.map((l) => l.artist_id))];
+  if (artistIds.length === 0) {
+    return { lives, missingTable: false, error: null };
+  }
+  const { data: users } = await supabase
+    .from("users")
+    .select("id, display_name, avatar_url")
+    .in("id", artistIds);
+  const byId = new Map(
+    (users ?? []).map((u) => [
+      u.id as string,
+      {
+        name: (u.display_name as string) || "Artist",
+        avatar: (u.avatar_url as string) || null,
+      },
+    ]),
+  );
+  return {
+    lives: lives.map((l) => {
+      const u = byId.get(l.artist_id);
+      return {
+        ...l,
+        artist_name: u?.name ?? "Artist",
+        artist_avatar: u?.avatar ?? null,
+      };
+    }),
+    missingTable: false,
+    error: null,
+  };
 }

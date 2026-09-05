@@ -17,6 +17,8 @@ type PatchBody = {
   duration_secs?: number | null;
   download_price_xof?: number | null;
   lyrics?: string | null;
+  /** ISO timestamptz or null to clear (immediate New Sounds). */
+  launch_at?: string | null;
 };
 
 const MAX_LYRICS_CHARS = 20_000;
@@ -151,11 +153,28 @@ export async function PATCH(request: Request, { params }: Params) {
     }
   }
 
+  if (body.launch_at !== undefined) {
+    if (body.launch_at === null || body.launch_at === "") {
+      patch.launch_at = null;
+    } else if (typeof body.launch_at === "string") {
+      const at = new Date(body.launch_at);
+      if (Number.isNaN(at.getTime())) {
+        return NextResponse.json(
+          { error: "launch_at must be a valid date/time." },
+          { status: 400 },
+        );
+      }
+      patch.launch_at = at.toISOString();
+    } else {
+      return NextResponse.json({ error: "Invalid launch_at." }, { status: 400 });
+    }
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json(
       {
         error:
-          "Provide title, genre, language, duration_secs, download_price_xof, and/or lyrics.",
+          "Provide title, genre, language, duration_secs, download_price_xof, lyrics, and/or launch_at.",
       },
       { status: 400 },
     );

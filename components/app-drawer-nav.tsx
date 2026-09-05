@@ -11,9 +11,7 @@ type LinkItem = {
 
 type Props = {
   displayName: string;
-  showArtistStudio?: boolean;
   inboxUnread?: number;
-  artistInboxUnread?: number;
   onNavigate?: () => void;
 };
 
@@ -49,13 +47,14 @@ function Section({
 }
 
 /**
- * Drawer mirrors the 4 main tabs — destinations nest under Home / Search / Library / You.
+ * Slim consumer drawer — RECT Music only.
+ * RECT Artist is a separate site entered via /for-artists (not nested here).
+ * Wave = radio. New Wave = new radio shows. Hearing Aids = podcasts (/hearing-aids).
+ * New Sounds = music launches. Inbox = social notifications (/inbox).
  */
 export function AppDrawerNav({
   displayName,
-  showArtistStudio = false,
   inboxUnread = 0,
-  artistInboxUnread = 0,
   onNavigate,
 }: Props) {
   return (
@@ -67,24 +66,20 @@ export function AppDrawerNav({
 
       <Section
         title="Home"
-        items={[
-          { href: "/dashboard", label: "Home feed" },
-          { href: "/discover", label: "Discover · live & trending" },
-        ]}
+        items={[{ href: "/dashboard", label: "Home" }]}
         onNavigate={onNavigate}
       />
 
       <Section
         title="Search"
         items={[
-          { href: "/search", label: "Search" },
-          { href: "/radio", label: "Wave" },
-          { href: "/charts", label: "Standings" },
-          { href: "/new", label: "New releases" },
-          { href: "/new-wave", label: "New Wave mix" },
-          { href: "/genres", label: "Genres" },
-          { href: "/places", label: "Places" },
-          { href: "/languages", label: "Languages" },
+          { href: "/search", label: "Search & browse" },
+          { href: "/discover", label: "Discover · trending" },
+          { href: "/radio", label: "Wave · radio" },
+          { href: "/new-wave", label: "New Wave · shows" },
+          { href: "/hearing-aids", label: "Hearing Aids" },
+          { href: "/new-sounds", label: "New Sounds" },
+          { href: "/parties", label: "Listening parties" },
         ]}
         onNavigate={onNavigate}
       />
@@ -92,11 +87,9 @@ export function AppDrawerNav({
       <Section
         title="Library"
         items={[
-          { href: "/library", label: "Saved songs" },
+          { href: "/library", label: "Liked & saved" },
           { href: "/playlists", label: "Your mixes" },
-          { href: "/journal", label: "Listening journal" },
           { href: "/following", label: "Following" },
-          { href: "/tips", label: "Tips" },
         ]}
         onNavigate={onNavigate}
       />
@@ -104,27 +97,28 @@ export function AppDrawerNav({
       <Section
         title="You"
         items={[
-          { href: "/profile", label: "Profile & settings" },
+          { href: "/profile", label: "Profile" },
           {
-            href: "/hearing-aid",
-            label: "Hearing Aid",
+            href: "/inbox",
+            label: "Inbox",
             badge: inboxUnread,
           },
           { href: "/messages", label: "Messages" },
-          { href: "/profile/credits", label: "Play credits" },
-          ...(showArtistStudio
-            ? [
-                { href: "/studio", label: "Artist studio" },
-                {
-                  href: "/artist/inbox",
-                  label: "Artist inbox",
-                  badge: artistInboxUnread,
-                },
-              ]
-            : [{ href: "/for-artists", label: "Become an artist" }]),
         ]}
         onNavigate={onNavigate}
       />
+
+      <div className="dash-dr-section">
+        <p className="dash-dr-section-title">Artists</p>
+        <Link
+          href="/for-artists"
+          className="dash-dmi"
+          onClick={onNavigate}
+        >
+          <span>RECT Artist (separate site)</span>
+          <span aria-hidden>›</span>
+        </Link>
+      </div>
     </>
   );
 }

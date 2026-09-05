@@ -45,8 +45,8 @@ export function MessagesListClient({
             <Link href="/dashboard" className="hover:text-white">
               Hearth
             </Link>
-            <Link href="/hearing-aid" className="hover:text-white">
-              Hearing Aid
+            <Link href="/inbox" className="hover:text-white">
+              Inbox
             </Link>
           </nav>
         </div>

@@ -21,19 +21,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 -- Optional link from notification → tip row
 alter table public.artist_notifications

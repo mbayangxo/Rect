@@ -362,6 +362,16 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
             value={data.overview.streamsInRange.toLocaleString()}
           />
           <StatCard
+            label="vs prior period"
+            value={
+              data.compare.deltaPct == null
+                ? "—"
+                : `${data.compare.deltaPct > 0 ? "+" : ""}${data.compare.deltaPct}%`
+            }
+            sub={`${data.compare.streamsPrevious.toLocaleString()} → ${data.compare.streamsCurrent.toLocaleString()} · ${data.compare.previousLabel}`}
+            accent={(data.compare.deltaPct ?? 0) > 0}
+          />
+          <StatCard
             label="Revenue all time"
             value={`${data.overview.totalRevenueXof.toLocaleString()} XOF`}
             accent
@@ -495,6 +505,37 @@ function StudioAnalyticsDashboardInner({ initialData }: Props) {
           <code className="text-[0.9em]">20260830_plays_listened_secs.sql</code>
           ). Skip rate is not tracked yet.
         </p>
+      </section>
+
+      {/* Funnel */}
+      <section>
+        <SectionTitle>Funnel</SectionTitle>
+        <p className="mt-1 text-xs text-white/40">
+          Play → listen through → like → follow (this range).
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-5">
+          <StatCard
+            label="Plays"
+            value={data.funnel.playsInRange.toLocaleString()}
+          />
+          <StatCard
+            label="Listeners"
+            value={data.funnel.uniqueListeners.toLocaleString()}
+          />
+          <StatCard
+            label="Avg complete"
+            value={
+              data.funnel.avgCompletionPct != null
+                ? `${data.funnel.avgCompletionPct}%`
+                : "—"
+            }
+          />
+          <StatCard label="Likes" value={data.funnel.likes.toLocaleString()} />
+          <StatCard
+            label="Followers"
+            value={data.funnel.followers.toLocaleString()}
+          />
+        </div>
       </section>
 
       {/* Audience */}

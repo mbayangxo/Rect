@@ -13,6 +13,7 @@ type Props = {
   artistId: string;
   isOwner: boolean;
   loginNext: string;
+  layout?: "grid" | "rail" | "featured";
 };
 
 export function ArtistMerchGrid({
@@ -20,6 +21,7 @@ export function ArtistMerchGrid({
   artistId,
   isOwner,
   loginNext,
+  layout = "grid",
 }: Props) {
   const [payingId, setPayingId] = useState<string | null>(null);
   const [checkoutId, setCheckoutId] = useState<string | null>(null);
@@ -30,6 +32,9 @@ export function ArtistMerchGrid({
   const [error, setError] = useState<string | null>(null);
 
   if (items.length === 0) return null;
+
+  const featured = layout === "featured" ? items[0] : null;
+  const rest = layout === "featured" ? items.slice(1) : items;
 
   async function pay(item: ArtistMerchItem) {
     if (payingId) return;
@@ -93,8 +98,92 @@ export function ArtistMerchGrid({
           {error}
         </p>
       ) : null}
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((item) => {
+      {featured ? (
+        <div className="mb-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] sm:flex">
+          <div className="aspect-[16/10] bg-black/40 sm:aspect-auto sm:w-1/2 sm:min-h-[220px]">
+            {featured.image_urls[0] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={featured.image_urls[0]}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full min-h-[160px] items-center justify-center text-white/20 text-4xl">
+                {featured.title.slice(0, 1).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div className="flex flex-1 flex-col justify-center p-5 space-y-2">
+            <p className="text-[0.65rem] uppercase tracking-wider text-white/35">
+              Featured
+            </p>
+            <p className="text-xl font-semibold">{featured.title}</p>
+            {featured.description ? (
+              <p className="text-sm text-white/45 line-clamp-3">
+                {featured.description}
+              </p>
+            ) : null}
+            <p className="text-sm text-[#1DB954]">
+              {formatMerchPriceXof(featured.price_xof)}
+            </p>
+            {!isOwner &&
+            !(
+              featured.quantity_available != null &&
+              featured.quantity_available <= 0
+            ) ? (
+              checkoutId === featured.id ? (
+                <div className="space-y-3 pt-1">
+                  <input
+                    type="tel"
+                    placeholder="+221 70 000 00 00"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full max-w-xs rounded-lg border border-white/15 bg-black/30 px-3 py-2 text-xs outline-none focus:border-[#1DB954]/50"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={payingId === featured.id || phone.length < 8}
+                      onClick={() => void pay(featured)}
+                      className="rounded-full bg-[#1DB954] px-5 py-2 text-xs font-semibold text-black disabled:opacity-50"
+                    >
+                      {payingId === featured.id ? "Processing…" : "Pay now"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCheckoutId(null)}
+                      className="rounded-full border border-white/15 px-3 py-2 text-xs text-white/50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCheckoutId(featured.id);
+                    setError(null);
+                    setMessage(null);
+                  }}
+                  className="mt-2 w-fit rounded-full bg-[#1DB954] px-5 py-2 text-xs font-semibold text-black"
+                >
+                  Buy with JOKO
+                </button>
+              )
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      <ul
+        className={
+          layout === "rail"
+            ? "flex gap-4 overflow-x-auto pb-2"
+            : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        }
+      >
+        {rest.map((item) => {
           const cover = item.image_urls[0];
           const soldOut =
             item.quantity_available != null && item.quantity_available <= 0;
@@ -103,7 +192,9 @@ export function ArtistMerchGrid({
           return (
             <li
               key={item.id}
-              className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden"
+              className={`rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden ${
+                layout === "rail" ? "w-56 shrink-0" : ""
+              }`}
             >
               <div className="aspect-square bg-black/40">
                 {cover ? (

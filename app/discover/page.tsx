@@ -1,35 +1,100 @@
 import Link from "next/link";
 import { AppBottomNav } from "@/components/app-bottom-nav";
+import { DiscoverBody } from "@/components/discover/discover-body";
 import { LiveNowStrip } from "@/components/live-now-strip";
 import { RectLogo } from "@/components/rect-logo";
-import { TrackCover } from "@/components/track-cover";
-import { tasteFromProfile } from "@/lib/dashboard/taste";
+import { loadListenerTasteWithBehavior } from "@/lib/dashboard/behavior";
+import { ALKEBULAN_CHART_PLACES, DAKAR_CHART_PLACES } from "@/lib/dashboard/charts";
+import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
+import { loadPopularFanMixes } from "@/lib/dashboard/fan-mixes";
+import { loadHearingAidEpisodes } from "@/lib/dashboard/hearing-aids";
+import { mergeTrendingLivePresence } from "@/lib/dashboard/live-presence";
+import type { LiveRoom } from "@/lib/dashboard/live-rooms";
+import { loadNewSoundsTracks } from "@/lib/dashboard/new-sounds";
+import { loadNewWaveShows } from "@/lib/dashboard/new-wave-shows";
+import { loadFriendsMixes } from "@/lib/dashboard/people-follows";
+import { loadPublicRectLivesNow } from "@/lib/dashboard/rect-live";
+import { loadRadioStations } from "@/lib/dashboard/radio";
 import {
   loadTrendingLiveRoomsNearby,
   loadTrendingPortals,
-  loadTrendingTracks,
 } from "@/lib/dashboard/trending";
-import { getDashboardCurrentUser } from "@/lib/dashboard/current-user";
+import { loadPopularUpcomingTourEvents } from "@/lib/dashboard/tour-events";
+import { loadRankedTracks } from "@/lib/dashboard/tracks";
+import type { NewWaveShow } from "@/lib/dashboard/new-wave-shows";
+import type { RadioStation } from "@/lib/dashboard/radio";
 import { createClient } from "@/lib/supabase/server";
-import type { LiveRoom } from "@/lib/dashboard/live-rooms";
 
 export const dynamic = "force-dynamic";
+
+function stationToShow(s: RadioStation): NewWaveShow {
+  const cover =
+    s.tracks.find((t) => t.cover_art_url)?.cover_art_url ?? null;
+  const bits = [s.genre, s.place, s.language, s.daypart].filter(Boolean);
+  return {
+    id: `station:${s.id}`,
+    title: s.label,
+    subtitle: s.subtitle || bits.slice(0, 2).join(" · ") || "Wave station",
+    href: `/radio?station=${encodeURIComponent(s.id)}`,
+    cover_url: cover,
+    kind: "station",
+    meta: s.forYou
+      ? "For you"
+      : `${s.tracks.length} track${s.tracks.length === 1 ? "" : "s"}`,
+  };
+}
 
 export default async function DiscoverPage() {
   const supabase = await createClient();
   const current = await getDashboardCurrentUser(supabase);
-  const taste = current.ok ? tasteFromProfile(current.profile) : null;
+  const taste = current.ok
+    ? await loadListenerTasteWithBehavior(
+        supabase,
+        current.user.id,
+        current.user.user_metadata as Record<string, unknown> | null,
+      )
+    : null;
   const country = taste?.countries?.[0] ?? null;
-  const city = null;
+  const cityPlaceKeys =
+    country != null
+      ? ([country] as readonly string[])
+      : DAKAR_CHART_PLACES;
+  const cityLabel = country ?? "Dakar";
 
-  const [tracksRes, portalsRes, roomsRes] = await Promise.all([
-    loadTrendingTracks(supabase, 16),
+  const [
+    portalsRes,
+    roomsRes,
+    rectRes,
+    newSoundsRes,
+    newWaveRes,
+    stationsRes,
+    cityRes,
+    alkebulanRes,
+    fanMixesRes,
+    friendsMixesRes,
+    hearingRes,
+    tourRes,
+  ] = await Promise.all([
     loadTrendingPortals(supabase, 10),
     loadTrendingLiveRoomsNearby(
       supabase,
-      { country, city, neighborhood: null },
+      { country, city: null, neighborhood: null },
       12,
     ),
+    loadPublicRectLivesNow(supabase, 12),
+    loadNewSoundsTracks(supabase, 12),
+    loadNewWaveShows(supabase, current.ok ? current.user.id : null, 12),
+    loadRadioStations(supabase, taste),
+    loadRankedTracks(supabase, 10, taste, { placeKeys: cityPlaceKeys }),
+    loadRankedTracks(supabase, 12, taste, {
+      placeKeys: ALKEBULAN_CHART_PLACES,
+    }),
+    loadPopularFanMixes(supabase, 12),
+    current.ok
+      ? loadFriendsMixes(supabase, current.user.id, 8)
+      : Promise.resolve({ items: [], missingTable: false, error: null }),
+    loadHearingAidEpisodes(supabase, 10),
+    loadPopularUpcomingTourEvents(supabase, 10),
   ]);
 
   const liveRooms: LiveRoom[] = roomsRes.rooms.map((r) => ({
@@ -52,6 +117,31 @@ export default async function DiscoverPage() {
     artist_avatar: r.artist_avatar,
   }));
 
+  const livePresence = mergeTrendingLivePresence(
+    liveRooms,
+    rectRes.lives,
+    16,
+  );
+
+  const stations = stationsRes.stations.filter((s) => s.tracks.length > 0);
+  const yourWaveShows = stations
+    .filter((s) => s.forYou && !s.daypart)
+    .map(stationToShow)
+    .slice(0, 8);
+  // Always surface flagship Your Wave / The Wave first when present.
+  const flagship = stations.find((s) => s.id === "station-wave");
+  const yourWaveOrdered: NewWaveShow[] = [];
+  if (flagship) yourWaveOrdered.push(stationToShow(flagship));
+  for (const show of yourWaveShows) {
+    if (yourWaveOrdered.some((x) => x.id === show.id)) continue;
+    yourWaveOrdered.push(show);
+  }
+
+  const moodShows = stations
+    .filter((s) => Boolean(s.daypart) && s.id !== "station-wave")
+    .map(stationToShow)
+    .slice(0, 8);
+
   return (
     <main className="min-h-dvh bg-[#040d06] pb-28 text-[#f8f8f8]">
       <header className="border-b border-white/10">
@@ -68,121 +158,51 @@ export default async function DiscoverPage() {
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-5xl space-y-12 px-5 py-10 sm:px-8">
+      <div className="mx-auto w-full max-w-5xl space-y-10 px-5 py-10 sm:px-8">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[#1DB954]">
-            Home · Discover
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--rect)]">
+            Home · Discover · Trending
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-syne)] text-3xl font-semibold tracking-tight">
             Discover
           </h1>
           <p className="mt-2 max-w-xl text-sm text-white/45">
-            Trending songs, worlds, and live rooms. Music plays only when you
-            press play.
+            Everything sonically trending on RECT — Live Rooms & RECT Live, New
+            Wave, New Sounds, your city, THE ALKEBULAN, Your Wave, mood mixes,
+            Fan mixes, Hearing Aids, and Worlds.
           </p>
         </div>
 
-        <LiveNowStrip rooms={liveRooms} />
+        <LiveNowStrip items={livePresence} />
 
-        {(country || city) && roomsRes.rooms.length > 0 ? (
+        {(country || cityLabel) && livePresence.length > 0 ? (
           <p className="text-xs text-white/35">
-            Showing Live Rooms
-            {city ? ` in ${city}` : ""}
+            Live presence
             {country ? ` · ${country}` : ""}. Empty filters fall back to global
             live.
           </p>
         ) : null}
 
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
-            Trending songs
-          </h2>
-          {tracksRes.error ? (
-            <p className="mt-3 text-sm text-[#F5A623]">{tracksRes.error}</p>
-          ) : tracksRes.tracks.length === 0 ? (
-            <p className="mt-3 text-sm text-white/40">No trending songs yet.</p>
-          ) : (
-            <ul className="mt-4 space-y-2">
-              {tracksRes.tracks.map((t, i) => (
-                <li key={t.track_id}>
-                  <Link
-                    href={`/songs/${t.track_id}`}
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 hover:border-[#1DB954]/40"
-                  >
-                    <span className="w-6 text-center text-xs tabular-nums text-white/35">
-                      {i + 1}
-                    </span>
-                    <TrackCover
-                      track={{
-                        title: t.title,
-                        cover_art_url: t.cover_art_url,
-                      }}
-                      size="md"
-                      href={`/songs/${t.track_id}`}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
-                        {t.title}
-                      </span>
-                      <span className="block truncate text-xs text-white/40">
-                        {t.artist_name} · {t.play_count.toLocaleString()} plays
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
-            Trending portals
-          </h2>
-          <p className="mt-1 text-xs text-white/35">
-            Deeper into the art — remixes, worlds, project extras.
-          </p>
-          {portalsRes.error ? (
-            <p className="mt-3 text-sm text-[#F5A623]">{portalsRes.error}</p>
-          ) : portalsRes.portals.length === 0 ? (
-            <p className="mt-3 text-sm text-white/40">
-              No published portals yet. Artists create them in Studio → Portal.
-            </p>
-          ) : (
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-              {portalsRes.portals.map((p) => (
-                <li key={p.release_id}>
-                  <Link
-                    href={`/artists/${p.artist_id}/world/${p.release_id}`}
-                    className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 hover:border-[#1DB954]/40"
-                  >
-                    <span className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
-                      {p.cover_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.cover_url}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : null}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium">
-                        {p.title}
-                      </span>
-                      <span className="mt-0.5 block truncate text-xs text-white/40">
-                        {p.artist_name} · {p.kind}
-                        {p.media_count
-                          ? ` · ${p.media_count} media`
-                          : ""}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <DiscoverBody
+          cityLabel={cityLabel}
+          newSounds={newSoundsRes.tracks}
+          newWaveShows={newWaveRes.shows}
+          yourWaveShows={yourWaveOrdered.slice(0, 8)}
+          moodShows={moodShows}
+          cityTracks={cityRes.ok ? cityRes.tracks : []}
+          alkebulanTracks={alkebulanRes.ok ? alkebulanRes.tracks : []}
+          fanMixes={fanMixesRes.items}
+          friendsMixes={friendsMixesRes.items}
+          hearingAids={hearingRes.episodes}
+          tourEvents={tourRes.events}
+          portals={portalsRes.portals.map((p) => ({
+            release_id: p.release_id,
+            artist_id: p.artist_id,
+            title: p.title,
+            kind: p.kind,
+            artist_name: p.artist_name,
+          }))}
+        />
       </div>
       <AppBottomNav />
     </main>

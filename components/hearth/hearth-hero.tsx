@@ -51,7 +51,7 @@ export function HearthHero({
           </Link>
         ) : null}
         {inboxUnread > 0 ? (
-          <Link href="/hearing-aid" className="hearth-stat hearth-stat-warm">
+          <Link href="/inbox" className="hearth-stat hearth-stat-warm">
             <span className="hearth-stat-val">{inboxUnread}</span>
             <span className="hearth-stat-lbl">updates</span>
           </Link>

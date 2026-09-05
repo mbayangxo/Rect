@@ -66,27 +66,10 @@ alter table public.artist_notifications
 
 alter table public.artist_notifications
   add constraint artist_notifications_kind_check
-  check (kind in (
-    'follow',
-    'tip',
-    'release',
-    'like',
-    'comment',
-    'people_follow',
-    'playlist_follow',
-    'track_share',
-    'playlist_share',
-    'comment_reply',
-    'tip_thanks',
-    'playlist_collab_invite',
-    'playlist_collab_accepted',
-    'playlist_collab_add',
-    'comment_like',
-    'playlist_track_add',
-    'playlist_comment',
-    'playlist_comment_reply',
-    'playlist_comment_like'
-  ));
+  check (
+    char_length(kind) >= 2
+    and char_length(kind) <= 64
+  );
 
 create or replace function public.notify_playlist_comment_reply(
   p_parent_comment_id bigint,

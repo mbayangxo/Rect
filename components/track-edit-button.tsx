@@ -12,6 +12,14 @@ import {
   readAudioDurationSecs,
 } from "@/lib/cultural-options";
 
+function toDatetimeLocalValue(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 type Props = {
   trackId: string;
   title: string;
@@ -20,6 +28,8 @@ type Props = {
   hasCover?: boolean;
   /** Live tracks keep cover art and genre/language until unpublished. */
   isLive?: boolean;
+  /** RECT launch schedule; null = as soon as published. */
+  launchAt?: string | null;
 };
 
 export function TrackEditButton({
@@ -29,6 +39,7 @@ export function TrackEditButton({
   language = null,
   hasCover = false,
   isLive = false,
+  launchAt = null,
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -38,6 +49,9 @@ export function TrackEditButton({
   );
   const [nextLanguage, setNextLanguage] = useState(
     matchCulturalLanguage(language) ?? language ?? "",
+  );
+  const [nextLaunchAt, setNextLaunchAt] = useState(
+    () => toDatetimeLocalValue(launchAt),
   );
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
@@ -50,6 +64,7 @@ export function TrackEditButton({
     setNextTitle(title);
     setNextGenre(matchCulturalGenre(genre) ?? genre ?? "");
     setNextLanguage(matchCulturalLanguage(language) ?? language ?? "");
+    setNextLaunchAt(toDatetimeLocalValue(launchAt));
     setCoverFile(null);
     setAudioFile(null);
     setRemoveCover(false);
@@ -78,16 +93,32 @@ export function TrackEditButton({
       const languageChanged =
         (normalizedLanguage || null) !==
         (normalizeTrackLanguage(language) || null);
+      const prevLaunchLocal = toDatetimeLocalValue(launchAt);
+      const launchChanged = nextLaunchAt !== prevLaunchLocal;
 
-      if (titleChanged || genreChanged || languageChanged) {
+      if (titleChanged || genreChanged || languageChanged || launchChanged) {
+        const payload: Record<string, string | null> = {
+          title: nextTitle.trim(),
+          genre: normalizedGenre || null,
+          language: normalizedLanguage || null,
+        };
+        if (launchChanged) {
+          if (!nextLaunchAt.trim()) {
+            payload.launch_at = null;
+          } else {
+            const at = new Date(nextLaunchAt);
+            if (Number.isNaN(at.getTime())) {
+              setError("Launch date must be a valid date/time.");
+              setPending(false);
+              return;
+            }
+            payload.launch_at = at.toISOString();
+          }
+        }
         const res = await fetch(`/api/tracks/${trackId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: nextTitle.trim(),
-            genre: normalizedGenre || null,
-            language: normalizedLanguage || null,
-          }),
+          body: JSON.stringify(payload),
         });
         const data = (await res.json()) as { error?: string };
         if (!res.ok || data.error) {
@@ -145,6 +176,7 @@ export function TrackEditButton({
         !titleChanged &&
         !genreChanged &&
         !languageChanged &&
+        !launchChanged &&
         !coverFile &&
         !audioFile &&
         !removeCover
@@ -280,6 +312,19 @@ export function TrackEditButton({
               </p>
             ) : null}
           </fieldset>
+          <label className="mt-3 block text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
+            RECT launch
+            <input
+              type="datetime-local"
+              value={nextLaunchAt}
+              onChange={(e) => setNextLaunchAt(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none focus:border-[#1DB954]/50"
+            />
+          </label>
+          <p className="mt-1 text-[0.55rem] text-white/30">
+            When it appears on New &amp; New Sounds. Empty = as soon as
+            published.
+          </p>
           <label className="mt-3 block text-[0.55rem] uppercase tracking-[0.14em] text-white/40">
             Replace audio
             <input

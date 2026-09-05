@@ -71,9 +71,9 @@ export function StudioPortalEditor({
 
   return (
     <div className="space-y-8">
-      <section>
+      <section id="world-likeness">
         <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
-          Fan preview
+          Fan preview · likeness
         </h2>
         <div className="mt-4 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.03]">
           <div className="relative h-28 bg-gradient-to-br from-[#1DB954]/20 to-black/40">
@@ -127,7 +127,7 @@ export function StudioPortalEditor({
         </div>
       </section>
 
-      <section>
+      <section id="world-banner">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-white/45">
           Banner image
         </h2>

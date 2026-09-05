@@ -1,4 +1,5 @@
 import { StudioShell } from "@/components/studio/studio-shell";
+import { loadOwnedLabel } from "@/lib/dashboard/rect-labels";
 import {
   loadStudioPortalProfile,
   requireStudioArtist,
@@ -13,6 +14,11 @@ export default async function StudioLayout({
 }) {
   const { supabase, userId, displayName } = await requireStudioArtist("/studio");
   await loadStudioPortalProfile(supabase, userId, displayName);
+  const owned = await loadOwnedLabel(supabase, userId);
 
-  return <StudioShell displayName={displayName}>{children}</StudioShell>;
+  return (
+    <StudioShell displayName={displayName} ownsLabel={Boolean(owned.label)}>
+      {children}
+    </StudioShell>
+  );
 }

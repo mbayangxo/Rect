@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TrackCover } from "@/components/track-cover";
 import { TrackDownloadPriceEditor } from "@/components/studio/track-download-price-editor";
 import { TrackLyricsEditor } from "@/components/studio/track-lyrics-editor";
+import { TrackPunchButton } from "@/components/studio/track-punch-button";
+import { TrackQcBadge } from "@/components/studio/track-qc-badge";
 import { TrackWritersEditor } from "@/components/track-writers-editor";
 import { TrackEditButton } from "@/components/track-edit-button";
 import { TrackPublishToggle } from "@/components/track-publish-toggle";
@@ -13,6 +15,8 @@ import { usePlayer } from "@/components/player-provider";
 import type { ArtistStatTrack } from "@/lib/dashboard/artist-stats";
 import type { WriterSplit } from "@/lib/dashboard/writer-splits";
 import { isPublishedTrack, trackTitle } from "@/lib/tracks";
+
+type KindFilter = "all" | "music" | "podcast";
 
 type Props = {
   tracks: ArtistStatTrack[];
@@ -33,6 +37,25 @@ export function StudioTracksList({
   const { track: current, playing, play, toggle } = usePlayer();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all");
+
+  const counts = useMemo(() => {
+    let music = 0;
+    let podcast = 0;
+    for (const t of tracks) {
+      if ((t.content_kind || "music") === "podcast") podcast += 1;
+      else music += 1;
+    }
+    return { all: tracks.length, music, podcast };
+  }, [tracks]);
+
+  const visible = useMemo(() => {
+    if (kindFilter === "all") return tracks;
+    if (kindFilter === "podcast") {
+      return tracks.filter((t) => (t.content_kind || "") === "podcast");
+    }
+    return tracks.filter((t) => (t.content_kind || "music") !== "podcast");
+  }, [tracks, kindFilter]);
 
   async function deleteTrack(trackId: string, name: string) {
     if (deletingId) return;
@@ -72,128 +95,203 @@ export function StudioTracksList({
     );
   }
 
+  const filters: { id: KindFilter; label: string; count: number }[] = [
+    { id: "all", label: "All", count: counts.all },
+    { id: "music", label: "Music", count: counts.music },
+    { id: "podcast", label: "Podcast", count: counts.podcast },
+  ];
+
   return (
     <>
+      <div className="mb-3 flex flex-wrap gap-2" role="tablist" aria-label="Track kind">
+        {filters.map((f) => {
+          const active = kindFilter === f.id;
+          return (
+            <button
+              key={f.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setKindFilter(f.id)}
+              className={`rounded-full border px-3 py-1 text-[0.7rem] transition ${
+                active
+                  ? "border-[#1DB954]/50 bg-[#1DB954]/15 text-[#1DB954]"
+                  : "border-white/15 text-white/50 hover:border-white/30 hover:text-white/70"
+              }`}
+            >
+              {f.label}
+              <span className="ml-1.5 tabular-nums opacity-70">{f.count}</span>
+            </button>
+          );
+        })}
+      </div>
       {deleteError ? (
         <p className="mb-3 text-sm text-[#F5A623]" role="alert">
           {deleteError}
         </p>
       ) : null}
-      <ul className="space-y-2">
-        {tracks.map((t) => {
-          const live = isPublishedTrack(t);
-          const focused = focusTrackId === t.id;
-          const launchLabel =
-            t.launch_at && new Date(t.launch_at).getTime() > Date.now()
-              ? ` · Launches ${new Date(t.launch_at).toLocaleString()}`
-              : t.launch_at
-                ? ` · Launched ${new Date(t.launch_at).toLocaleDateString()}`
-                : "";
-          return (
-            <li
-              key={t.id}
-              className={`rounded-xl border px-4 py-3 ${
-                focused
-                  ? "border-[#1DB954]/50 bg-[#1DB954]/[0.08]"
-                  : "border-white/[0.08] bg-white/[0.03]"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
-                <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/songs/${t.id}`}
-                    className="block truncate font-medium hover:text-[#1DB954]"
-                  >
-                    {trackTitle(t)}
-                  </Link>
-                  <p className="mt-0.5 text-xs text-white/40">
-                    {t.genre || "No genre"}
-                    {t.language ? ` · ${t.language}` : ""}
-                    {` · ${live ? "Published" : "Draft"}`}
-                    {launchLabel}
-                    {` · ${t.play_count.toLocaleString()} play${t.play_count === 1 ? "" : "s"}`}
-                    {t.download_sales > 0
-                      ? ` · ${t.download_sales} download sale${t.download_sales === 1 ? "" : "s"}`
-                      : ""}
-                    {t.download_price_xof != null && t.download_price_xof > 0
-                      ? ` · ${t.download_price_xof.toLocaleString()} XOF download`
-                      : ""}
-                    {typeof t.lyrics === "string" && t.lyrics.trim()
-                      ? " · Lyrics"
-                      : ""}
-                    {t.isrc_code ? ` · ISRC ${t.isrc_code}` : ""}
-                  </p>
-                  <TrackDownloadPriceEditor
-                    trackId={t.id}
-                    initialPriceXof={t.download_price_xof}
-                  />
-                  <TrackLyricsEditor
-                    trackId={t.id}
-                    initialLyrics={
-                      typeof t.lyrics === "string" ? t.lyrics : null
-                    }
-                    compact
-                  />
-                  <TrackWritersEditor
-                    trackId={t.id}
-                    initialWriters={writersByTrack[t.id] ?? []}
-                    compact
-                  />
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={!t.audio_url}
-                      onClick={() => {
-                        if (!t.audio_url) return;
-                        if (current?.id === t.id) toggle();
-                        else play(t);
-                      }}
-                      className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1DB954] text-xs text-black disabled:opacity-30"
-                      aria-label={`Play ${trackTitle(t)}`}
+      {visible.length === 0 ? (
+        <p className="text-sm text-white/40">
+          No {kindFilter === "podcast" ? "Hearing Aids" : "music"} uploads in
+          this list.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {visible.map((t) => {
+            const live = isPublishedTrack(t);
+            const focused = focusTrackId === t.id;
+            const isPodcast = (t.content_kind || "") === "podcast";
+            const launchLabel =
+              t.launch_at && new Date(t.launch_at).getTime() > Date.now()
+                ? ` · Launches ${new Date(t.launch_at).toLocaleString()}`
+                : t.launch_at
+                  ? ` · Launched ${new Date(t.launch_at).toLocaleDateString()}`
+                  : "";
+            return (
+              <li
+                key={t.id}
+                className={`rounded-xl border px-4 py-3 ${
+                  focused
+                    ? "border-[#1DB954]/50 bg-[#1DB954]/[0.08]"
+                    : "border-white/[0.08] bg-white/[0.03]"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <TrackCover track={t} size="sm" href={`/songs/${t.id}`} />
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/songs/${t.id}`}
+                      className="block truncate font-medium hover:text-[#1DB954]"
                     >
-                      {current?.id === t.id && playing ? "❚❚" : "▶"}
-                    </button>
-                    <TrackEditButton
+                      {trackTitle(t)}
+                    </Link>
+                    <p className="mt-0.5 text-xs text-white/40">
+                      {t.genre || "No genre"}
+                      {t.language ? ` · ${t.language}` : ""}
+                      {` · ${live ? "Published" : "Draft"}`}
+                      {isPodcast ? " · Podcast" : ""}
+                      {launchLabel}
+                      {` · ${t.play_count.toLocaleString()} play${t.play_count === 1 ? "" : "s"}`}
+                      {t.download_sales > 0
+                        ? ` · ${t.download_sales} download sale${t.download_sales === 1 ? "" : "s"}`
+                        : ""}
+                      {t.download_price_xof != null && t.download_price_xof > 0
+                        ? ` · ${t.download_price_xof.toLocaleString()} XOF download`
+                        : ""}
+                      {typeof t.lyrics === "string" && t.lyrics.trim()
+                        ? " · Lyrics"
+                        : ""}
+                      {t.isrc_code ? ` · ISRC ${t.isrc_code}` : ""}
+                    </p>
+                    <div className="mt-1.5">
+                      <TrackQcBadge
+                        status={t.qc_status}
+                        lufs={t.qc_lufs_integrated}
+                        peak={t.qc_true_peak_dbtp}
+                      />
+                    </div>
+                    <TrackDownloadPriceEditor
                       trackId={t.id}
-                      title={t.title || ""}
-                      genre={t.genre}
-                      language={t.language}
-                      hasCover={Boolean(t.cover_art_url)}
-                      isLive={live}
+                      initialPriceXof={t.download_price_xof}
                     />
-                    <TrackPublishToggle
+                    <TrackLyricsEditor
                       trackId={t.id}
-                      status={t.status}
-                      emphasize={focused && !live}
-                      hasCover={Boolean(t.cover_art_url)}
-                      genre={t.genre}
-                      language={t.language}
-                      hasPlaces={!needsPlaces}
+                      initialLyrics={
+                        typeof t.lyrics === "string" ? t.lyrics : null
+                      }
+                      compact
                     />
-                    {live && t.audio_url ? (
-                      <Link
-                        href="/studio/delivery"
-                        className="rounded-full border border-[#1DB954]/35 px-3 py-1 text-[0.65rem] font-medium text-[#1DB954] hover:bg-[#1DB954]/10"
+                    <TrackWritersEditor
+                      trackId={t.id}
+                      initialWriters={writersByTrack[t.id] ?? []}
+                      compact
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={!t.audio_url}
+                        onClick={() => {
+                          if (!t.audio_url) return;
+                          if (current?.id === t.id) toggle();
+                          else play(t);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1DB954] text-xs text-black disabled:opacity-30"
+                        aria-label={`Play ${trackTitle(t)}`}
                       >
-                        Add to DSP release
-                      </Link>
-                    ) : null}
-                    <button
-                      type="button"
-                      disabled={deletingId === t.id}
-                      onClick={() => void deleteTrack(t.id, trackTitle(t))}
-                      className="rounded-full border border-red-500/30 px-3 py-1 text-[0.65rem] text-red-300/80 hover:border-red-400/50 disabled:opacity-50"
-                    >
-                      {deletingId === t.id ? "…" : "Delete"}
-                    </button>
+                        {current?.id === t.id && playing ? "❚❚" : "▶"}
+                      </button>
+                      <TrackEditButton
+                        trackId={t.id}
+                        title={t.title || ""}
+                        genre={t.genre}
+                        language={t.language}
+                        hasCover={Boolean(t.cover_art_url)}
+                        isLive={live}
+                        launchAt={t.launch_at ?? null}
+                      />
+                      <TrackPublishToggle
+                        trackId={t.id}
+                        status={t.status}
+                        emphasize={focused && !live}
+                        hasCover={Boolean(t.cover_art_url)}
+                        genre={t.genre}
+                        language={t.language}
+                        hasPlaces={!needsPlaces}
+                        qcStatus={t.qc_status}
+                      />
+                      <TrackPunchButton
+                        trackId={t.id}
+                        punchStatus={t.punch_status}
+                        qcStatus={t.qc_status}
+                        contentKind={t.content_kind}
+                      />
+                      <button
+                        type="button"
+                        className="rounded-full border border-white/15 px-3 py-1 text-[0.65rem] text-white/45 hover:border-white/30"
+                        onClick={() => {
+                          void (async () => {
+                            const res = await fetch(`/api/tracks/${t.id}/qc`, {
+                              method: "POST",
+                            });
+                            const data = (await res.json()) as {
+                              error?: string;
+                              qc?: { summary?: string };
+                            };
+                            if (!res.ok) {
+                              window.alert(data.error || "QC failed");
+                              return;
+                            }
+                            window.alert(data.qc?.summary || "QC updated");
+                            router.refresh();
+                          })();
+                        }}
+                      >
+                        Re-run QC
+                      </button>
+                      {live && t.audio_url && !isPodcast ? (
+                        <Link
+                          href="/studio/delivery"
+                          className="rounded-full border border-[#1DB954]/35 px-3 py-1 text-[0.65rem] font-medium text-[#1DB954] hover:bg-[#1DB954]/10"
+                        >
+                          Add to DSP release
+                        </Link>
+                      ) : null}
+                      <button
+                        type="button"
+                        disabled={deletingId === t.id}
+                        onClick={() => void deleteTrack(t.id, trackTitle(t))}
+                        className="rounded-full border border-red-500/30 px-3 py-1 text-[0.65rem] text-red-300/80 hover:border-red-400/50 disabled:opacity-50"
+                      >
+                        {deletingId === t.id ? "…" : "Delete"}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </>
   );
 }

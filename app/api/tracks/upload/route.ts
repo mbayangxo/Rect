@@ -1,4 +1,10 @@
 import { NextResponse } from "next/server";
+import {
+  analyzeAudioBuffer,
+  formatQcSummary,
+  qcBlocksGoLive,
+  qcFieldsForDb,
+} from "@/lib/audio/qc";
 import { isArtistAccount } from "@/lib/dashboard/artist-access";
 import { checkLiveDiscoverability } from "@/lib/dashboard/discoverability";
 import {
@@ -214,6 +220,16 @@ export async function POST(request: Request) {
     .replace(/\s+/g, "");
   const upcRaw = String(form.get("upc_code") ?? "").trim();
   const launchAtRaw = String(form.get("launch_at") ?? "").trim();
+  const contentKindRaw = String(form.get("content_kind") ?? "music")
+    .trim()
+    .toLowerCase();
+  const content_kind =
+    contentKindRaw === "podcast" ? "podcast" : "music";
+  const requestPunch =
+    String(form.get("request_punch") ?? "").trim() === "1" ||
+    String(form.get("request_punch") ?? "")
+      .trim()
+      .toLowerCase() === "true";
   let launchAtIso: string | null = null;
   if (launchAtRaw) {
     const d = new Date(launchAtRaw);
@@ -355,6 +371,44 @@ export async function POST(request: Request) {
   const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
   const buffer = Buffer.from(await audio.arrayBuffer());
 
+  let qc = null as Awaited<ReturnType<typeof analyzeAudioBuffer>> | null;
+  try {
+    qc = await analyzeAudioBuffer(buffer, ext);
+  } catch (e) {
+    qc = {
+      status: "warn",
+      sample_rate: null,
+      channels: null,
+      duration_secs: duration_secs,
+      lufs_integrated: null,
+      true_peak_dbtp: null,
+      silence_ratio: null,
+      issues: [
+        {
+          code: "qc_error",
+          severity: "warn",
+          message:
+            e instanceof Error
+              ? `QC analyzer error: ${e.message}`
+              : "QC analyzer failed.",
+        },
+      ],
+      checked_at: new Date().toISOString(),
+    };
+  }
+
+  // Fail blocks go-live — still allow draft save so the upload is not lost.
+  let publishEffective = publish;
+  const qcWarnings: string[] = [];
+  if (qc && qcBlocksGoLive(qc.status) && publish) {
+    publishEffective = false;
+    qcWarnings.push(
+      `Upload QC failed — saved as draft (not live). ${formatQcSummary(qc)}`,
+    );
+  } else if (qc && qc.status === "warn") {
+    qcWarnings.push(`Upload QC warning: ${formatQcSummary(qc)}`);
+  }
+
   const { error: uploadError } = await db.storage
     .from(TRACKS_BUCKET)
     .upload(path, buffer, {
@@ -450,11 +504,28 @@ export async function POST(request: Request) {
   if (isrcRaw) insertPayload.isrc_code = isrcRaw.slice(0, 15);
   if (upcRaw) insertPayload.upc_code = upcRaw.slice(0, 14);
   if (launchAtIso) insertPayload.launch_at = launchAtIso;
+  insertPayload.content_kind = content_kind;
+  if (requestPunch && content_kind === "music") {
+    insertPayload.punch_status = "requested";
+    insertPayload.punch_requested_at = new Date().toISOString();
+    insertPayload.punch_notes =
+      "RECT Punch requested — partner mastering queue (demo until Punch rail is live).";
+  }
   if (writers) {
     insertPayload.writer_splits = writers.map((w) => ({
       name: w.name,
       percentage: w.percent,
     }));
+  }
+  if (qc) {
+    Object.assign(insertPayload, qcFieldsForDb(qc));
+  }
+  if (
+    duration_secs == null &&
+    qc?.duration_secs != null &&
+    Number.isFinite(qc.duration_secs)
+  ) {
+    insertPayload.duration_secs = Math.round(qc.duration_secs);
   }
 
   const strippedWarnings: string[] = [];
@@ -463,7 +534,7 @@ export async function POST(request: Request) {
   const draftStatus = trackStatusForWrite("pending");
 
   // Publish = live only. Draft = pending only. No silent status swaps.
-  const attempts = publish
+  const attempts = publishEffective
     ? [
         () => ({ ...workingPayload, status: liveStatus }),
         () => ({ ...workingPayload, status: "published" }),
@@ -535,13 +606,49 @@ export async function POST(request: Request) {
       strippedWarnings.push("lyrics — run 20260830_track_lyrics.sql");
       continue;
     }
+    if (
+      error &&
+      /qc_status|qc_checked_at|qc_sample_rate|qc_channels|qc_lufs|qc_true_peak|qc_silence|qc_issues|column .* does not exist/i.test(
+        error.message,
+      )
+    ) {
+      delete workingPayload.qc_status;
+      delete workingPayload.qc_checked_at;
+      delete workingPayload.qc_sample_rate;
+      delete workingPayload.qc_channels;
+      delete workingPayload.qc_lufs_integrated;
+      delete workingPayload.qc_true_peak_dbtp;
+      delete workingPayload.qc_silence_ratio;
+      delete workingPayload.qc_issues;
+      strippedWarnings.push(
+        "audio QC — run 20260903_track_audio_qc.sql in Supabase",
+      );
+      continue;
+    }
+    if (
+      error &&
+      /content_kind|punch_status|punch_audio_url|punch_requested_at|punch_notes|column .* does not exist/i.test(
+        error.message,
+      )
+    ) {
+      delete workingPayload.content_kind;
+      delete workingPayload.punch_status;
+      delete workingPayload.punch_audio_url;
+      delete workingPayload.punch_requested_at;
+      delete workingPayload.punch_ready_at;
+      delete workingPayload.punch_notes;
+      strippedWarnings.push(
+        "Hearing Aids / Punch — run 20260904_hearing_aids_and_punch.sql",
+      );
+      continue;
+    }
   }
 
   if (!track) {
     await db.storage.from(TRACKS_BUCKET).remove(uploadedPaths);
     return NextResponse.json(
       {
-        error: publish
+        error: publishEffective
           ? `Could not publish track as live: ${lastError}`
           : `Saved file but could not create track row: ${lastError}`,
       },
@@ -551,7 +658,7 @@ export async function POST(request: Request) {
 
   const trackId = String(track.id ?? "");
 
-  if (publish && !isPublishedTrack({ status: String(track.status ?? "") })) {
+  if (publishEffective && !isPublishedTrack({ status: String(track.status ?? "") })) {
     let forced: Record<string, unknown> | null = null;
     for (const writeStatus of [liveStatus, "published"] as const) {
       const { data: updated, error: upErr } = await db
@@ -608,14 +715,14 @@ export async function POST(request: Request) {
     }
   }
 
-  if (publish && !isPublishedTrack({ status: String(track.status ?? "") })) {
+  if (publishEffective && !isPublishedTrack({ status: String(track.status ?? "") })) {
     return NextResponse.json(
       { error: "Track saved but is not live.", code: "not_live", track },
       { status: 500 },
     );
   }
 
-  if (!publish && isPublishedTrack({ status: String(track.status ?? "") })) {
+  if (!publishEffective && isPublishedTrack({ status: String(track.status ?? "") })) {
     return NextResponse.json(
       {
         error: "Expected a draft, but the track is live.",
@@ -626,19 +733,35 @@ export async function POST(request: Request) {
     );
   }
 
+  const allWarnings = [
+    ...qcWarnings,
+    ...(strippedWarnings.length > 0
+      ? [
+          `Some metadata was not saved (missing DB columns): ${[...new Set(strippedWarnings)].join("; ")}`,
+        ]
+      : []),
+  ];
+
   return NextResponse.json({
     ok: true,
     track,
     audio_url,
     cover_art_url,
-    published: publish,
+    published: publishEffective,
+    qc: qc
+      ? {
+          status: qc.status,
+          lufs_integrated: qc.lufs_integrated,
+          true_peak_dbtp: qc.true_peak_dbtp,
+          silence_ratio: qc.silence_ratio,
+          sample_rate: qc.sample_rate,
+          channels: qc.channels,
+          issues: qc.issues,
+          summary: formatQcSummary(qc),
+        }
+      : null,
     writers_saved: Boolean(writers),
     storage_mode: usingAdmin ? "service_role" : "user_rls",
-    warnings:
-      strippedWarnings.length > 0
-        ? [
-            `Some metadata was not saved (missing DB columns): ${[...new Set(strippedWarnings)].join("; ")}`,
-          ]
-        : undefined,
+    warnings: allWarnings.length > 0 ? allWarnings : undefined,
   });
 }

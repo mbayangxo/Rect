@@ -1,12 +1,13 @@
 import Link from "next/link";
-import type { LiveRoom } from "@/lib/dashboard/live-rooms";
+import type { LivePresenceItem } from "@/lib/dashboard/live-presence";
 
 type Props = {
-  rooms: LiveRoom[];
+  items: LivePresenceItem[];
 };
 
-export function LiveNowStrip({ rooms }: Props) {
-  if (rooms.length === 0) return null;
+/** Trending live presence — Live Rooms + official RECT Lives. */
+export function LiveNowStrip({ items }: Props) {
+  if (items.length === 0) return null;
 
   return (
     <section className="mb-8" aria-label="Live right now">
@@ -16,15 +17,15 @@ export function LiveNowStrip({ rooms }: Props) {
             Live right now
           </p>
           <h2 className="mt-1 text-sm font-medium text-white/80">
-            Live Rooms on RECT
+            Live Rooms & RECT Live
           </h2>
         </div>
       </div>
       <ul className="flex gap-3 overflow-x-auto pb-1">
-        {rooms.map((r) => (
+        {items.map((r) => (
           <li key={r.id} className="w-56 shrink-0">
             <Link
-              href={`/artists/${r.artist_id}/live/${r.id}`}
+              href={r.href}
               className="block rounded-xl border border-red-500/25 bg-red-500/[0.06] p-3 transition hover:border-red-400/50"
             >
               <div className="flex items-center gap-2">
@@ -39,26 +40,23 @@ export function LiveNowStrip({ rooms }: Props) {
                   ) : null}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {r.artist_name || "Artist"}
-                  </p>
+                  <p className="truncate text-sm font-medium">{r.artist_name}</p>
                   <p className="truncate text-[11px] text-white/40">{r.title}</p>
                 </div>
               </div>
               <div className="mt-2 flex items-center justify-between text-[11px]">
                 <span className="flex items-center gap-1 font-semibold text-red-300">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-                  LIVE · {r.mode}
+                  {r.kind === "rect_live" ? "RECT LIVE" : "LIVE"} ·{" "}
+                  {r.modeLabel}
                 </span>
                 <span className="tabular-nums text-white/40">
                   {r.viewer_count}
                 </span>
               </div>
-              {r.city || r.country ? (
+              {r.place ? (
                 <p className="mt-1 truncate text-[10px] text-white/30">
-                  {[r.neighborhood, r.city, r.country]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {r.place}
                 </p>
               ) : null}
             </Link>
