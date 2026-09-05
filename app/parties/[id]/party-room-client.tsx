@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePlayer } from "@/components/player-provider";
 import type {
   HostTrackOption,
   ListeningParty,
   PartyMessage,
 } from "@/lib/dashboard/listening-parties";
+import { createClient } from "@/lib/supabase/client";
 import { trackTitle, type TrackRow } from "@/lib/tracks";
 
 type Props = {
@@ -27,61 +27,136 @@ const GIF_SHORTCUTS = [
 ];
 
 export function PartyRoomClient({
-  party,
+  party: initialParty,
   initialMessages,
-  track,
+  track: initialTrack,
   userId,
   isHost,
   hostTracks = [],
 }: Props) {
-  const router = useRouter();
   const player = usePlayer();
+  const [party, setParty] = useState(initialParty);
   const [messages, setMessages] = useState(initialMessages);
+  const [activeTrack, setActiveTrack] = useState<TrackRow | null>(initialTrack);
   const [text, setText] = useState("");
   const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState(party.status);
+  const [status, setStatus] = useState(initialParty.status);
   const [error, setError] = useState<string | null>(null);
-  const [pickedTrackId, setPickedTrackId] = useState("");
+  const [pickedTrackId, setPickedTrackId] = useState(initialTrack?.id ?? "");
+  const [showSwap, setShowSwap] = useState(!initialTrack);
+  const lastPlayedId = useRef<string | null>(null);
 
   const playableHostTracks = hostTracks.filter((t) => t.audio_url);
 
-  useEffect(() => {
-    if (track?.audio_url && status === "live") {
-      player.play(track);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- play once on enter
-  }, [track?.id, status]);
+  const playIfNeeded = useCallback(
+    (next: TrackRow | null, liveStatus: string) => {
+      if (!next?.audio_url || liveStatus !== "live") return;
+      if (lastPlayedId.current === next.id) return;
+      lastPlayedId.current = next.id;
+      player.play(next);
+    },
+    [player],
+  );
 
+  const applySnapshot = useCallback(
+    (data: {
+      party?: ListeningParty;
+      messages?: PartyMessage[];
+      track?: TrackRow | null;
+    }) => {
+      if (data.messages) setMessages(data.messages);
+      if (data.party) {
+        setParty(data.party);
+        if (data.party.status) setStatus(data.party.status);
+      }
+      if (data.track !== undefined) {
+        const next = data.track;
+        setActiveTrack(next);
+        if (next?.id) setPickedTrackId(next.id);
+        playIfNeeded(next, data.party?.status ?? status);
+      } else if (data.party && !data.party.track_id) {
+        setActiveTrack(null);
+        lastPlayedId.current = null;
+      }
+    },
+    [playIfNeeded, status],
+  );
+
+  const refreshRoom = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/listening-parties/${initialParty.id}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        party?: ListeningParty;
+        messages?: PartyMessage[];
+        track?: TrackRow | null;
+      };
+      applySnapshot(data);
+    } catch {
+      /* ignore */
+    }
+  }, [applySnapshot, initialParty.id]);
+
+  // Play when server-rendered track arrives / changes via props.
+  useEffect(() => {
+    setParty(initialParty);
+    setStatus(initialParty.status);
+    setActiveTrack(initialTrack);
+    if (initialTrack?.id) setPickedTrackId(initialTrack.id);
+    playIfNeeded(initialTrack, initialParty.status);
+  }, [initialParty, initialTrack, playIfNeeded]);
+
+  // Poll: always apply track payload so guests hear host swaps without refresh.
   useEffect(() => {
     if (status !== "live") return;
+    const ms = activeTrack ? 3500 : 2000;
     const t = setInterval(() => {
-      void (async () => {
-        try {
-          const res = await fetch(`/api/listening-parties/${party.id}`);
-          if (!res.ok) return;
-          const data = (await res.json()) as {
-            party?: ListeningParty;
-            messages?: PartyMessage[];
-          };
-          if (data.messages) setMessages(data.messages);
-          if (data.party?.status) setStatus(data.party.status);
-          // Host/guest: refresh when a track gets linked mid-session.
-          if (
-            data.party?.track_id &&
-            data.party.track_id !== party.track_id &&
-            !track
-          ) {
-            router.refresh();
-          }
-        } catch {
-          /* ignore poll errors */
-        }
-      })();
-    }, 4000);
+      void refreshRoom();
+    }, ms);
     return () => clearInterval(t);
-  }, [party.id, party.track_id, status, track, router]);
+  }, [status, activeTrack, refreshRoom]);
 
-  async function send(body: string, kind: "text" | "gif" = "text", mediaUrl?: string) {
+  // Best-effort realtime (works when Supabase replication is on for these tables).
+  useEffect(() => {
+    if (status !== "live") return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`party-room-${initialParty.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "listening_parties",
+          filter: `id=eq.${initialParty.id}`,
+        },
+        () => {
+          void refreshRoom();
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "listening_party_messages",
+          filter: `party_id=eq.${initialParty.id}`,
+        },
+        () => {
+          void refreshRoom();
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [initialParty.id, status, refreshRoom]);
+
+  async function send(
+    body: string,
+    kind: "text" | "gif" = "text",
+    mediaUrl?: string,
+  ) {
     if (pending || status !== "live") return;
     setPending(true);
     setError(null);
@@ -132,7 +207,7 @@ export function PartyRoomClient({
         body: JSON.stringify({ action: "end" }),
       });
       setStatus("ended");
-      router.refresh();
+      await refreshRoom();
     } finally {
       setPending(false);
     }
@@ -156,7 +231,9 @@ export function PartyRoomClient({
         setError(data.error || "Could not set track.");
         return;
       }
-      router.refresh();
+      lastPlayedId.current = null;
+      setShowSwap(false);
+      await refreshRoom();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -195,76 +272,101 @@ export function PartyRoomClient({
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-2xl px-5 py-6 space-y-6">
-        {track ? (
+      <div className="mx-auto w-full max-w-2xl space-y-6 px-5 py-6">
+        {activeTrack ? (
           <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
             <span
               className="h-14 w-14 shrink-0 rounded-lg bg-white/10"
               style={
-                track.cover_art_url
+                activeTrack.cover_art_url
                   ? {
-                      backgroundImage: `url(${track.cover_art_url})`,
+                      backgroundImage: `url(${activeTrack.cover_art_url})`,
                       backgroundSize: "cover",
                     }
                   : undefined
               }
             />
-            <div className="min-w-0">
-              <p className="truncate font-medium">{trackTitle(track)}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium">{trackTitle(activeTrack)}</p>
               <p className="text-xs text-white/40">Playing for the room</p>
             </div>
+            {isHost && status === "live" && playableHostTracks.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => setShowSwap((v) => !v)}
+                className="shrink-0 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/55 hover:text-white"
+              >
+                {showSwap ? "Cancel" : "Change"}
+              </button>
+            ) : null}
           </div>
-        ) : isHost && status === "live" ? (
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
-            <p className="text-sm text-white/55">
-              Pick a track to play for the room.
-            </p>
-            {playableHostTracks.length === 0 ? (
-              <p className="text-sm text-white/40">
-                No tracks with audio yet.{" "}
-                <Link href="/studio/upload" className="text-[var(--rect)]">
-                  Upload →
-                </Link>
-              </p>
-            ) : (
-              <>
-                <select
-                  value={pickedTrackId}
-                  onChange={(e) => setPickedTrackId(e.target.value)}
-                  className="w-full rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[var(--rect)]/50"
-                >
-                  <option value="">Choose a track…</option>
-                  {playableHostTracks.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {trackTitle(t)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={pending || !pickedTrackId}
-                  onClick={() => void linkTrack()}
-                  className="rounded-full bg-[var(--rect)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-40"
-                >
-                  {pending ? "Linking…" : "Set track"}
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
+        ) : !isHost ? (
           <p className="text-sm text-white/40">
-            No track linked yet — waiting for the host.
+            No track linked yet — waiting for the host…
           </p>
-        )}
+        ) : null}
 
-        <div className="rounded-2xl border border-white/10 bg-black/20 min-h-[280px] flex flex-col">
-          <ul className="flex-1 space-y-3 overflow-y-auto p-4 max-h-[50vh]">
+        {isHost &&
+        status === "live" &&
+        (showSwap || !activeTrack) &&
+        playableHostTracks.length > 0 ? (
+          <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-sm text-white/55">
+              {activeTrack ? "Switch the room track" : "Pick a track for the room"}
+            </p>
+            <select
+              value={pickedTrackId}
+              onChange={(e) => setPickedTrackId(e.target.value)}
+              className="w-full rounded-xl border border-white/15 bg-black/30 px-4 py-2.5 text-sm outline-none focus:border-[var(--rect)]/50"
+            >
+              <option value="">Choose a track…</option>
+              {playableHostTracks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {trackTitle(t)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={
+                pending ||
+                !pickedTrackId ||
+                pickedTrackId === activeTrack?.id
+              }
+              onClick={() => void linkTrack()}
+              className="rounded-full bg-[var(--rect)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-40"
+            >
+              {pending
+                ? "Updating…"
+                : activeTrack
+                  ? "Play this track for room"
+                  : "Set track"}
+            </button>
+          </div>
+        ) : null}
+
+        {isHost &&
+        status === "live" &&
+        !activeTrack &&
+        playableHostTracks.length === 0 ? (
+          <p className="text-sm text-white/40">
+            No tracks with audio yet.{" "}
+            <Link href="/studio/upload" className="text-[var(--rect)]">
+              Upload →
+            </Link>
+          </p>
+        ) : null}
+
+        <div className="flex min-h-[280px] flex-col rounded-2xl border border-white/10 bg-black/20">
+          <ul className="max-h-[50vh] flex-1 space-y-3 overflow-y-auto p-4">
             {messages.length === 0 ? (
               <li className="text-sm text-white/35">Say hello — chat is open.</li>
             ) : (
               messages.map((m) => (
                 <li key={m.id} className="text-sm">
-                  <span className="text-white/40">{m.sender_name ?? "Fan"} · </span>
+                  <span className="text-white/40">
+                    {m.sender_name ?? "Fan"} ·{" "}
+                  </span>
                   {m.kind === "gif" && m.media_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -280,7 +382,7 @@ export function PartyRoomClient({
             )}
           </ul>
           {status === "live" ? (
-            <div className="border-t border-white/10 p-3 space-y-2">
+            <div className="space-y-2 border-t border-white/10 p-3">
               <div className="flex gap-2">
                 {GIF_SHORTCUTS.map((g) => (
                   <button

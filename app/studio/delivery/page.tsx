@@ -1,7 +1,8 @@
 import { StudioDeliveryManager } from "@/components/studio/studio-delivery-manager";
-import { listDistributionReleases } from "@/lib/dashboard/distribution";
 import { loadArtistStudioStats } from "@/lib/dashboard/artist-stats";
+import { listDistributionReleases } from "@/lib/dashboard/distribution";
 import { requireStudioArtist } from "@/lib/studio/require-artist";
+import { getTaaliEnvChecklist } from "@/lib/taali/client";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,7 @@ export default async function StudioDeliveryPage() {
     listDistributionReleases(supabase, userId),
     loadArtistStudioStats(supabase, userId),
   ]);
+  const taaliChecklist = getTaaliEnvChecklist();
 
   return (
     <>
@@ -32,7 +34,8 @@ export default async function StudioDeliveryPage() {
           tracks={stats.tracks}
           missingTable={delivery.missingTable}
           loadError={delivery.error}
-          taaliLive={delivery.taaliLive}
+          taaliLive={delivery.taaliLive || taaliChecklist.live}
+          taaliChecklist={taaliChecklist}
         />
       </div>
     </>

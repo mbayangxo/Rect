@@ -28,9 +28,24 @@ export async function GET(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Party not found." }, { status: 404 });
   }
   const messages = await loadPartyMessages(supabase, id);
+
+  // Include track so guests can sync play without a full page refresh.
+  let track: Record<string, unknown> | null = null;
+  if (partyRes.party.track_id) {
+    const { data } = await supabase
+      .from("tracks")
+      .select(
+        "id, title, audio_url, cover_art_url, genre, artist_id, duration_secs, status",
+      )
+      .eq("id", partyRes.party.track_id)
+      .maybeSingle();
+    track = (data as Record<string, unknown> | null) ?? null;
+  }
+
   return NextResponse.json({
     party: partyRes.party,
     messages: messages.messages,
+    track,
   });
 }
 

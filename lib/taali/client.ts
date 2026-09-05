@@ -11,6 +11,35 @@ export function isTaaliLive(): boolean {
   return Boolean(url && key && org && url.startsWith("http"));
 }
 
+/** Which Taali env vars are present (no secret values). For Delivery UI. */
+export type TaaliEnvChecklist = {
+  live: boolean;
+  hasUrl: boolean;
+  hasKey: boolean;
+  hasOrg: boolean;
+  hasWebhookSecret: boolean;
+  missing: string[];
+};
+
+export function getTaaliEnvChecklist(): TaaliEnvChecklist {
+  const hasUrl = Boolean(process.env.TAALI_API_URL?.trim());
+  const hasKey = Boolean(process.env.TAALI_API_KEY?.trim());
+  const hasOrg = Boolean(process.env.TAALI_ORG_ID?.trim());
+  const hasWebhookSecret = Boolean(process.env.TAALI_WEBHOOK_SECRET?.trim());
+  const missing: string[] = [];
+  if (!hasUrl) missing.push("TAALI_API_URL");
+  if (!hasKey) missing.push("TAALI_API_KEY");
+  if (!hasOrg) missing.push("TAALI_ORG_ID");
+  return {
+    live: hasUrl && hasKey && hasOrg && Boolean(process.env.TAALI_API_URL?.trim()?.startsWith("http")),
+    hasUrl,
+    hasKey,
+    hasOrg,
+    hasWebhookSecret,
+    missing,
+  };
+}
+
 export type TaaliCreateReleaseInput = {
   releaseId: string;
   artistId: string;

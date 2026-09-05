@@ -24,6 +24,14 @@ type Props = {
   missingTable: boolean;
   loadError: string | null;
   taaliLive: boolean;
+  taaliChecklist?: {
+    live: boolean;
+    hasUrl: boolean;
+    hasKey: boolean;
+    hasOrg: boolean;
+    hasWebhookSecret: boolean;
+    missing: string[];
+  };
 };
 
 export function StudioDeliveryManager({
@@ -32,6 +40,7 @@ export function StudioDeliveryManager({
   missingTable,
   loadError,
   taaliLive,
+  taaliChecklist,
 }: Props) {
   const router = useRouter();
   const [releases, setReleases] = useState(initialReleases);
@@ -134,7 +143,7 @@ export function StudioDeliveryManager({
       }
       setMessage(
         data.mode === "demo"
-          ? "Queued in demo mode — set TAALI_API_URL + TAALI_API_KEY for live DSP delivery. Status will not claim Spotify live until Taali confirms."
+          ? "Queued in demo mode — set TAALI_API_URL, TAALI_API_KEY, and TAALI_ORG_ID for live DSP. Status never claims Spotify live until Taali confirms."
           : `Submitted to Taali (${data.status}).`,
       );
       setReleases((list) =>
@@ -166,18 +175,59 @@ export function StudioDeliveryManager({
     <div className="space-y-10">
       <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/55">
         {taaliLive ? (
-          <span className="text-[#1DB954]">Taali live</span>
+          <p>
+            <span className="text-[#1DB954]">Taali live</span>
+            {" — "}
+            submits hit your Taali org. Status only flips to DSP-live after
+            webhook confirmation
+            {taaliChecklist && !taaliChecklist.hasWebhookSecret
+              ? " (optional: set TAALI_WEBHOOK_SECRET for signed callbacks)"
+              : ""}
+            .
+          </p>
         ) : (
-          <span>
-            Taali demo mode — releases queue on RECT until you set{" "}
-            <code className="text-white/70">TAALI_API_*</code> env vars.
-          </span>
-        )}{" "}
-        Upload audio once to RECT; Delivery sends metadata + file URLs to Taali
-        for Spotify, Apple, and more. Tracks must pass QC before Delivery. When a
-        track is{" "}
-        <span className="text-white/70">Punch ready</span>, Taali receives the
-        punched master (`punch_audio_url`) instead of the raw upload.
+          <div className="space-y-2">
+            <p>
+              <span className="text-[#F5A623]">Taali demo mode</span>
+              {" — "}
+              releases queue on RECT and never claim Spotify/Apple live until
+              env is set.
+            </p>
+            <ul className="space-y-1 text-xs text-white/45">
+              {(
+                [
+                  ["TAALI_API_URL", taaliChecklist?.hasUrl],
+                  ["TAALI_API_KEY", taaliChecklist?.hasKey],
+                  ["TAALI_ORG_ID", taaliChecklist?.hasOrg],
+                ] as const
+              ).map(([name, ok]) => (
+                <li key={name} className="flex items-center gap-2 font-mono">
+                  <span className={ok ? "text-[#1DB954]" : "text-[#F5A623]"}>
+                    {ok ? "✓" : "○"}
+                  </span>
+                  <span>{name}</span>
+                  <span className="text-white/30">
+                    {ok ? "set" : "missing"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-white/40">
+              Copy names from <code className="text-white/60">.env.example</code>
+              {taaliChecklist?.missing?.length
+                ? ` — still need ${taaliChecklist.missing.join(", ")}`
+                : ""}
+              . Optional: <code className="text-white/60">TAALI_WEBHOOK_SECRET</code>
+              {" · "}
+              <code className="text-white/60">TAALI_PROVIDER_ID</code>
+            </p>
+          </div>
+        )}
+        <p className="mt-2">
+          Upload audio once on RECT; Delivery sends metadata + file URLs to Taali.
+          Tracks must pass QC. Punch-ready tracks ship{" "}
+          <code className="text-white/60">punch_audio_url</code>.
+        </p>
       </div>
 
       {loadError ? (

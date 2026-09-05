@@ -53,7 +53,7 @@ export default async function PartyRoomPage({ params }: Props) {
   }
 
   let hostTracks: HostTrackOption[] = [];
-  if (isHost && !track) {
+  if (isHost) {
     const { data } = await supabase
       .from("tracks")
       .select("id, title, cover_art_url, audio_url, status")
